@@ -3118,6 +3118,11 @@ static bool usesAllOnesMask(SDNode *N, unsigned MaskOpIdx) {
   // Check the instruction defining V0; it needs to be a VMSET pseudo.
   SDValue MaskSetter = Glued->getOperand(2);
 
+  // Sometimes the VMSET is wrapped in a COPY_TO_REGCLASS node.
+  if (MaskSetter->isMachineOpcode() &&
+      MaskSetter->getMachineOpcode() == RISCV::COPY_TO_REGCLASS)
+    MaskSetter = MaskSetter->getOperand(0);
+
   const auto IsVMSet = [](unsigned Opc) {
     return Opc == RISCV::PseudoVMSET_M_B1 || Opc == RISCV::PseudoVMSET_M_B16 ||
            Opc == RISCV::PseudoVMSET_M_B2 || Opc == RISCV::PseudoVMSET_M_B32 ||
