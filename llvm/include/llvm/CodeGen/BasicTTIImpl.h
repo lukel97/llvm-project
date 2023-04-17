@@ -1293,7 +1293,7 @@ public:
                             LT.second.getSizeInBits())) {
       // This is a vector load that legalizes to a larger type than the vector
       // itself. Unless the corresponding extending load or truncating store is
-      // legal, then this will scalarize.
+      // legal, then this will scalarize...
       TargetLowering::LegalizeAction LA = TargetLowering::Expand;
       EVT MemVT = getTLI()->getValueType(DL, Src);
       if (Opcode == Instruction::Store)
@@ -1301,7 +1301,17 @@ public:
       else
         LA = getTLI()->getLoadExtAction(ISD::EXTLOAD, LT.second, MemVT);
 
-      if (LA != TargetLowering::Legal && LA != TargetLowering::Custom) {
+      // ...unless this is a fixed length vector and the target supports VP
+      // loads/stores of the legalized type, in which case the type legalizer
+      // will use a VP load/store with a fixed EVL instead.
+      bool CanWidenViaVP = false;
+      if (isa<FixedVectorType>(Src))
+        CanWidenViaVP = getTLI()->isOperationLegalOrCustom(
+            Opcode != Instruction::Store ? ISD::VP_LOAD : ISD::VP_STORE,
+            LT.second);
+
+      if (!CanWidenViaVP && LA != TargetLowering::Legal &&
+          LA != TargetLowering::Custom) {
         // This is a vector load/store for some illegal type that is scalarized.
         // We must account for the cost of building or decomposing the vector.
         Cost += getScalarizationOverhead(
