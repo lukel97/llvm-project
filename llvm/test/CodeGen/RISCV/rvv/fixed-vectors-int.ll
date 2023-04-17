@@ -44,9 +44,7 @@ define void @add_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vadd.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -126,9 +124,7 @@ define void @sub_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vsub.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -208,9 +204,7 @@ define void @mul_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmul.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -290,9 +284,7 @@ define void @and_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vand.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -372,9 +364,7 @@ define void @or_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vor.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -454,9 +444,7 @@ define void @xor_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vxor.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -536,9 +524,7 @@ define void @lshr_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vsrl.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -618,9 +604,7 @@ define void @ashr_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vsra.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -700,9 +684,7 @@ define void @shl_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vsll.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1603,9 +1585,7 @@ define void @smin_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmin.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1689,9 +1669,7 @@ define void @smin_vx_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmin.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1757,9 +1735,7 @@ define void @smin_xv_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmin.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1826,9 +1802,7 @@ define void @smax_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmax.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1912,9 +1886,7 @@ define void @smax_vx_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmax.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -1980,9 +1952,7 @@ define void @smax_xv_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmax.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2049,9 +2019,7 @@ define void @umin_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vminu.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2135,9 +2103,7 @@ define void @umin_vx_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vminu.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2203,9 +2169,7 @@ define void @umin_xv_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vminu.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2272,9 +2236,7 @@ define void @umax_v6i16(ptr %x, ptr %y) {
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
 ; CHECK-NEXT:    vle16.v v9, (a1)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmaxu.vv v8, v8, v9
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2358,9 +2320,7 @@ define void @umax_vx_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmaxu.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2426,9 +2386,7 @@ define void @umax_xv_v6i16(ptr %x, i16 %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vle16.v v8, (a0)
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
 ; CHECK-NEXT:    vmaxu.vx v8, v8, a1
-; CHECK-NEXT:    vsetivli zero, 6, e16, m1, ta, ma
 ; CHECK-NEXT:    vse16.v v8, (a0)
 ; CHECK-NEXT:    ret
   %a = load <6 x i16>, ptr %x
@@ -2600,9 +2558,7 @@ define void @add_v6i32(ptr %x, ptr %y) {
 ; LMULMAX2-NEXT:    vsetivli zero, 6, e32, m2, ta, ma
 ; LMULMAX2-NEXT:    vle32.v v8, (a0)
 ; LMULMAX2-NEXT:    vle32.v v10, (a1)
-; LMULMAX2-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
 ; LMULMAX2-NEXT:    vadd.vv v8, v8, v10
-; LMULMAX2-NEXT:    vsetivli zero, 6, e32, m2, ta, ma
 ; LMULMAX2-NEXT:    vse32.v v8, (a0)
 ; LMULMAX2-NEXT:    ret
 ;

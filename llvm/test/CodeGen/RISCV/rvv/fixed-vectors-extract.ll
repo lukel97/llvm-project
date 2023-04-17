@@ -487,7 +487,6 @@ define i64 @extractelt_v3i64_idx(ptr %x, i32 zeroext %idx) nounwind {
 ; RV32:       # %bb.0:
 ; RV32-NEXT:    vsetivli zero, 3, e64, m2, ta, ma
 ; RV32-NEXT:    vle64.v v8, (a0)
-; RV32-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
 ; RV32-NEXT:    vadd.vv v8, v8, v8
 ; RV32-NEXT:    add a1, a1, a1
 ; RV32-NEXT:    vsetivli zero, 1, e32, m2, ta, ma
@@ -502,7 +501,6 @@ define i64 @extractelt_v3i64_idx(ptr %x, i32 zeroext %idx) nounwind {
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    vsetivli zero, 3, e64, m2, ta, ma
 ; RV64-NEXT:    vle64.v v8, (a0)
-; RV64-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
 ; RV64-NEXT:    vadd.vv v8, v8, v8
 ; RV64-NEXT:    vsetivli zero, 1, e64, m2, ta, ma
 ; RV64-NEXT:    vslidedown.vx v8, v8, a1

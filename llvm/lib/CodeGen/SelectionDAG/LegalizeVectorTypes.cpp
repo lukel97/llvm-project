@@ -4178,6 +4178,40 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     SetWidenedVector(SDValue(N, ResNo), Res);
 }
 
+std::optional<std::tuple<unsigned, SDValue, SDValue>>
+DAGTypeLegalizer::ShouldWidenToVP(SDNode *N, EVT WidenVT) {
+  SDLoc DL(N);
+  unsigned Opcode;
+  SDValue EVL, Mask;
+  if (N->isVPOpcode()) {
+    // If we need to widen a VP operation, widen the mask and keep the EVL as
+    // normal.
+    Opcode = N->getOpcode();
+    if (auto MaskIdx = ISD::getVPMaskIdx(Opcode))
+      Mask = GetWidenedMask(N->getOperand(*MaskIdx),
+                            WidenVT.getVectorElementCount());
+    if (auto EVLIdx = ISD::getVPExplicitVectorLengthIdx(Opcode))
+      EVL = N->getOperand(*EVLIdx);
+  } else if (auto VPOpc = ISD::getVPForBaseOpcode(N->getOpcode());
+             VPOpc.has_value() && WidenVT.isFixedLengthVector() &&
+             TLI.isOperationLegalOrCustom(*VPOpc, WidenVT)) {
+    // Or if we have an illegal fixed length vector that needs to be widened,
+    // and the target supports the equivalent VP operation, use that instead and
+    // set the EVL to the exact number of elements needed.
+    Opcode = *VPOpc;
+    EVT WideMaskVT = EVT::getVectorVT(*DAG.getContext(), MVT::i1,
+                                      WidenVT.getVectorNumElements());
+    Mask = DAG.getAllOnesConstant(DL, WideMaskVT);
+    unsigned NumElts = N->getValueType(0).getVectorNumElements();
+    EVL = DAG.getConstant(NumElts, DL, TLI.getVPExplicitVectorLengthTy());
+  } else {
+    // Otherwise, don't widen to a VP operation.
+    return std::nullopt;
+  }
+
+  return std::make_tuple(Opcode, Mask, EVL);
+}
+
 SDValue DAGTypeLegalizer::WidenVecRes_Ternary(SDNode *N) {
   // Ternary op widening.
   SDLoc dl(N);
@@ -4185,16 +4219,13 @@ SDValue DAGTypeLegalizer::WidenVecRes_Ternary(SDNode *N) {
   SDValue InOp1 = GetWidenedVector(N->getOperand(0));
   SDValue InOp2 = GetWidenedVector(N->getOperand(1));
   SDValue InOp3 = GetWidenedVector(N->getOperand(2));
-  if (N->getNumOperands() == 3)
-    return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, InOp3);
 
-  assert(N->getNumOperands() == 5 && "Unexpected number of operands!");
-  assert(N->isVPOpcode() && "Expected VP opcode");
+  if (auto VPOps = ShouldWidenToVP(N, WidenVT)) {
+    auto [Opcode, Mask, EVL] = *VPOps;
+    return DAG.getNode(Opcode, dl, WidenVT, {InOp1, InOp2, InOp3, Mask, EVL});
+  }
 
-  SDValue Mask =
-      GetWidenedMask(N->getOperand(3), WidenVT.getVectorElementCount());
-  return DAG.getNode(N->getOpcode(), dl, WidenVT,
-                     {InOp1, InOp2, InOp3, Mask, N->getOperand(4)});
+  return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, InOp3);
 }
 
 SDValue DAGTypeLegalizer::WidenVecRes_Binary(SDNode *N) {
@@ -4203,17 +4234,14 @@ SDValue DAGTypeLegalizer::WidenVecRes_Binary(SDNode *N) {
   EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue InOp1 = GetWidenedVector(N->getOperand(0));
   SDValue InOp2 = GetWidenedVector(N->getOperand(1));
-  if (N->getNumOperands() == 2)
-    return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2,
+
+  if (auto VPOps = ShouldWidenToVP(N, WidenVT)) {
+    auto [Opcode, Mask, EVL] = *VPOps;
+    return DAG.getNode(Opcode, dl, WidenVT, {InOp1, InOp2, Mask, EVL},
                        N->getFlags());
+  }
 
-  assert(N->getNumOperands() == 4 && "Unexpected number of operands!");
-  assert(N->isVPOpcode() && "Expected VP opcode");
-
-  SDValue Mask =
-      GetWidenedMask(N->getOperand(2), WidenVT.getVectorElementCount());
-  return DAG.getNode(N->getOpcode(), dl, WidenVT,
-                     {InOp1, InOp2, Mask, N->getOperand(3)}, N->getFlags());
+  return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, N->getFlags());
 }
 
 SDValue DAGTypeLegalizer::WidenVecRes_BinaryWithExtraScalarOp(SDNode *N) {
@@ -4323,9 +4351,7 @@ SDValue DAGTypeLegalizer::WidenVecRes_BinaryCanTrap(SDNode *N) {
 
   if (NumElts != 1 && !TLI.canOpTrap(N->getOpcode(), VT)) {
     // Operation doesn't trap so just widen as normal.
-    SDValue InOp1 = GetWidenedVector(N->getOperand(0));
-    SDValue InOp2 = GetWidenedVector(N->getOperand(1));
-    return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, Flags);
+    return WidenVecRes_Binary(N);
   }
 
   // FIXME: Improve support for scalable vectors.
@@ -4589,14 +4615,12 @@ SDValue DAGTypeLegalizer::WidenVecRes_Convert(SDNode *N) {
     InVT = InOp.getValueType();
     InVTEC = InVT.getVectorElementCount();
     if (InVTEC == WidenEC) {
+      if (auto VPOps = ShouldWidenToVP(N, WidenVT)) {
+        auto [Opcode, Mask, EVL] = *VPOps;
+        return DAG.getNode(Opcode, DL, WidenVT, InOp, Mask, EVL);
+      }
       if (N->getNumOperands() == 1)
         return DAG.getNode(Opcode, DL, WidenVT, InOp);
-      if (N->getNumOperands() == 3) {
-        assert(N->isVPOpcode() && "Expected VP opcode");
-        SDValue Mask =
-            GetWidenedMask(N->getOperand(1), WidenVT.getVectorElementCount());
-        return DAG.getNode(Opcode, DL, WidenVT, InOp, Mask, N->getOperand(2));
-      }
       return DAG.getNode(Opcode, DL, WidenVT, InOp, N->getOperand(1), Flags);
     }
     if (WidenVT.getSizeInBits() == InVT.getSizeInBits()) {
@@ -4799,16 +4823,11 @@ SDValue DAGTypeLegalizer::WidenVecRes_Unary(SDNode *N) {
   // Unary op widening.
   EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue InOp = GetWidenedVector(N->getOperand(0));
-  if (N->getNumOperands() == 1)
-    return DAG.getNode(N->getOpcode(), SDLoc(N), WidenVT, InOp);
-
-  assert(N->getNumOperands() == 3 && "Unexpected number of operands!");
-  assert(N->isVPOpcode() && "Expected VP opcode");
-
-  SDValue Mask =
-      GetWidenedMask(N->getOperand(1), WidenVT.getVectorElementCount());
-  return DAG.getNode(N->getOpcode(), SDLoc(N), WidenVT,
-                     {InOp, Mask, N->getOperand(2)});
+  if (auto VPOps = ShouldWidenToVP(N, WidenVT)) {
+    auto [Opcode, Mask, EVL] = *VPOps;
+    return DAG.getNode(Opcode, SDLoc(N), WidenVT, {InOp, Mask, EVL});
+  }
+  return DAG.getNode(N->getOpcode(), SDLoc(N), WidenVT, InOp);
 }
 
 SDValue DAGTypeLegalizer::WidenVecRes_InregOp(SDNode *N) {
@@ -5624,9 +5643,10 @@ SDValue DAGTypeLegalizer::WidenVecRes_Select(SDNode *N) {
   SDValue InOp1 = GetWidenedVector(N->getOperand(1));
   SDValue InOp2 = GetWidenedVector(N->getOperand(2));
   assert(InOp1.getValueType() == WidenVT && InOp2.getValueType() == WidenVT);
-  if (Opcode == ISD::VP_SELECT || Opcode == ISD::VP_MERGE)
-    return DAG.getNode(Opcode, SDLoc(N), WidenVT, Cond1, InOp1, InOp2,
-                       N->getOperand(3));
+  if (auto VPOps = ShouldWidenToVP(N, WidenVT)) {
+    auto [Opcode, _, EVL] = *VPOps;
+    return DAG.getNode(Opcode, SDLoc(N), WidenVT, Cond1, InOp1, InOp2, EVL);
+  }
   return DAG.getNode(Opcode, SDLoc(N), WidenVT, Cond1, InOp1, InOp2);
 }
 

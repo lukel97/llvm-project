@@ -1051,6 +1051,13 @@ private:
   /// MaskVT to ToMaskVT if needed with vector extension or truncation.
   SDValue convertMask(SDValue InMask, EVT MaskVT, EVT ToMaskVT);
 
+  /// Return whether or not we should use the equivalent VP node to widen N to
+  /// WidenVT. Currently this means if N is already a VP node, or if N is a
+  /// fixed length vector and the target supports the equivalent VP node. If we
+  /// should widen to a VP node, then returns a tuple of <VP opcode, Mask, EVL>.
+  std::optional<std::tuple<unsigned, SDValue, SDValue>>
+  ShouldWidenToVP(SDNode *N, EVT WidenVT);
+
   //===--------------------------------------------------------------------===//
   // Generic Splitting: LegalizeTypesGeneric.cpp
   //===--------------------------------------------------------------------===//
