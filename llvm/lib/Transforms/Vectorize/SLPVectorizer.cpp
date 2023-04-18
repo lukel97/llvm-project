@@ -107,6 +107,8 @@ using namespace slpvectorizer;
 #define DEBUG_TYPE "SLP"
 
 STATISTIC(NumVectorInstructions, "Number of vector instructions generated");
+STATISTIC(NumSLPSequences, "Number of non-power-2 SLP sequences vectorized");
+STATISTIC(NumNonPow2SLPSequences, "Number of SLP sequences vectorized");
 
 cl::opt<bool> RunSLPVectorization("vectorize-slp", cl::init(true), cl::Hidden,
                                   cl::desc("Run the SLP vectorization passes"));
@@ -11986,7 +11988,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   const unsigned Sz = R.getVectorElementSize(Chain[0]);
   unsigned VF = Chain.size();
 
-  if (!isPowerOf2_32(Sz) || !isPowerOf2_32(VF) || VF < 2 || VF < MinVF)
+  if (!isPowerOf2_32(Sz) || /*!isPowerOf2_32(VF) || */ VF < 2 || VF < MinVF)
     return false;
 
   LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << Idx
@@ -12013,9 +12015,20 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 
     R.getORE()->emit(OptimizationRemark(SV_NAME, "StoresVectorized",
                                         cast<StoreInst>(Chain[0]))
-                     << "Stores SLP vectorized with cost " << NV("Cost", Cost)
+                     << "Stores SLP vectorized with VF " << NV("VF", VF) << " and with cost " << NV("Cost", Cost)
                      << " and with tree size "
                      << NV("TreeSize", R.getTreeSize()));
+
+    if (!isPowerOf2_32(VF)) {
+
+    R.getORE()->emit(OptimizationRemark(SV_NAME, "StoresVectorized",
+                                        cast<StoreInst>(Chain[0]))
+                     << "Stores SLP vectorized with VF " << NV("VF", VF) << " and with cost " << NV("Cost", Cost)
+                     << " and with tree size "
+                     << NV("TreeSize", R.getTreeSize()));
+      NumNonPow2SLPSequences++;
+    }
+    NumSLPSequences++;
 
     R.vectorizeTree();
     return true;
@@ -12137,31 +12150,34 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
                         << "MinVF (" << MinVF << ")\n");
     }
 
+    if (vectorizeStoreChain(Operands, R, 0, MinVF))
+      Changed = true;
+
     // FIXME: Is division-by-2 the correct step? Should we assert that the
     // register size is a power-of-2?
-    unsigned StartIdx = 0;
-    for (unsigned Size = MaxVF; Size >= MinVF; Size /= 2) {
-      for (unsigned Cnt = StartIdx, E = Operands.size(); Cnt + Size <= E;) {
-        ArrayRef<Value *> Slice = ArrayRef(Operands).slice(Cnt, Size);
-        if (!VectorizedStores.count(Slice.front()) &&
-            !VectorizedStores.count(Slice.back()) &&
-            vectorizeStoreChain(Slice, R, Cnt, MinVF)) {
-          // Mark the vectorized stores so that we don't vectorize them again.
-          VectorizedStores.insert(Slice.begin(), Slice.end());
-          Changed = true;
-          // If we vectorized initial block, no need to try to vectorize it
-          // again.
-          if (Cnt == StartIdx)
-            StartIdx += Size;
-          Cnt += Size;
-          continue;
-        }
-        ++Cnt;
-      }
-      // Check if the whole array was vectorized already - exit.
-      if (StartIdx >= Operands.size())
-        break;
-    }
+    // unsigned StartIdx = 0;
+    // for (unsigned Size = MaxVF; Size >= MinVF; Size /= 2) {
+    //   for (unsigned Cnt = StartIdx, E = Operands.size(); Cnt + Size <= E;) {
+    //     ArrayRef<Value *> Slice = ArrayRef(Operands).slice(Cnt, Size);
+    //     if (!VectorizedStores.count(Slice.front()) &&
+    //         !VectorizedStores.count(Slice.back()) &&
+    //         vectorizeStoreChain(Slice, R, Cnt, MinVF)) {
+    //       // Mark the vectorized stores so that we don't vectorize them again.
+    //       VectorizedStores.insert(Slice.begin(), Slice.end());
+    //       Changed = true;
+    //       // If we vectorized initial block, no need to try to vectorize it
+    //       // again.
+    //       if (Cnt == StartIdx)
+    //         StartIdx += Size;
+    //       Cnt += Size;
+    //       continue;
+    //     }
+    //     ++Cnt;
+    //   }
+    //   // Check if the whole array was vectorized already - exit.
+    //   if (StartIdx >= Operands.size())
+    //     break;
+    // }
   }
 
   return Changed;
