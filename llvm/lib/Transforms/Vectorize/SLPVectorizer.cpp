@@ -6425,6 +6425,9 @@ TTI::OperandValueInfo BoUpSLP::getOperandInfo(ArrayRef<Value *> VL,
     if (!I)
       return true;
     auto *Op = I->getOperand(OpIdx);
+    if (const auto *PN = dyn_cast<PHINode>(Op)) {
+      return all_of(PN->incoming_values(), isConstant);
+    }
     return isConstant(Op) && !isa<UndefValue>(Op);
   });
   const bool IsUniform = all_of(VL, [&](Value *V) {
@@ -12048,7 +12051,9 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                                         cast<StoreInst>(Chain[0]))
                      << "Stores SLP vectorized with cost " << NV("Cost", Cost)
                      << " and with tree size "
-                     << NV("TreeSize", R.getTreeSize()));
+                     << NV("TreeSize", R.getTreeSize())
+		     << " and with VF "
+		     << NV("VF", VF));
 
     R.vectorizeTree();
     return true;
