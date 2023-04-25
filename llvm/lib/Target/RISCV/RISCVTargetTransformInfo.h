@@ -62,8 +62,9 @@ public:
 
   /// Return the cost of materializing an immediate for a value operand of
   /// a store instruction.
-  InstructionCost getStoreImmCost(Type *VecTy, TTI::OperandValueInfo OpInfo,
-                                  TTI::TargetCostKind CostKind);
+  InstructionCost getConstantMaterializationCost(Type *VecTy,
+                                                 TTI::OperandValueInfo OpInfo,
+                                                 TTI::TargetCostKind CostKind);
 
   InstructionCost getIntImmCost(const APInt &Imm, Type *Ty,
                                 TTI::TargetCostKind CostKind);
@@ -165,6 +166,10 @@ public:
                                      CmpInst::Predicate VecPred,
                                      TTI::TargetCostKind CostKind,
                                      const Instruction *I = nullptr);
+
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<TTI::OperandValueInfo> OpInfos,
+                             const Instruction *I = nullptr);
 
   using BaseT::getVectorInstrCost;
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,

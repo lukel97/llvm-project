@@ -1287,9 +1287,8 @@ InstructionCost RISCVTTIImpl::getExtendedReductionCost(
          getArithmeticReductionCost(Opcode, ValTy, FMF, CostKind);
 }
 
-InstructionCost RISCVTTIImpl::getStoreImmCost(Type *Ty,
-                                              TTI::OperandValueInfo OpInfo,
-                                              TTI::TargetCostKind CostKind) {
+InstructionCost RISCVTTIImpl::getConstantMaterializationCost(
+    Type *Ty, TTI::OperandValueInfo OpInfo, TTI::TargetCostKind CostKind) {
   assert(OpInfo.isConstant() && "non constant operand?");
   if (!isa<VectorType>(Ty))
     // FIXME: We need to account for immediate materialization here, but doing
@@ -1306,7 +1305,6 @@ InstructionCost RISCVTTIImpl::getStoreImmCost(Type *Ty,
   return getConstantPoolLoadCost(Ty, CostKind);
 }
 
-
 InstructionCost RISCVTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                               MaybeAlign Alignment,
                                               unsigned AddressSpace,
@@ -1321,7 +1319,7 @@ InstructionCost RISCVTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
 
   InstructionCost Cost = 0;
   if (Opcode == Instruction::Store && OpInfo.isConstant())
-    Cost += getStoreImmCost(Src, OpInfo, CostKind);
+    Cost += getConstantMaterializationCost(Src, OpInfo, CostKind);
   InstructionCost BaseCost =
     BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                            CostKind, OpInfo, I);
@@ -1416,6 +1414,21 @@ InstructionCost RISCVTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
   // TODO: Add cost for scalar type.
 
   return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
+}
+
+InstructionCost
+RISCVTTIImpl::getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                         ArrayRef<TTI::OperandValueInfo> OpInfos,
+                         const Instruction *I) {
+  // TODO: Have getConstantMaterializationCost compute cost for scalars
+  if (CostKind == TTI::TCK_RecipThroughput && Ty->isVectorTy()) {
+    InstructionCost Cost = 0;
+    for (TTI::OperandValueInfo OpInfo : OpInfos)
+      if (OpInfo.isConstant())
+        Cost += getConstantMaterializationCost(Ty, OpInfo, CostKind);
+    return Cost;
+  }
+  return BaseT::getPHICost(Ty, CostKind, OpInfos, I);
 }
 
 InstructionCost RISCVTTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,

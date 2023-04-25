@@ -5,7 +5,7 @@ define <2 x i8> @f(i1 %c) {
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: br i1 %c, label %a, label %b
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: br label %d
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: br label %d
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x = phi <2 x i8> [ <i8 1, i8 -1>, %a ], [ <i8 -1, i8 1>, %b ]
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %x = phi <2 x i8> [ <i8 1, i8 -1>, %a ], [ <i8 -1, i8 1>, %b ]
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret <2 x i8> %x
 ;
   br i1 %c, label %a, label %b
