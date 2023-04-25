@@ -469,6 +469,20 @@ InstructionCost ARMTTIImpl::getCFInstrCost(unsigned Opcode,
   return BaseT::getCFInstrCost(Opcode, CostKind, I);
 }
 
+InstructionCost ARMTTIImpl::getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                                       ArrayRef<TTI::OperandValueInfo> OpInfos,
+                                       const Instruction *I) {
+  if (CostKind == TTI::TCK_RecipThroughput &&
+      (ST->hasNEON() || ST->hasMVEIntegerOps())) {
+    // FIXME: The vectorizer is highly sensistive to the cost of these
+    // instructions, which suggests that it may be using the costs incorrectly.
+    // But, for now, just make them free to avoid performance regressions for
+    // vector targets.
+    return 0;
+  }
+  return BaseT::getPHICost(Ty, CostKind, OpInfos, I);
+}
+
 InstructionCost ARMTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
                                              Type *Src,
                                              TTI::CastContextHint CCH,

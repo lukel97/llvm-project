@@ -121,6 +121,9 @@ public:
                                    const Instruction *I = nullptr);
   InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
                                  const Instruction *I = nullptr);
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<TTI::OperandValueInfo> OpInfos,
+                             const Instruction *I = nullptr);
   InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
                                      CmpInst::Predicate VecPred,
                                      TTI::TargetCostKind CostKind,

@@ -5616,7 +5616,14 @@ InstructionCost X86TTIImpl::getCFInstrCost(unsigned Opcode,
                                            TTI::TargetCostKind CostKind,
                                            const Instruction *I) {
   if (CostKind != TTI::TCK_RecipThroughput)
-    return Opcode == Instruction::PHI ? 0 : 1;
+    return 1;
+  // Branches are assumed to be predicted.
+  return 0;
+}
+
+InstructionCost X86TTIImpl::getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                                       ArrayRef<TTI::OperandValueInfo> OpInfos,
+                                       const Instruction *I) {
   // Branches are assumed to be predicted.
   return 0;
 }

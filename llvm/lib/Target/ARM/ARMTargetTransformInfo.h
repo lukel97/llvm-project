@@ -229,6 +229,10 @@ public:
   InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
                                  const Instruction *I = nullptr);
 
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<TTI::OperandValueInfo> OpInfos,
+                             const Instruction *I = nullptr);
+
   InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                    TTI::CastContextHint CCH,
                                    TTI::TargetCostKind CostKind,

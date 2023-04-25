@@ -4558,8 +4558,8 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
     // that we will create. This cost is likely to be zero. The phi node
     // cost, if any, should be scaled by the block probability because it
     // models a copy at the end of each predicated block.
-    ScalarizationCost += VF.getKnownMinValue() *
-      TTI.getCFInstrCost(Instruction::PHI, CostKind);
+    ScalarizationCost +=
+        VF.getKnownMinValue() * TTI.getPHICost(I->getType(), CostKind);
 
     // The cost of the non-predicated instruction.
     ScalarizationCost += VF.getKnownMinValue() *
@@ -6364,8 +6364,7 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
           cast<VectorType>(ToVectorTy(I->getType(), VF)),
           APInt::getAllOnes(VF.getFixedValue()), /*Insert*/ true,
           /*Extract*/ false, CostKind);
-      ScalarCost +=
-          VF.getFixedValue() * TTI.getCFInstrCost(Instruction::PHI, CostKind);
+      ScalarCost += VF.getFixedValue() * TTI.getPHICost(I->getType(), CostKind);
     }
 
     // Compute the scalarization overhead of needed extractelement
@@ -7214,17 +7213,22 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
                                 VF.getKnownMinValue() - 1);
     }
 
+    Type *VecTy = ToVectorTy(Phi->getType(), VF);
+
     // Phi nodes in non-header blocks (not inductions, reductions, etc.) are
     // converted into select instructions. We require N - 1 selects per phi
     // node, where N is the number of incoming values.
     if (VF.isVector() && Phi->getParent() != TheLoop->getHeader())
       return (Phi->getNumIncomingValues() - 1) *
              TTI.getCmpSelInstrCost(
-                 Instruction::Select, ToVectorTy(Phi->getType(), VF),
+                 Instruction::Select, VecTy,
                  ToVectorTy(Type::getInt1Ty(Phi->getContext()), VF),
                  CmpInst::BAD_ICMP_PREDICATE, CostKind);
 
-    return TTI.getCFInstrCost(Instruction::PHI, CostKind);
+    SmallVector<TTI::OperandValueInfo, 4> OpInfos;
+    transform(I->operand_values(), std::back_inserter(OpInfos),
+              TTI::getOperandInfo);
+    return TTI.getPHICost(VecTy, CostKind, OpInfos);
   }
   case Instruction::UDiv:
   case Instruction::SDiv:

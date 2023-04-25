@@ -252,7 +252,7 @@ private:
                                     VT->getNumElements()),
                CostKind, -1, nullptr, nullptr) +
            getCFInstrCost(Instruction::Br, CostKind) +
-           getCFInstrCost(Instruction::PHI, CostKind));
+           getPHICost(VT->getElementType(), CostKind));
     }
 
     return LoadCost + PackingCost + ConditionalCost;
@@ -1162,6 +1162,12 @@ public:
   InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
                                  const Instruction *I = nullptr) {
     return BaseT::getCFInstrCost(Opcode, CostKind, I);
+  }
+
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<TTI::OperandValueInfo> OpInfos = {},
+                             const Instruction *I = nullptr) {
+    return BaseT::getPHICost(Ty, CostKind, OpInfos, I);
   }
 
   InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,

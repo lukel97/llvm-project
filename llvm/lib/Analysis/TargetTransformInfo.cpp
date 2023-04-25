@@ -909,7 +909,21 @@ InstructionCost TargetTransformInfo::getCFInstrCost(
     unsigned Opcode, TTI::TargetCostKind CostKind, const Instruction *I) const {
   assert((I == nullptr || I->getOpcode() == Opcode) &&
          "Opcode should reflect passed instruction.");
+  assert((Opcode == Instruction::Br || Opcode == Instruction::Ret ||
+          Opcode == Instruction::Switch) &&
+         "Opcode should be one of Br, Ret or Switch");
   InstructionCost Cost = TTIImpl->getCFInstrCost(Opcode, CostKind, I);
+  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  return Cost;
+}
+
+InstructionCost
+TargetTransformInfo::getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                                ArrayRef<TTI::OperandValueInfo> OpInfos,
+                                const Instruction *I) const {
+  assert((I == nullptr || I->getOpcode() == Instruction::PHI) &&
+         "Opcode should reflect passed instruction.");
+  InstructionCost Cost = TTIImpl->getPHICost(Ty, CostKind, OpInfos, I);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

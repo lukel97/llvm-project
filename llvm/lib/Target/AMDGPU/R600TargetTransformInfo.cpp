@@ -95,7 +95,7 @@ InstructionCost R600TTIImpl::getCFInstrCost(unsigned Opcode,
                                             TTI::TargetCostKind CostKind,
                                             const Instruction *I) {
   if (CostKind == TTI::TCK_CodeSize || CostKind == TTI::TCK_SizeAndLatency)
-    return Opcode == Instruction::PHI ? 0 : 1;
+    return 1;
 
   // XXX - For some reason this isn't called for switch.
   switch (Opcode) {

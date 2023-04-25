@@ -585,11 +585,15 @@ public:
 
   InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
                                  const Instruction *I = nullptr) const {
+    return 1;
+  }
+
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<TTI::OperandValueInfo> OpInfos,
+                             const Instruction *I) const {
     // A phi would be free, unless we're costing the throughput because it
     // will require a register.
-    if (Opcode == Instruction::PHI && CostKind != TTI::TCK_RecipThroughput)
-      return 0;
-    return 1;
+    return CostKind != TTI::TCK_RecipThroughput ? 0 : 1;
   }
 
   InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -1108,9 +1112,14 @@ public:
     }
     case Instruction::Br:
     case Instruction::Ret:
-    case Instruction::PHI:
     case Instruction::Switch:
       return TargetTTI->getCFInstrCost(Opcode, CostKind, I);
+    case Instruction::PHI: {
+      SmallVector<TTI::OperandValueInfo, 4> OpInfos;
+      transform(I->operand_values(), std::back_inserter(OpInfos),
+                TTI::getOperandInfo);
+      return TargetTTI->getPHICost(I->getType(), CostKind, OpInfos, I);
+    }
     case Instruction::ExtractValue:
     case Instruction::Freeze:
       return TTI::TCC_Free;

@@ -1253,11 +1253,19 @@ public:
                                            unsigned Index) const;
 
   /// \return The expected cost of control-flow related instructions such as
-  /// Phi, Ret, Br, Switch.
+  /// Ret, Br, Switch.
   InstructionCost
   getCFInstrCost(unsigned Opcode,
                  TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
                  const Instruction *I = nullptr) const;
+
+  /// \return The expected cost of a phi node. \p Ty is the type of the phi node
+  /// and its incoming values, and \OpInfos is any extra information about the
+  /// incoming values.
+  InstructionCost
+  getPHICost(Type *Ty, TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+             ArrayRef<OperandValueInfo> OpInfos = {},
+             const Instruction *I = nullptr) const;
 
   /// \returns The expected cost of compare and select instructions. If there
   /// is an existing instruction that holds Opcode, it may be passed in the
@@ -1884,6 +1892,9 @@ public:
   virtual InstructionCost getCFInstrCost(unsigned Opcode,
                                          TTI::TargetCostKind CostKind,
                                          const Instruction *I = nullptr) = 0;
+  virtual InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                                     ArrayRef<OperandValueInfo> OpInfos,
+                                     const Instruction *I = nullptr) = 0;
   virtual InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
                                              Type *CondTy,
                                              CmpInst::Predicate VecPred,
@@ -2470,6 +2481,11 @@ public:
   InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
                                  const Instruction *I = nullptr) override {
     return Impl.getCFInstrCost(Opcode, CostKind, I);
+  }
+  InstructionCost getPHICost(Type *Ty, TTI::TargetCostKind CostKind,
+                             ArrayRef<OperandValueInfo> OpInfos,
+                             const Instruction *I = nullptr) override {
+    return Impl.getPHICost(Ty, CostKind, OpInfos, I);
   }
   InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
                                      CmpInst::Predicate VecPred,
