@@ -7331,23 +7331,24 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
     InstructionCost ScalarCost = 0;
     SmallPtrSet<const TreeEntry *, 4> CountedOps;
     for (Value *V : VL) {
-      auto *PHI = dyn_cast<PHINode>(V);
-      if (!PHI)
-        continue;
+      auto *PHI = cast<PHINode>(V);
 
-      ValueList Operands(PHI->getNumIncomingValues(), nullptr);
-      for (unsigned I = 0, N = PHI->getNumIncomingValues(); I < N; ++I) {
-        Value *Op = PHI->getIncomingValue(I);
-        Operands[I] = Op;
-      }
+      ValueList Operands(PHI->incoming_values());
       if (const TreeEntry *OpTE = getTreeEntry(Operands.front()))
         if (OpTE->isSame(Operands) && CountedOps.insert(OpTE).second)
           if (!OpTE->ReuseShuffleIndices.empty())
-            ScalarCost += TTI::TCC_Basic * (OpTE->ReuseShuffleIndices.size() -
-                                            OpTE->Scalars.size());
+            ScalarCost +=
+                TTI->getPHICost(PHI->getType(), TTI::TCK_RecipThroughput) *
+                (OpTE->ReuseShuffleIndices.size() - OpTE->Scalars.size());
     }
 
-    return CommonCost - ScalarCost;
+    SmallVector<TTI::OperandValueInfo, 4> OpInfos;
+    for (unsigned I = 0; I < E->getMainOp()->getNumOperands(); I++)
+      OpInfos.push_back(getOperandInfo(VL, I));
+    InstructionCost VecCost =
+        TTI->getPHICost(VecTy, TTI::TCK_RecipThroughput, OpInfos);
+
+    return VecCost + CommonCost - ScalarCost;
   }
   case Instruction::ExtractValue:
   case Instruction::ExtractElement: {

@@ -11,14 +11,17 @@ define void @f(ptr %p, i1 %c) {
 ; CHECK-LABEL: define void @f
 ; CHECK-SAME: (ptr [[P:%.*]], i1 [[C:%.*]]) #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:    [[P_0:%.*]] = getelementptr i8, ptr [[P]]
+; CHECK-NEXT:    [[P_1:%.*]] = getelementptr i8, ptr [[P]], i32 1
 ; CHECK-NEXT:    br i1 [[C]], label [[A:%.*]], label [[B:%.*]]
 ; CHECK:       a:
 ; CHECK-NEXT:    br label [[D:%.*]]
 ; CHECK:       b:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       d:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi <2 x i8> [ <i8 1, i8 -1>, [[A]] ], [ <i8 -1, i8 1>, [[B]] ]
-; CHECK-NEXT:    store <2 x i8> [[TMP1]], ptr [[P_0]], align 1
+; CHECK-NEXT:    [[X:%.*]] = phi i8 [ 1, [[A]] ], [ -1, [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i8 [ -1, [[A]] ], [ 1, [[B]] ]
+; CHECK-NEXT:    store i8 [[X]], ptr [[P_0]], align 1
+; CHECK-NEXT:    store i8 [[Y]], ptr [[P_1]], align 1
 ; CHECK-NEXT:    ret void
 ;
   %p.0 = getelementptr i8, ptr %p
@@ -40,15 +43,19 @@ define void @g(ptr %p, i1 %c) {
 ; CHECK-LABEL: define void @g
 ; CHECK-SAME: (ptr [[P:%.*]], i1 [[C:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[P_0:%.*]] = getelementptr i8, ptr [[P]]
+; CHECK-NEXT:    [[P_1:%.*]] = getelementptr i8, ptr [[P]], i32 1
 ; CHECK-NEXT:    br i1 [[C]], label [[A:%.*]], label [[B:%.*]]
 ; CHECK:       a:
 ; CHECK-NEXT:    br label [[D:%.*]]
 ; CHECK:       b:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       d:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi <2 x i8> [ <i8 1, i8 -1>, [[A]] ], [ <i8 -1, i8 1>, [[B]] ]
-; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i8> [[TMP1]], <i8 1, i8 1>
-; CHECK-NEXT:    store <2 x i8> [[TMP2]], ptr [[P_0]], align 1
+; CHECK-NEXT:    [[X:%.*]] = phi i8 [ 1, [[A]] ], [ -1, [[B]] ]
+; CHECK-NEXT:    [[Y:%.*]] = phi i8 [ -1, [[A]] ], [ 1, [[B]] ]
+; CHECK-NEXT:    [[X_ADD:%.*]] = add i8 [[X]], 1
+; CHECK-NEXT:    [[Y_ADD:%.*]] = add i8 [[Y]], 1
+; CHECK-NEXT:    store i8 [[X_ADD]], ptr [[P_0]], align 1
+; CHECK-NEXT:    store i8 [[Y_ADD]], ptr [[P_1]], align 1
 ; CHECK-NEXT:    ret void
 ;
   %p.0 = getelementptr i8, ptr %p
