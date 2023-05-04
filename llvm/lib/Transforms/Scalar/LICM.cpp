@@ -1341,10 +1341,20 @@ static bool isTriviallyReplaceablePHI(const PHINode &PN, const Instruction &I) {
 
 /// Return true if the instruction is foldable in the loop.
 static bool isFoldableInLoop(const Instruction &I, const Loop *CurLoop,
-                         const TargetTransformInfo *TTI) {
+                             const TargetTransformInfo *TTI) {
   if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+    // Account for only the users that are inside CurLoop.
+    SmallVector<Type *> AccessTypes;
+    for (const Value *V : GEP->users()) {
+      auto *I = cast<Instruction>(V);
+      if (CurLoop->contains(I))
+        AccessTypes.push_back(I->getAccessType());
+    }
+
+    SmallVector<const Value *> Indices(GEP->indices());
     InstructionCost CostI =
-        TTI->getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+        TTI->getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(),
+                        Indices, AccessTypes, TTI::TCK_SizeAndLatency);
     if (CostI != TargetTransformInfo::TCC_Free)
       return false;
     // For a GEP, we cannot simply use getInstructionCost because currently

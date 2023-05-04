@@ -38,6 +38,7 @@ define void @inner2(ptr %ptr) {
   %A = load i32, ptr %ptr
   store i32 0, ptr %ptr
   %D = getelementptr inbounds i32, ptr %ptr, i32 %A
+  store i32 undef, ptr %D
   %F = select i1 false, ptr %ptr, ptr @glbl
   call void @llvm.lifetime.start.p0(i64 0, ptr %ptr)
   call void @extern()

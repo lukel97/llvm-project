@@ -24,6 +24,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -283,10 +284,36 @@ public:
   };
 
   /// Estimate the cost of a GEP operation when lowered.
+  ///
+  /// \p PointeeType is the source element type of the GEP.
+  /// \p Ptr is the base pointer operand.
+  /// \p Operands is the list of indices following the base pointer.
+  ///
+  /// \p AccessTypes is a list of types that might be accessed from memory by
+  /// users of the GEP. getGEPCost will use this determine if the GEP can be
+  /// folded into the addressing mode of a load/store instruction. Note that if
+  /// this is empty, then it assumes that the GEP has no users and will be
+  /// costed as free. If there is a user that isn't a load/store which, then you
+  /// should represent it with a nullptr in the list.
   InstructionCost
   getGEPCost(Type *PointeeType, const Value *Ptr,
-             ArrayRef<const Value *> Operands,
+             ArrayRef<const Value *> Operands, ArrayRef<Type *> AccessTypes,
              TargetCostKind CostKind = TCK_SizeAndLatency) const;
+
+  // Helper function for using getGEPCost on an already materialized GEP
+  // instruction.
+  InstructionCost
+  getGEPCost(const GetElementPtrInst *GEP,
+             TargetCostKind CostKind = TCK_SizeAndLatency) const {
+    // Only take into account the first user as a rough approximation to avoid
+    // O(N) performance.
+    SmallVector<Type *, 1> AccessTypes;
+    if (!GEP->user_empty())
+      AccessTypes = {GEP->user_back()->getAccessType()};
+    SmallVector<const Value *> Ops(GEP->indices());
+    return getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(),
+                      Ops, AccessTypes, CostKind);
+  }
 
   /// Describe known properties for a set of pointers.
   struct PointersChainInfo {
@@ -1662,6 +1689,7 @@ public:
   virtual const DataLayout &getDataLayout() const = 0;
   virtual InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
                                      ArrayRef<const Value *> Operands,
+                                     ArrayRef<Type *> AccessTypes,
                                      TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost
   getPointersChainCost(ArrayRef<const Value *> Ptrs, const Value *Base,
@@ -2019,9 +2047,9 @@ public:
 
   InstructionCost
   getGEPCost(Type *PointeeType, const Value *Ptr,
-             ArrayRef<const Value *> Operands,
+             ArrayRef<const Value *> Operands, ArrayRef<Type *> AccessTypes,
              TargetTransformInfo::TargetCostKind CostKind) override {
-    return Impl.getGEPCost(PointeeType, Ptr, Operands, CostKind);
+    return Impl.getGEPCost(PointeeType, Ptr, Operands, AccessTypes, CostKind);
   }
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
                                        const Value *Base,
