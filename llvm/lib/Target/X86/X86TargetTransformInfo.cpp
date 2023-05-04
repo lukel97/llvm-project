@@ -4951,9 +4951,14 @@ InstructionCost X86TTIImpl::getPointersChainCost(
     // into constants. X86 memory addressing allows encoding it into
     // displacement. So we just need to take the base GEP cost.
     if (const auto *BaseGEP = dyn_cast<GetElementPtrInst>(Base)) {
-      SmallVector<const Value *> Indices(BaseGEP->indices());
+      // Only check the first user to avoid O(N) performance.
+      SmallVector<Type *> AccessTypes;
+      if (!BaseGEP->user_empty())
+        AccessTypes.push_back(BaseGEP->user_back()->getAccessType());
       return getGEPCost(BaseGEP->getSourceElementType(),
-                        BaseGEP->getPointerOperand(), Indices, CostKind);
+                        BaseGEP->getPointerOperand(),
+                        SmallVector<const Value *>(BaseGEP->indices()),
+                        AccessTypes, CostKind);
     }
     return TTI::TCC_Free;
   }

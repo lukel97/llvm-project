@@ -417,8 +417,9 @@ public:
 
   InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
                              ArrayRef<const Value *> Operands,
+                             ArrayRef<Type *> AccessTypes,
                              TTI::TargetCostKind CostKind) {
-    return BaseT::getGEPCost(PointeeType, Ptr, Operands, CostKind);
+    return BaseT::getGEPCost(PointeeType, Ptr, Operands, AccessTypes, CostKind);
   }
 
   unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,

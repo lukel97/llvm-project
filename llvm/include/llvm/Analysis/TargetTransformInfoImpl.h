@@ -48,6 +48,7 @@ public:
 
   InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
                              ArrayRef<const Value *> Operands,
+                             ArrayRef<Type *> AccessTypes,
                              TTI::TargetCostKind CostKind) const {
     // In the basic model, we just assume that all-constant GEPs will be folded
     // into their uses via addressing modes.
@@ -977,6 +978,7 @@ public:
 
   InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
                              ArrayRef<const Value *> Operands,
+                             ArrayRef<Type *> AccessTypes,
                              TTI::TargetCostKind CostKind) {
     assert(PointeeType && Ptr && "can't get GEPCost of nullptr");
     assert(cast<PointerType>(Ptr->getType()->getScalarType())
@@ -995,6 +997,15 @@ public:
     // Handle the case where the GEP instruction has a single operand,
     // the basis, therefore TargetType is a nullptr.
     if (Operands.empty())
+      return !BaseGV ? TTI::TCC_Free : TTI::TCC_Basic;
+
+    // If the GEP would have all zero indices (and it's not using a global
+    // value), then it's just a type cast and is free.
+    if (all_of(Operands, [](const Value *Op) {
+          if (auto *CI = dyn_cast<ConstantInt>(Op))
+            return CI->isZero();
+          return isa<ConstantAggregateZero>(Op);
+        }))
       return !BaseGV ? TTI::TCC_Free : TTI::TCC_Basic;
 
     for (auto I = Operands.begin(); I != Operands.end(); ++I, ++GTI) {
@@ -1030,12 +1041,20 @@ public:
       }
     }
 
-    if (static_cast<T *>(this)->isLegalAddressingMode(
-            TargetType, const_cast<GlobalValue *>(BaseGV),
-            BaseOffset.sextOrTrunc(64).getSExtValue(), HasBaseReg, Scale,
-            Ptr->getType()->getPointerAddressSpace()))
-      return TTI::TCC_Free;
-    return TTI::TCC_Basic;
+    uint64_t BaseOffsetVal = BaseOffset.sextOrTrunc(64).getSExtValue();
+
+    // If we've been provided with a hint as to what type the user(s) are
+    // accessing, then we can check if its possible to fold in the GEP into said
+    // instructions.
+    bool IsFoldable = all_of(AccessTypes, [&](auto *AccessTy) {
+      if (!AccessTy)
+        return false;
+      return static_cast<T *>(this)->isLegalAddressingMode(
+          AccessTy, const_cast<GlobalValue *>(BaseGV), BaseOffsetVal,
+          HasBaseReg, Scale, Ptr->getType()->getPointerAddressSpace());
+    });
+
+    return IsFoldable ? TTI::TCC_Free : TTI::TCC_Basic;
   }
 
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
@@ -1065,10 +1084,12 @@ public:
             {TTI::OK_AnyValue, TTI::OP_None}, {TTI::OK_AnyValue, TTI::OP_None},
             std::nullopt);
       } else {
-        SmallVector<const Value *> Indices(GEP->indices());
-        Cost += static_cast<T *>(this)->getGEPCost(GEP->getSourceElementType(),
-                                                   GEP->getPointerOperand(),
-                                                   Indices, CostKind);
+        SmallVector<Type *, 1> AccessTypes;
+        if (!GEP->user_empty())
+          AccessTypes = {GEP->user_back()->getAccessType()};
+        Cost += static_cast<T *>(this)->getGEPCost(
+            GEP->getSourceElementType(), GEP->getPointerOperand(),
+            SmallVector<const Value *>(GEP->indices()), AccessTypes, CostKind);
       }
     }
     return Cost;
@@ -1120,9 +1141,20 @@ public:
       break;
     case Instruction::GetElementPtr: {
       const auto *GEP = cast<GEPOperator>(U);
-      return TargetTTI->getGEPCost(GEP->getSourceElementType(),
-                                   GEP->getPointerOperand(),
-                                   Operands.drop_front(), CostKind);
+      // Only check the first user to avoid O(N) performance.
+      SmallVector<Type *, 1> AccessTypes;
+      if (!GEP->user_empty())
+        if (auto *I = dyn_cast<Instruction>(GEP->user_back()))
+          AccessTypes.push_back(I->getAccessType());
+
+      // Note: don't use the base pointer + indices from GEP->operands(),
+      // because the operands passed to getInstructionCost may differ from those
+      // actually on the instruction.
+      const Value *Ptr = Operands.front();
+      ArrayRef<const Value *> Indices = Operands.drop_front(1);
+
+      return TargetTTI->getGEPCost(GEP->getSourceElementType(), Ptr, Indices,
+                                   AccessTypes, CostKind);
     }
     case Instruction::Add:
     case Instruction::FAdd:
