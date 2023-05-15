@@ -12205,7 +12205,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   const unsigned Sz = R.getVectorElementSize(Chain[0]);
   unsigned VF = Chain.size();
 
-  if (!isPowerOf2_32(Sz) || !isPowerOf2_32(VF) || VF < 2 || VF < MinVF)
+  if (/*!isPowerOf2_32(Sz) || !isPowerOf2_32(VF) || */ VF < 2 || VF < MinVF)
     return false;
 
   LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << Idx
@@ -12233,6 +12233,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
     R.getORE()->emit(OptimizationRemark(SV_NAME, "StoresVectorized",
                                         cast<StoreInst>(Chain[0]))
                      << "Stores SLP vectorized with cost " << NV("Cost", Cost)
+		     << " and with VF " << NV("VF", VF)
                      << " and with tree size "
                      << NV("TreeSize", R.getTreeSize()));
 
@@ -12359,7 +12360,7 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
     // FIXME: Is division-by-2 the correct step? Should we assert that the
     // register size is a power-of-2?
     unsigned StartIdx = 0;
-    for (unsigned Size = MaxVF; Size >= MinVF; Size /= 2) {
+    for (unsigned Size = MaxVF; Size >= MinVF; Size--) {
       for (unsigned Cnt = StartIdx, E = Operands.size(); Cnt + Size <= E;) {
         ArrayRef<Value *> Slice = ArrayRef(Operands).slice(Cnt, Size);
         if (!VectorizedStores.count(Slice.front()) &&
@@ -12485,7 +12486,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
     ScalarTy = IE->getOperand(1)->getType();
 
   unsigned NextInst = 0, MaxInst = VL.size();
-  for (unsigned VF = MaxVF; NextInst + 1 < MaxInst && VF >= MinVF; VF /= 2) {
+  for (unsigned VF = MaxVF; NextInst + 1 < MaxInst && VF >= MinVF; VF--) {
     // No actual vectorization should happen, if number of parts is the same as
     // provided vectorization factor (i.e. the scalar type is used for vector
     // code during codegen).
@@ -12495,8 +12496,8 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
     for (unsigned I = NextInst; I < MaxInst; ++I) {
       unsigned ActualVF = std::min(MaxInst - I, VF);
 
-      if (!isPowerOf2_32(ActualVF))
-        continue;
+      // if (!isPowerOf2_32(ActualVF))
+      //   continue;
 
       if (MaxVFOnly && ActualVF < MaxVF)
         break;
