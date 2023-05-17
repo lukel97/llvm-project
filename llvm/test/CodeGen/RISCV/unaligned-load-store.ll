@@ -267,11 +267,16 @@ define void @store_i64(ptr %p, i64 %v) {
 }
 
 define void @merge_stores_i8_i16(ptr %p) {
-; ALL-LABEL: merge_stores_i8_i16:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sb zero, 0(a0)
-; ALL-NEXT:    sb zero, 1(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i8_i16:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sb zero, 0(a0)
+; NOMISALIGN-NEXT:    sb zero, 1(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-LABEL: merge_stores_i8_i16:
+; MISALIGN:       # %bb.0:
+; MISALIGN-NEXT:    sh zero, 0(a0)
+; MISALIGN-NEXT:    ret
   store i8 0, ptr %p
   %p2 = getelementptr i8, ptr %p, i32 1
   store i8 0, ptr %p2
@@ -279,13 +284,18 @@ define void @merge_stores_i8_i16(ptr %p) {
 }
 
 define void @merge_stores_i8_i32(ptr %p) {
-; ALL-LABEL: merge_stores_i8_i32:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sb zero, 0(a0)
-; ALL-NEXT:    sb zero, 1(a0)
-; ALL-NEXT:    sb zero, 2(a0)
-; ALL-NEXT:    sb zero, 3(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i8_i32:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sb zero, 0(a0)
+; NOMISALIGN-NEXT:    sb zero, 1(a0)
+; NOMISALIGN-NEXT:    sb zero, 2(a0)
+; NOMISALIGN-NEXT:    sb zero, 3(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-LABEL: merge_stores_i8_i32:
+; MISALIGN:       # %bb.0:
+; MISALIGN-NEXT:    sw zero, 0(a0)
+; MISALIGN-NEXT:    ret
   store i8 0, ptr %p
   %p2 = getelementptr i8, ptr %p, i32 1
   store i8 0, ptr %p2
@@ -297,17 +307,28 @@ define void @merge_stores_i8_i32(ptr %p) {
 }
 
 define void @merge_stores_i8_i64(ptr %p) {
-; ALL-LABEL: merge_stores_i8_i64:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sb zero, 0(a0)
-; ALL-NEXT:    sb zero, 1(a0)
-; ALL-NEXT:    sb zero, 2(a0)
-; ALL-NEXT:    sb zero, 3(a0)
-; ALL-NEXT:    sb zero, 4(a0)
-; ALL-NEXT:    sb zero, 5(a0)
-; ALL-NEXT:    sb zero, 6(a0)
-; ALL-NEXT:    sb zero, 7(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i8_i64:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sb zero, 0(a0)
+; NOMISALIGN-NEXT:    sb zero, 1(a0)
+; NOMISALIGN-NEXT:    sb zero, 2(a0)
+; NOMISALIGN-NEXT:    sb zero, 3(a0)
+; NOMISALIGN-NEXT:    sb zero, 4(a0)
+; NOMISALIGN-NEXT:    sb zero, 5(a0)
+; NOMISALIGN-NEXT:    sb zero, 6(a0)
+; NOMISALIGN-NEXT:    sb zero, 7(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-RV32I-LABEL: merge_stores_i8_i64:
+; MISALIGN-RV32I:       # %bb.0:
+; MISALIGN-RV32I-NEXT:    sw zero, 0(a0)
+; MISALIGN-RV32I-NEXT:    sw zero, 4(a0)
+; MISALIGN-RV32I-NEXT:    ret
+;
+; MISALIGN-RV64I-LABEL: merge_stores_i8_i64:
+; MISALIGN-RV64I:       # %bb.0:
+; MISALIGN-RV64I-NEXT:    sd zero, 0(a0)
+; MISALIGN-RV64I-NEXT:    ret
   store i8 0, ptr %p
   %p2 = getelementptr i8, ptr %p, i32 1
   store i8 0, ptr %p2
@@ -327,11 +348,16 @@ define void @merge_stores_i8_i64(ptr %p) {
 }
 
 define void @merge_stores_i16_i32(ptr %p) {
-; ALL-LABEL: merge_stores_i16_i32:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sh zero, 0(a0)
-; ALL-NEXT:    sh zero, 2(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i16_i32:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sh zero, 0(a0)
+; NOMISALIGN-NEXT:    sh zero, 2(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-LABEL: merge_stores_i16_i32:
+; MISALIGN:       # %bb.0:
+; MISALIGN-NEXT:    sw zero, 0(a0)
+; MISALIGN-NEXT:    ret
   store i16 0, ptr %p
   %p2 = getelementptr i16, ptr %p, i32 1
   store i16 0, ptr %p2
@@ -339,13 +365,24 @@ define void @merge_stores_i16_i32(ptr %p) {
 }
 
 define void @merge_stores_i16_i64(ptr %p) {
-; ALL-LABEL: merge_stores_i16_i64:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sh zero, 0(a0)
-; ALL-NEXT:    sh zero, 2(a0)
-; ALL-NEXT:    sh zero, 4(a0)
-; ALL-NEXT:    sh zero, 6(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i16_i64:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sh zero, 0(a0)
+; NOMISALIGN-NEXT:    sh zero, 2(a0)
+; NOMISALIGN-NEXT:    sh zero, 4(a0)
+; NOMISALIGN-NEXT:    sh zero, 6(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-RV32I-LABEL: merge_stores_i16_i64:
+; MISALIGN-RV32I:       # %bb.0:
+; MISALIGN-RV32I-NEXT:    sw zero, 0(a0)
+; MISALIGN-RV32I-NEXT:    sw zero, 4(a0)
+; MISALIGN-RV32I-NEXT:    ret
+;
+; MISALIGN-RV64I-LABEL: merge_stores_i16_i64:
+; MISALIGN-RV64I:       # %bb.0:
+; MISALIGN-RV64I-NEXT:    sd zero, 0(a0)
+; MISALIGN-RV64I-NEXT:    ret
   store i16 0, ptr %p
   %p2 = getelementptr i16, ptr %p, i32 1
   store i16 0, ptr %p2
@@ -357,11 +394,22 @@ define void @merge_stores_i16_i64(ptr %p) {
 }
 
 define void @merge_stores_i32_i64(ptr %p) {
-; ALL-LABEL: merge_stores_i32_i64:
-; ALL:       # %bb.0:
-; ALL-NEXT:    sw zero, 0(a0)
-; ALL-NEXT:    sw zero, 4(a0)
-; ALL-NEXT:    ret
+; NOMISALIGN-LABEL: merge_stores_i32_i64:
+; NOMISALIGN:       # %bb.0:
+; NOMISALIGN-NEXT:    sw zero, 0(a0)
+; NOMISALIGN-NEXT:    sw zero, 4(a0)
+; NOMISALIGN-NEXT:    ret
+;
+; MISALIGN-RV32I-LABEL: merge_stores_i32_i64:
+; MISALIGN-RV32I:       # %bb.0:
+; MISALIGN-RV32I-NEXT:    sw zero, 0(a0)
+; MISALIGN-RV32I-NEXT:    sw zero, 4(a0)
+; MISALIGN-RV32I-NEXT:    ret
+;
+; MISALIGN-RV64I-LABEL: merge_stores_i32_i64:
+; MISALIGN-RV64I:       # %bb.0:
+; MISALIGN-RV64I-NEXT:    sd zero, 0(a0)
+; MISALIGN-RV64I-NEXT:    ret
   store i32 0, ptr %p
   %p2 = getelementptr i32, ptr %p, i32 1
   store i32 0, ptr %p2
