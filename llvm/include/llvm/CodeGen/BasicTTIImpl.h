@@ -2211,11 +2211,6 @@ public:
     return LT.first.isValid() ? *LT.first.getValue() : 0;
   }
 
-  InstructionCost getAddressComputationCost(Type *Ty, ScalarEvolution *,
-                                            const SCEV *) {
-    return 0;
-  }
-
   /// Try to calculate arithmetic and shuffle op costs for reduction intrinsics.
   /// We're assuming that reduction operation are performing the following way:
   ///

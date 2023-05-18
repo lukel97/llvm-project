@@ -1059,9 +1059,9 @@ InstructionCost ARMTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
          BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
 }
 
-InstructionCost ARMTTIImpl::getAddressComputationCost(Type *Ty,
-                                                      ScalarEvolution *SE,
-                                                      const SCEV *Ptr) {
+InstructionCost
+ARMTTIImpl::getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                                const SCEV *Ptr) {
   // Address computations in vectorized code with non-consecutive addresses will
   // likely result in more instructions compared to scalar code where the
   // computation can more often be merged into the index mode. The resulting
@@ -1070,15 +1070,14 @@ InstructionCost ARMTTIImpl::getAddressComputationCost(Type *Ty,
   int MaxMergeDistance = 64;
 
   if (ST->hasNEON()) {
-    if (Ty->isVectorTy() && SE &&
-        !BaseT::isConstantStridedAccessLessThan(SE, Ptr, MaxMergeDistance + 1))
+    if (!BaseT::isConstantStridedAccessLessThan(SE, Ptr, MaxMergeDistance + 1))
       return NumVectorInstToHideOverhead;
 
     // In many cases the address computation is not merged into the instruction
     // addressing mode.
     return 1;
   }
-  return BaseT::getAddressComputationCost(Ty, SE, Ptr);
+  return BaseT::getVectorAddressComputationOverhead(SE, Ptr);
 }
 
 bool ARMTTIImpl::isProfitableLSRChainElement(Instruction *I) {

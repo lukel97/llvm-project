@@ -182,8 +182,8 @@ public:
                                        const TTI::PointersChainInfo &Info,
                                        Type *AccessTy,
                                        TTI::TargetCostKind CostKind);
-  InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
-                                            const SCEV *Ptr);
+  InstructionCost getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                                      const SCEV *Ptr);
 
   std::optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
                                                     IntrinsicInst &II) const;

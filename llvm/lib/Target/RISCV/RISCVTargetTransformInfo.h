@@ -147,6 +147,12 @@ public:
                                    TTI::TargetCostKind CostKind,
                                    const Instruction *I = nullptr);
 
+  InstructionCost getAddressComputationCost(Type *PtrTy,
+                                            const GlobalValue *BaseGV,
+                                            int64_t BaseOffset, bool HasBaseReg,
+                                            int64_t Scale,
+                                            TTI::TargetCostKind CostKind);
+
   InstructionCost getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
                                          bool IsUnsigned, FastMathFlags FMF,
                                          TTI::TargetCostKind CostKind);

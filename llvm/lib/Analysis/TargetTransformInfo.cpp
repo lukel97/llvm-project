@@ -765,12 +765,8 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
   OperandValueProperties OpProps = OP_None;
 
   if (isa<ConstantInt>(V) || isa<ConstantFP>(V)) {
-    if (const auto *CI = dyn_cast<ConstantInt>(V)) {
-      if (CI->getValue().isPowerOf2())
-        OpProps = OP_PowerOf2;
-      else if (CI->getValue().isNegatedPowerOf2())
-        OpProps = OP_NegatedPowerOf2;
-    }
+    if (const auto *CI = dyn_cast<ConstantInt>(V))
+      return getOperandInfo(CI->getValue());
     return {OK_UniformConstantValue, OpProps};
   }
 
@@ -818,6 +814,16 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
     OpInfo = OK_UniformValue;
 
   return {OpInfo, OpProps};
+}
+
+TargetTransformInfo::OperandValueInfo
+TargetTransformInfo::getOperandInfo(APInt C) {
+  OperandValueProperties OpProps = OP_None;
+  if (C.isPowerOf2())
+    OpProps = OP_PowerOf2;
+  else if (C.isNegatedPowerOf2())
+    OpProps = OP_NegatedPowerOf2;
+  return {TTI::OK_UniformConstantValue, OpProps};
 }
 
 InstructionCost TargetTransformInfo::getArithmeticInstrCost(
@@ -1020,10 +1026,18 @@ unsigned TargetTransformInfo::getNumberOfParts(Type *Tp) const {
   return TTIImpl->getNumberOfParts(Tp);
 }
 
-InstructionCost
-TargetTransformInfo::getAddressComputationCost(Type *Tp, ScalarEvolution *SE,
-                                               const SCEV *Ptr) const {
-  InstructionCost Cost = TTIImpl->getAddressComputationCost(Tp, SE, Ptr);
+InstructionCost TargetTransformInfo::getAddressComputationCost(
+    Type *PtrTy, const GlobalValue *BaseGV, int64_t BaseOffset, bool HasBaseReg,
+    int64_t Scale, TTI::TargetCostKind CostKind) const {
+  InstructionCost Cost = TTIImpl->getAddressComputationCost(
+      PtrTy, BaseGV, BaseOffset, HasBaseReg, Scale, CostKind);
+  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  return Cost;
+}
+
+InstructionCost TargetTransformInfo::getVectorAddressComputationOverhead(
+    ScalarEvolution *SE, const SCEV *Ptr) const {
+  InstructionCost Cost = TTIImpl->getVectorAddressComputationOverhead(SE, Ptr);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

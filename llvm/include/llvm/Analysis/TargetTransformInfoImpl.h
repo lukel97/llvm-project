@@ -708,9 +708,19 @@ public:
   // Assume that we have a register of the right size for the type.
   unsigned getNumberOfParts(Type *Tp) const { return 1; }
 
-  InstructionCost getAddressComputationCost(Type *Tp, ScalarEvolution *,
-                                            const SCEV *) const {
-    return 0;
+  // Assume that on most targets, an address can be computed in one add.
+  InstructionCost
+  getAddressComputationCost(Type *PtrTy, const GlobalValue *BaseGV,
+                            int64_t BaseOffset, bool HasBaseReg, int64_t Scale,
+                            TTI::TargetCostKind CostKind) const {
+    return getArithmeticInstrCost(
+        Instruction::Add, PtrTy, CostKind, {TTI::OK_AnyValue, TTI::OP_None},
+        {TTI::OK_AnyValue, TTI::OP_None}, std::nullopt);
+  }
+
+  InstructionCost getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                                      const SCEV *Ptr) const {
+    return TTI::TCC_Free;
   }
 
   InstructionCost getArithmeticReductionCost(unsigned, VectorType *,
@@ -994,19 +1004,21 @@ public:
     auto GTI = gep_type_begin(PointeeType, Operands);
     Type *TargetType = nullptr;
 
-    // Handle the case where the GEP instruction has a single operand,
-    // the basis, therefore TargetType is a nullptr.
-    if (Operands.empty())
-      return !BaseGV ? TTI::TCC_Free : TTI::TCC_Basic;
+    if (!BaseGV) {
+      // Handle the case where the GEP instruction has a single operand,
+      // the basis, therefore TargetType is a nullptr.
+      if (Operands.empty())
+        return TTI::TCC_Free;
 
-    // If the GEP would have all zero indices (and it's not using a global
-    // value), then it's just a type cast and is free.
-    if (all_of(Operands, [](const Value *Op) {
-          if (auto *CI = dyn_cast<ConstantInt>(Op))
-            return CI->isZero();
-          return isa<ConstantAggregateZero>(Op);
-        }))
-      return !BaseGV ? TTI::TCC_Free : TTI::TCC_Basic;
+      // If the GEP would have all zero indices (and it's not using a global
+      // value), then it's just a type cast and is free.
+      if (all_of(Operands, [](const Value *Op) {
+            if (auto *CI = dyn_cast<ConstantInt>(Op))
+              return CI->isZero();
+            return isa<ConstantAggregateZero>(Op);
+          }))
+        return TTI::TCC_Free;
+    }
 
     for (auto I = Operands.begin(); I != Operands.end(); ++I, ++GTI) {
       TargetType = GTI.getIndexedType();
@@ -1054,10 +1066,11 @@ public:
           HasBaseReg, Scale, Ptr->getType()->getPointerAddressSpace());
     });
 
-    // TODO: Instead of returning TCC_Basic here, we should use
-    // getArithmeticInstrCost. Or better yet, provide a hook to let the target
-    // model it.
-    return IsFoldable ? TTI::TCC_Free : TTI::TCC_Basic;
+    if (IsFoldable)
+      return TTI::TCC_Free;
+
+    return static_cast<T *>(this)->getAddressComputationCost(
+        Ptr->getType(), BaseGV, BaseOffsetVal, HasBaseReg, Scale, CostKind);
   }
 
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,

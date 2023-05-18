@@ -1717,6 +1717,8 @@ private:
   InstructionCost getScalarizationOverhead(Instruction *I, ElementCount VF,
                                            TTI::TargetCostKind CostKind) const;
 
+  InstructionCost getPointerCost(const Value *Ptr, Type *AccessTy, TTI::TargetCostKind CostKind);
+
   /// Returns true if an artificially high cost for emulated masked memrefs
   /// should be used.
   bool useEmulatedMaskMemRefHack(Instruction *I, ElementCount VF);
@@ -6421,17 +6423,14 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
 
   unsigned AS = getLoadStoreAddressSpace(I);
   Value *Ptr = getLoadStorePointerOperand(I);
-  Type *PtrTy = ToVectorTy(Ptr->getType(), VF);
-  // NOTE: PtrTy is a vector to signal `TTI::getAddressComputationCost`
-  //       that it is being called from this specific place.
 
   // Figure out whether the access is strided and get the stride value
   // if it's known in compile time
   const SCEV *PtrSCEV = getAddressAccessSCEV(Ptr, Legal, PSE, TheLoop);
 
   // Get the cost of the scalar memory instruction and address computation.
-  InstructionCost Cost =
-      VF.getKnownMinValue() * TTI.getAddressComputationCost(PtrTy, SE, PtrSCEV);
+  InstructionCost Cost = VF.getKnownMinValue() *
+                         TTI.getVectorAddressComputationOverhead(SE, PtrSCEV);
 
   // Don't pass *I here, since it is scalar but will actually be part of a
   // vectorized loop where the user of it is a vectorized instruction.
@@ -6499,17 +6498,27 @@ LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
 }
 
 InstructionCost
+LoopVectorizationCostModel::getPointerCost(const Value *Ptr, Type *AccessTy, TTI::TargetCostKind CostKind) {
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+    SmallVector<const Value *> Indices(GEP->indices());
+    return TTI.getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(), Indices, {AccessTy}, CostKind);
+  }
+  return TTI::TCC_Free;
+}
+
+InstructionCost
 LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
                                                 ElementCount VF) {
   assert(Legal->isUniformMemOp(*I));
 
   Type *ValTy = getLoadStoreType(I);
+  Value *Ptr = getLoadStorePointerOperand(I);
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   const Align Alignment = getLoadStoreAlignment(I);
   unsigned AS = getLoadStoreAddressSpace(I);
   enum TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
   if (isa<LoadInst>(I)) {
-    return TTI.getAddressComputationCost(ValTy) +
+    return getPointerCost(Ptr, ValTy, CostKind) +
            TTI.getMemoryOpCost(Instruction::Load, ValTy, Alignment, AS,
                                CostKind) +
            TTI.getShuffleCost(TargetTransformInfo::SK_Broadcast, VectorTy);
@@ -6517,7 +6526,7 @@ LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
   StoreInst *SI = cast<StoreInst>(I);
 
   bool isLoopInvariantStoreValue = Legal->isUniform(SI->getValueOperand());
-  return TTI.getAddressComputationCost(ValTy) +
+  return getPointerCost(Ptr, ValTy, CostKind) +
          TTI.getMemoryOpCost(Instruction::Store, ValTy, Alignment, AS,
                              CostKind) +
          (isLoopInvariantStoreValue
@@ -6533,11 +6542,12 @@ LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   const Align Alignment = getLoadStoreAlignment(I);
   const Value *Ptr = getLoadStorePointerOperand(I);
+  enum TTI::TargetCostKind CostKind = TargetTransformInfo::TCK_RecipThroughput;
 
-  return TTI.getAddressComputationCost(VectorTy) +
-         TTI.getGatherScatterOpCost(
-             I->getOpcode(), VectorTy, Ptr, Legal->isMaskRequired(I), Alignment,
-             TargetTransformInfo::TCK_RecipThroughput, I);
+  return getPointerCost(Ptr, VectorTy, CostKind) +
+         TTI.getGatherScatterOpCost(I->getOpcode(), VectorTy, Ptr,
+                                    Legal->isMaskRequired(I), Alignment,
+                                    CostKind, I);
 }
 
 InstructionCost
@@ -6766,9 +6776,10 @@ LoopVectorizationCostModel::getMemoryInstructionCost(Instruction *I,
     Type *ValTy = getLoadStoreType(I);
     const Align Alignment = getLoadStoreAlignment(I);
     unsigned AS = getLoadStoreAddressSpace(I);
+    Value *Ptr = getLoadStorePointerOperand(I);
 
     TTI::OperandValueInfo OpInfo = TTI::getOperandInfo(I->getOperand(0));
-    return TTI.getAddressComputationCost(ValTy) +
+    return getPointerCost(Ptr, ValTy, TTI::TCK_RecipThroughput) +
            TTI.getMemoryOpCost(I->getOpcode(), ValTy, Alignment, AS,
                                TTI::TCK_RecipThroughput, OpInfo, I);
   }

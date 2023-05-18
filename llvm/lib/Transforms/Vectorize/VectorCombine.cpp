@@ -1183,7 +1183,12 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
     ScalarizedCost +=
         TTI.getMemoryOpCost(Instruction::Load, FixedVT->getElementType(),
                             Align(1), LI->getPointerAddressSpace());
-    ScalarizedCost += TTI.getAddressComputationCost(FixedVT->getElementType());
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+      SmallVector<const Value *> Indices(GEP->indices());
+      ScalarizedCost +=
+          TTI.getGEPCost(GEP->getPointerOperandType(), GEP->getPointerOperand(),
+                         Indices, {FixedVT->getElementType()}, CostKind);
+    }
   }
 
   if (ScalarizedCost >= OriginalCost)

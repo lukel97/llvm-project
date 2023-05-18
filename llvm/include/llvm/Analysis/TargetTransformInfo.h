@@ -1184,6 +1184,8 @@ public:
 
   /// Collect properties of V used in cost analysis, e.g. OP_PowerOf2.
   static OperandValueInfo getOperandInfo(const Value *V);
+  /// Collect properties of a constant C used in cost analysis.
+  static OperandValueInfo getOperandInfo(APInt C);
 
   /// This is an approximation of reciprocal throughput of a math/logic op.
   /// A higher cost indicates less expected throughput.
@@ -1452,9 +1454,14 @@ public:
   /// The 'SE' parameter holds pointer for the scalar evolution object which
   /// is used in order to get the Ptr step value in case of constant stride.
   /// The 'Ptr' parameter holds SCEV of the access pointer.
-  InstructionCost getAddressComputationCost(Type *Ty,
-                                            ScalarEvolution *SE = nullptr,
-                                            const SCEV *Ptr = nullptr) const;
+  InstructionCost getAddressComputationCost(Type *PtrTy,
+                                            const GlobalValue *BaseGV,
+                                            int64_t BaseOffset, bool HasBaseReg,
+                                            int64_t Scale,
+                                            TTI::TargetCostKind CostKind) const;
+
+  InstructionCost getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                                      const SCEV *Ptr) const;
 
   /// \returns The cost, if any, of keeping values of the given types alive
   /// over a callsite.
@@ -1971,7 +1978,11 @@ public:
                                            TTI::TargetCostKind CostKind) = 0;
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
   virtual InstructionCost
-  getAddressComputationCost(Type *Ty, ScalarEvolution *SE, const SCEV *Ptr) = 0;
+  getAddressComputationCost(Type *PtrTy, const GlobalValue *BaseGV,
+                            int64_t BaseOffset, bool HasBaseReg, int64_t Scale,
+                            TTI::TargetCostKind CostKind) = 0;
+  virtual InstructionCost
+  getVectorAddressComputationOverhead(ScalarEvolution *SE, const SCEV *Ptr) = 0;
   virtual InstructionCost
   getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) = 0;
   virtual bool getTgtMemIntrinsic(IntrinsicInst *Inst,
@@ -2593,9 +2604,17 @@ public:
   unsigned getNumberOfParts(Type *Tp) override {
     return Impl.getNumberOfParts(Tp);
   }
-  InstructionCost getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
-                                            const SCEV *Ptr) override {
-    return Impl.getAddressComputationCost(Ty, SE, Ptr);
+  InstructionCost
+  getAddressComputationCost(Type *PtrTy, const GlobalValue *BaseGV,
+                            int64_t BaseOffset, bool HasBaseReg, int64_t Scale,
+                            TTI::TargetCostKind CostKind) override {
+    return Impl.getAddressComputationCost(PtrTy, BaseGV, BaseOffset, HasBaseReg,
+                                          Scale, CostKind);
+  }
+  InstructionCost
+  getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                      const SCEV *Ptr) override {
+    return Impl.getVectorAddressComputationOverhead(SE, Ptr);
   }
   InstructionCost getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) override {
     return Impl.getCostOfKeepingLiveOverCall(Tys);

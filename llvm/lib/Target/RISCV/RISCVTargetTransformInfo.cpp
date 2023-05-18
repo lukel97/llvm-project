@@ -1198,6 +1198,49 @@ InstructionCost RISCVTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
 }
 
+InstructionCost RISCVTTIImpl::getAddressComputationCost(
+    Type *PtrTy, const GlobalValue *BaseGV, int64_t BaseOffset, bool HasBaseReg,
+    int64_t Scale, TTI::TargetCostKind CostKind) {
+  InstructionCost Cost;
+  // If we're using a global as a base then we will need to emit a sequence like
+  //    lui     a0, %hi(G)
+  //    addi    a0, a0, %lo(G)
+  // TODO: Consider linker relaxation?
+  if (BaseGV) {
+    Cost += TTI::TCC_Basic;
+    Cost += getArithmeticInstrCost(Instruction::Add, PtrTy, CostKind);
+  }
+
+  // Work out how many adds we'll need to compute BaseGV + BaseOffset + BaseReg
+  // + Scale*ScaleReg
+  SmallVector<TTI::OperandValueInfo, 3> ToAdd;
+  if (BaseGV)
+    ToAdd.push_back({});
+  if (BaseOffset)
+    ToAdd.push_back(TTI::getOperandInfo(
+        APInt(DL.getPointerTypeSizeInBits(PtrTy), BaseOffset, true)));
+  if (HasBaseReg)
+    ToAdd.push_back({});
+  if (Scale)
+    ToAdd.push_back({});
+
+  // TODO: PtrTy is not accurate, and depends on the actual type of the indices
+  // being used in the GEP.
+  if (ToAdd.size() >= 2) {
+    auto LHS = ToAdd.pop_back_val();
+    auto RHS = ToAdd.pop_back_val();
+    Cost += getArithmeticInstrCost(Instruction::Add, PtrTy, CostKind, LHS, RHS);
+    while (!ToAdd.empty())
+      Cost += getArithmeticInstrCost(Instruction::Add, PtrTy, CostKind,
+                                     ToAdd.pop_back_val());
+  }
+
+  // We will need a multiply if we need to scale
+  if (Scale > 1)
+    Cost += getArithmeticInstrCost(Instruction::Mul, PtrTy, CostKind);
+  return Cost;
+}
+
 unsigned RISCVTTIImpl::getEstimatedVLFor(VectorType *Ty) {
   if (isa<ScalableVectorType>(Ty)) {
     const unsigned EltSize = DL.getTypeSizeInBits(Ty->getElementType());

@@ -2536,9 +2536,9 @@ InstructionCost AArch64TTIImpl::getArithmeticInstrCost(
   }
 }
 
-InstructionCost AArch64TTIImpl::getAddressComputationCost(Type *Ty,
-                                                          ScalarEvolution *SE,
-                                                          const SCEV *Ptr) {
+InstructionCost
+AArch64TTIImpl::getVectorAddressComputationOverhead(ScalarEvolution *SE,
+                                                    const SCEV *Ptr) {
   // Address computations in vectorized code with non-consecutive addresses will
   // likely result in more instructions compared to scalar code where the
   // computation can more often be merged into the index mode. The resulting
@@ -2546,13 +2546,12 @@ InstructionCost AArch64TTIImpl::getAddressComputationCost(Type *Ty,
   unsigned NumVectorInstToHideOverhead = 10;
   int MaxMergeDistance = 64;
 
-  if (Ty->isVectorTy() && SE &&
-      !BaseT::isConstantStridedAccessLessThan(SE, Ptr, MaxMergeDistance + 1))
+  if (!BaseT::isConstantStridedAccessLessThan(SE, Ptr, MaxMergeDistance + 1))
     return NumVectorInstToHideOverhead;
 
   // In many cases the address computation is not merged into the instruction
   // addressing mode.
-  return 1;
+  return TTI::TCC_Basic;
 }
 
 InstructionCost AArch64TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,

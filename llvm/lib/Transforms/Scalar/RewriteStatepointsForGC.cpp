@@ -2340,15 +2340,8 @@ chainToBasePointerCost(SmallVectorImpl<Instruction *> &Chain,
 
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Instr)) {
       // Cost of the address calculation
-      Type *ValTy = GEP->getSourceElementType();
-      Cost += TTI.getAddressComputationCost(ValTy);
-
-      // And cost of the GEP itself
-      // TODO: Use TTI->getGEPCost here (it exists, but appears to be not
-      //       allowed for the external usage)
-      if (!GEP->hasAllConstantIndices())
-        Cost += 2;
-
+      Cost +=
+          TTI.getGEPCost(GEP, TargetTransformInfo::TCK_SizeAndLatency);
     } else {
       llvm_unreachable("unsupported instruction type during rematerialization");
     }
