@@ -12194,6 +12194,26 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
         if (ISD::isBuildVectorAllZeros(Val.getNode())) {
           NewV = DAG.getConstant(0, DL, NewVT);
         }
+        // Scalarize stores of constants that fit into i32
+        // TODO: Potentially look at extending this for i64, if constant
+        // materialization isn't too expensive
+        else if (MemVT.getSizeInBits() <= 32 &&
+                 ISD::isBuildVectorOfConstantSDNodes(Val.getNode())) {
+          APInt SplatVal, SplatUndef;
+          unsigned SplatBitSize;
+          bool HasAnyUndefs;
+	  // isConstantSplat doesn't work on elements smaller than i8	  
+	  // Set MinSplatBits to the size of the scalar to get a single splat
+	  // value
+          if (MemVT.getVectorElementType().bitsGE(MVT::i8) &&
+              cast<BuildVectorSDNode>(Val)->isConstantSplat(
+                  SplatVal, SplatUndef, SplatBitSize, HasAnyUndefs,
+                  NewVT.getSizeInBits()) &&
+              !HasAnyUndefs) {
+            assert(SplatBitSize == NewVT.getSizeInBits());
+            NewV = DAG.getConstant(SplatVal, DL, NewVT);
+          }
+        }
         // Scalarize vector copies, e.g.
         //   vsetivli   zero, 2, e16, m1, ta, ma
         //   vle16.v    v8, (a0)
