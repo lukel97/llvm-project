@@ -12173,27 +12173,49 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     EVT MemVT = Store->getMemoryVT();
     SDValue Val = Store->getValue();
 
-    // Using vector to store zeros requires e.g.:
-    //   vsetivli   zero, 2, e64, m1, ta, ma
-    //   vmv.v.i    v8, 0
-    //   vse64.v    v8, (a0)
-    // If sufficiently aligned, we can use at most one scalar store to zero
-    // initialize any power-of-two size up to XLen bits.
-    if (DCI.isBeforeLegalize() && !Store->isTruncatingStore() &&
-        !Store->isIndexed() && ISD::isBuildVectorAllZeros(Val.getNode()) &&
+    // If sufficiently aligned, we can convert a vector store to a (single)
+    // scalar store of a power-of-two size up to XLen bits.
+    if (DCI.isBeforeLegalize() && ISD::isNormalStore(Store) &&
+        MemVT.isFixedLengthVector() &&
         MemVT.getVectorElementType().bitsLE(Subtarget.getXLenVT()) &&
         isPowerOf2_64(MemVT.getSizeInBits()) &&
         MemVT.getSizeInBits() <= Subtarget.getXLen()) {
       assert(!MemVT.isScalableVector());
       auto NewVT = MVT::getIntegerVT(MemVT.getSizeInBits());
+      SDLoc DL(N);
+      SDValue Chain = Store->getChain();
       if (allowsMemoryAccessForAlignment(*DAG.getContext(), DAG.getDataLayout(),
                                          NewVT, *Store->getMemOperand())) {
-        SDLoc DL(N);
-        SDValue Chain = Store->getChain();
-        auto NewV = DAG.getConstant(0, DL, NewVT);
-        return DAG.getStore(Chain, DL, NewV, Store->getBasePtr(),
-                            Store->getPointerInfo(), Store->getOriginalAlign(),
-                            Store->getMemOperand()->getFlags());
+        SDValue NewV;
+        // Scalarize vector stores of zeroes, e.g.
+        //   vsetivli   zero, 2, e16, m1, ta, ma
+        //   vmv.v.i    v8, 0
+        //   vse64.v    v8, (a0)
+        if (ISD::isBuildVectorAllZeros(Val.getNode())) {
+          NewV = DAG.getConstant(0, DL, NewVT);
+        }
+        // Scalarize vector copies, e.g.
+        //   vsetivli   zero, 2, e16, m1, ta, ma
+        //   vle16.v    v8, (a0)
+        //   vse16.v    v8, (a1)
+        // TODO: Handle loads with multiple uses
+        else if (auto *L = dyn_cast<LoadSDNode>(Val);
+                 L && Store->isSimple() && L->hasNUsesOfValue(1, 0) &&
+                 L->hasNUsesOfValue(1, 1) &&
+                 Store->getChain() == SDValue(L, 1) && ISD::isNormalLoad(L) &&
+                 L->getMemoryVT() == MemVT &&
+                 allowsMemoryAccessForAlignment(*DAG.getContext(),
+                                                DAG.getDataLayout(), NewVT,
+                                                *L->getMemOperand())) {
+          NewV = DAG.getLoad(NewVT, DL, L->getChain(), L->getBasePtr(),
+                             L->getPointerInfo(), L->getOriginalAlign(),
+                             L->getMemOperand()->getFlags());
+        }
+
+        if (NewV)
+          return DAG.getStore(
+              Chain, DL, NewV, Store->getBasePtr(), Store->getPointerInfo(),
+              Store->getOriginalAlign(), Store->getMemOperand()->getFlags());
       }
     }
 
