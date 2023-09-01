@@ -26192,8 +26192,10 @@ static SDValue scalarizeBinOpOfSplats(SDNode *N, SelectionDAG &DAG,
   SDValue Src1 = DAG.getSplatSourceVector(N1, Index1);
   // Extract element from splat_vector should be free.
   // TODO: use DAG.isSplatValue instead?
-  bool IsBothSplatVector = N0.getOpcode() == ISD::SPLAT_VECTOR &&
-                           N1.getOpcode() == ISD::SPLAT_VECTOR;
+  bool IsBothSplatVector = (N0.getOpcode() == ISD::SPLAT_VECTOR &&
+                            N1.getOpcode() == ISD::SPLAT_VECTOR) ||
+                           (N0.getOpcode() == ISD::BUILD_VECTOR &&
+                            N1.getOpcode() == ISD::BUILD_VECTOR);
   if (!Src0 || !Src1 || Index0 != Index1 ||
       Src0.getValueType().getVectorElementType() != EltVT ||
       Src1.getValueType().getVectorElementType() != EltVT ||
