@@ -3570,12 +3570,27 @@ bool RISCVDAGToDAGISel::performCombineVMergeAndVOps(SDNode *N) {
     // The vmerge instruction must be TU.
     if (isImplicitDef(Merge))
       return false;
-    // The vmerge instruction must have an all 1s mask since we're going to keep
-    // the mask from the True instruction.
-    // FIXME: Support mask agnostic True instruction which would have an
-    // undef merge operand.
-    if (Mask && !usesAllOnesMask(Mask, Glue))
-      return false;
+    if (Mask) {
+      // THE vmerge instruction must have an all 1s mask or equal to True's mask
+      // since we're going to keep the mask from the True instruction.
+      // FIXME: Support mask agnostic True instruction which would have an
+      // undef merge operand.
+      assert(Glue.getNode() == N->getGluedNode());
+      // We're expecting something like:
+      // t24: nxv2i32 = PseudoVMERGE_VVM_M1 ..., $v0, ..., t27:1
+      //   t23: nxv2i32 = PseudoVADD_VV_M1_MASK ..., $v0, ..., t29:1
+      //     t29: ch,glue = CopyToReg t0, $v0, t8
+      //   t27: ch,glue = CopyToReg t0, $v0, t8
+      assert(Glue->getOpcode() == ISD::CopyToReg);
+      assert(True->getGluedNode()->getOpcode() == ISD::CopyToReg);
+      assert(Glue->getOperand(1) == Mask);
+      assert(True->getGluedNode()->getOperand(1) ==
+             True->getOperand(Info->MaskOpIdx));
+      SDValue TrueMask = N->getGluedNode()->getOperand(2);
+      SDValue NMask = True->getGluedNode()->getOperand(2);
+      if (!usesAllOnesMask(Mask, Glue) && TrueMask != NMask)
+        return false;
+    }
   }
 
   // Skip if True has side effect.
