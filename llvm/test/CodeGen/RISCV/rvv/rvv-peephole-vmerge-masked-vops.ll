@@ -18,6 +18,20 @@ define <vscale x 2 x i32> @vpmerge_vadd(<vscale x 2 x i32> %passthru, <vscale x 
 }
 declare <vscale x 2 x i32> @llvm.riscv.vadd.mask.nxv2i32.nxv2i32(<vscale x 2 x i32>, <vscale x 2 x i32>, <vscale x 2 x i32>, <vscale x 2 x i1>, i64, i64)
 
+; We should be able to merge vmerge into its op if the masks are the same
+define <vscale x 2 x i32> @vmerge_vadd_same_mask(<vscale x 2 x i32> %passthru, <vscale x 2 x i32> %x, <vscale x 2 x i32> %y, <vscale x 2 x i1> %m, i64 %vl) {
+; CHECK-LABEL: vmerge_vadd_same_mask:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, ma
+; CHECK-NEXT:    vadd.vv v9, v9, v10, v0.t
+; CHECK-NEXT:    vsetvli zero, zero, e32, m1, tu, ma
+; CHECK-NEXT:    vmerge.vvm v8, v8, v9, v0
+; CHECK-NEXT:    ret
+  %a = call <vscale x 2 x i32> @llvm.riscv.vadd.mask.nxv2i32.nxv2i32(<vscale x 2 x i32> poison, <vscale x 2 x i32> %x, <vscale x 2 x i32> %y, <vscale x 2 x i1> %m, i64 %vl, i64 0)
+  %b = call <vscale x 2 x i32> @llvm.riscv.vmerge.nxv2i32.nxv2i32(<vscale x 2 x i32> %passthru, <vscale x 2 x i32> %passthru, <vscale x 2 x i32> %a, <vscale x 2 x i1> %m, i64 %vl)
+  ret <vscale x 2 x i32> %b
+}
+
 define <vscale x 2 x i32> @vpmerge_vsub(<vscale x 2 x i32> %passthru, <vscale x 2 x i32> %x, <vscale x 2 x i32> %y, <vscale x 2 x i1> %m, i64 %vl) {
 ; CHECK-LABEL: vpmerge_vsub:
 ; CHECK:       # %bb.0:
@@ -257,4 +271,19 @@ entry:
   %i = fptosi <vscale x 2 x float> %floor to <vscale x 2 x i32>
   %res = call <vscale x 2 x i32> @llvm.vp.merge.nxv2i32(<vscale x 2 x i1> %m, <vscale x 2 x i32> %i, <vscale x 2 x i32> %passthru, i32 %evl)
   ret <vscale x 2 x i32> %res
+}
+
+; Test that a vp op and a vp merge with the same mask and evl are merged
+declare <vscale x 2 x i32>  @llvm.vp.add.nxv2i32(<vscale x 2 x i32>, <vscale x 2 x i32>, <vscale x 2 x i1>, i32)
+define <vscale x 2 x i32> @vmerge_vadd(<vscale x 2 x i32> %passthru, <vscale x 2 x i32> %x, <vscale x 2 x i32> %y, <vscale x 2 x i1> %m, i32 zeroext %evl) {
+; CHECK-LABEL: vmerge_vadd:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, ma
+; CHECK-NEXT:    vadd.vv v9, v9, v10, v0.t
+; CHECK-NEXT:    vsetvli zero, zero, e32, m1, tu, ma
+; CHECK-NEXT:    vmerge.vvm v8, v8, v9, v0
+; CHECK-NEXT:    ret
+  %1 = call <vscale x 2 x i32> @llvm.vp.add.nxv2i32(<vscale x 2 x i32> %x, <vscale x 2 x i32> %y, <vscale x 2 x i1> %m, i32 %evl)
+  %2 = call <vscale x 2 x i32> @llvm.vp.merge.nxv2i32(<vscale x 2 x i1> %m, <vscale x 2 x i32> %1, <vscale x 2 x i32> %passthru, i32 %evl)
+  ret <vscale x 2 x i32> %2
 }
