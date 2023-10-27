@@ -512,7 +512,13 @@ void InstrEmitter::EmitSubregNode(SDNode *Node,
 
     Register SrcReg, DstReg;
     unsigned DefSubIdx;
-    if (DefMI &&
+    
+    if (Node->getOperand(0).getOpcode() == TargetOpcode::IMPLICIT_DEF) {
+      VRBase = MRI->createVirtualRegister(TRC);
+      BuildMI(*MBB, InsertPos, Node->getDebugLoc(),
+              TII->get(TargetOpcode::IMPLICIT_DEF), VRBase);
+    }
+    else if (DefMI &&
         TII->isCoalescableExtInstr(*DefMI, SrcReg, DstReg, DefSubIdx) &&
         SubIdx == DefSubIdx &&
         TRC == MRI->getRegClass(SrcReg)) {
