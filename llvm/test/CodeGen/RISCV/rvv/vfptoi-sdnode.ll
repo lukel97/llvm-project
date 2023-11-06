@@ -925,10 +925,7 @@ define <vscale x 32 x i1> @vfptosi_nxv32f16_nxv32i1(<vscale x 32 x half> %va) {
 ;
 ; ZVFHMIN-LABEL: vfptosi_nxv32f16_nxv32i1:
 ; ZVFHMIN:       # %bb.0:
-; ZVFHMIN-NEXT:    csrr a0, vlenb
-; ZVFHMIN-NEXT:    srli a0, a0, 2
-; ZVFHMIN-NEXT:    add a1, a0, a0
-; ZVFHMIN-NEXT:    vsetvli a2, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vfncvt.rtz.x.f.w v12, v16
 ; ZVFHMIN-NEXT:    vand.vi v12, v12, 1
@@ -937,6 +934,9 @@ define <vscale x 32 x i1> @vfptosi_nxv32f16_nxv32i1(<vscale x 32 x half> %va) {
 ; ZVFHMIN-NEXT:    vfncvt.rtz.x.f.w v8, v24
 ; ZVFHMIN-NEXT:    vand.vi v8, v8, 1
 ; ZVFHMIN-NEXT:    vmsne.vi v0, v8, 0
+; ZVFHMIN-NEXT:    csrr a0, vlenb
+; ZVFHMIN-NEXT:    srli a0, a0, 2
+; ZVFHMIN-NEXT:    add a1, a0, a0
 ; ZVFHMIN-NEXT:    vsetvli zero, a1, e8, mf2, tu, ma
 ; ZVFHMIN-NEXT:    vslideup.vx v0, v16, a0
 ; ZVFHMIN-NEXT:    ret
@@ -955,10 +955,7 @@ define <vscale x 32 x i1> @vfptoui_nxv32f16_nxv32i1(<vscale x 32 x half> %va) {
 ;
 ; ZVFHMIN-LABEL: vfptoui_nxv32f16_nxv32i1:
 ; ZVFHMIN:       # %bb.0:
-; ZVFHMIN-NEXT:    csrr a0, vlenb
-; ZVFHMIN-NEXT:    srli a0, a0, 2
-; ZVFHMIN-NEXT:    add a1, a0, a0
-; ZVFHMIN-NEXT:    vsetvli a2, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vfncvt.rtz.xu.f.w v12, v16
 ; ZVFHMIN-NEXT:    vand.vi v12, v12, 1
@@ -967,6 +964,9 @@ define <vscale x 32 x i1> @vfptoui_nxv32f16_nxv32i1(<vscale x 32 x half> %va) {
 ; ZVFHMIN-NEXT:    vfncvt.rtz.xu.f.w v8, v24
 ; ZVFHMIN-NEXT:    vand.vi v8, v8, 1
 ; ZVFHMIN-NEXT:    vmsne.vi v0, v8, 0
+; ZVFHMIN-NEXT:    csrr a0, vlenb
+; ZVFHMIN-NEXT:    srli a0, a0, 2
+; ZVFHMIN-NEXT:    add a1, a0, a0
 ; ZVFHMIN-NEXT:    vsetvli zero, a1, e8, mf2, tu, ma
 ; ZVFHMIN-NEXT:    vslideup.vx v0, v16, a0
 ; ZVFHMIN-NEXT:    ret
@@ -985,15 +985,16 @@ define <vscale x 32 x i8> @vfptosi_nxv32f16_nxv32i8(<vscale x 32 x half> %va) {
 ; ZVFHMIN-LABEL: vfptosi_nxv32f16_nxv32i8:
 ; ZVFHMIN:       # %bb.0:
 ; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vfncvt.rtz.x.f.w v24, v16
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e8, m2, ta, ma
-; ZVFHMIN-NEXT:    vnsrl.wi v8, v24, 0
+; ZVFHMIN-NEXT:    vnsrl.wi v14, v24, 0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
-; ZVFHMIN-NEXT:    vfncvt.rtz.x.f.w v12, v16
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vfncvt.rtz.x.f.w v8, v16
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e8, m2, ta, ma
-; ZVFHMIN-NEXT:    vnsrl.wi v10, v12, 0
+; ZVFHMIN-NEXT:    vnsrl.wi v12, v8, 0
+; ZVFHMIN-NEXT:    vmv4r.v v8, v12
 ; ZVFHMIN-NEXT:    ret
   %evec = fptosi <vscale x 32 x half> %va to <vscale x 32 x i8>
   ret <vscale x 32 x i8> %evec
@@ -1010,15 +1011,16 @@ define <vscale x 32 x i8> @vfptoui_nxv32f16_nxv32i8(<vscale x 32 x half> %va) {
 ; ZVFHMIN-LABEL: vfptoui_nxv32f16_nxv32i8:
 ; ZVFHMIN:       # %bb.0:
 ; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vfncvt.rtz.xu.f.w v24, v16
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e8, m2, ta, ma
-; ZVFHMIN-NEXT:    vnsrl.wi v8, v24, 0
+; ZVFHMIN-NEXT:    vnsrl.wi v14, v24, 0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
-; ZVFHMIN-NEXT:    vfncvt.rtz.xu.f.w v12, v16
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vfncvt.rtz.xu.f.w v8, v16
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e8, m2, ta, ma
-; ZVFHMIN-NEXT:    vnsrl.wi v10, v12, 0
+; ZVFHMIN-NEXT:    vnsrl.wi v12, v8, 0
+; ZVFHMIN-NEXT:    vmv4r.v v8, v12
 ; ZVFHMIN-NEXT:    ret
   %evec = fptoui <vscale x 32 x half> %va to <vscale x 32 x i8>
   ret <vscale x 32 x i8> %evec

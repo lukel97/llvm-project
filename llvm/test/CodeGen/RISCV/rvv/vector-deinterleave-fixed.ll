@@ -13,11 +13,11 @@ define {<16 x i1>, <16 x i1>} @vector_deinterleave_v16i1_v32i1(<32 x i1> %vec) {
 ; CHECK-NEXT:    vid.v v9
 ; CHECK-NEXT:    vadd.vv v11, v9, v9
 ; CHECK-NEXT:    vrgather.vv v9, v10, v11
+; CHECK-NEXT:    vadd.vi v12, v11, -16
 ; CHECK-NEXT:    vsetivli zero, 2, e8, mf4, ta, ma
 ; CHECK-NEXT:    vslidedown.vi v0, v0, 2
 ; CHECK-NEXT:    vsetivli zero, 16, e8, m1, ta, ma
 ; CHECK-NEXT:    vmerge.vim v8, v8, 1, v0
-; CHECK-NEXT:    vadd.vi v12, v11, -16
 ; CHECK-NEXT:    li a0, -256
 ; CHECK-NEXT:    vsetvli zero, zero, e16, m2, ta, ma
 ; CHECK-NEXT:    vmv.s.x v0, a0
@@ -78,14 +78,16 @@ ret {<4 x i32>, <4 x i32>} %retval
 define {<2 x i64>, <2 x i64>} @vector_deinterleave_v2i64_v4i64(<4 x i64> %vec) {
 ; CHECK-LABEL: vector_deinterleave_v2i64_v4i64:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
+; CHECK-NEXT:    vrgather.vi v10, v8, 1
 ; CHECK-NEXT:    vsetivli zero, 2, e64, m2, ta, ma
-; CHECK-NEXT:    vslidedown.vi v10, v8, 2
+; CHECK-NEXT:    vslidedown.vi v12, v8, 2
 ; CHECK-NEXT:    vsetivli zero, 1, e8, mf8, ta, ma
 ; CHECK-NEXT:    vmv.v.i v0, 2
 ; CHECK-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
-; CHECK-NEXT:    vrgather.vi v9, v8, 1
-; CHECK-NEXT:    vrgather.vi v9, v10, 1, v0.t
-; CHECK-NEXT:    vslideup.vi v8, v10, 1
+; CHECK-NEXT:    vrgather.vi v10, v12, 1, v0.t
+; CHECK-NEXT:    vslideup.vi v8, v12, 1
+; CHECK-NEXT:    vmv.v.v v9, v10
 ; CHECK-NEXT:    ret
 %retval = call {<2 x i64>, <2 x i64>} @llvm.experimental.vector.deinterleave2.v4i64(<4 x i64> %vec)
 ret {<2 x i64>, <2 x i64>} %retval
@@ -165,14 +167,16 @@ ret  {<4 x float>, <4 x float>} %retval
 define {<2 x double>, <2 x double>} @vector_deinterleave_v2f64_v4f64(<4 x double> %vec) {
 ; CHECK-LABEL: vector_deinterleave_v2f64_v4f64:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
+; CHECK-NEXT:    vrgather.vi v10, v8, 1
 ; CHECK-NEXT:    vsetivli zero, 2, e64, m2, ta, ma
-; CHECK-NEXT:    vslidedown.vi v10, v8, 2
+; CHECK-NEXT:    vslidedown.vi v12, v8, 2
 ; CHECK-NEXT:    vsetivli zero, 1, e8, mf8, ta, ma
 ; CHECK-NEXT:    vmv.v.i v0, 2
 ; CHECK-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
-; CHECK-NEXT:    vrgather.vi v9, v8, 1
-; CHECK-NEXT:    vrgather.vi v9, v10, 1, v0.t
-; CHECK-NEXT:    vslideup.vi v8, v10, 1
+; CHECK-NEXT:    vrgather.vi v10, v12, 1, v0.t
+; CHECK-NEXT:    vslideup.vi v8, v12, 1
+; CHECK-NEXT:    vmv.v.v v9, v10
 ; CHECK-NEXT:    ret
 %retval = call {<2 x double>, <2 x double>} @llvm.experimental.vector.deinterleave2.v4f64(<4 x double> %vec)
 ret {<2 x double>, <2 x double>} %retval

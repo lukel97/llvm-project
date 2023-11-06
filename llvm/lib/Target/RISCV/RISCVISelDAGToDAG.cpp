@@ -44,7 +44,6 @@ namespace llvm::RISCV {
 #define GET_RISCVVSETable_IMPL
 #define GET_RISCVVLXTable_IMPL
 #define GET_RISCVVSXTable_IMPL
-#define GET_RISCVMaskedPseudosTable_IMPL
 #include "RISCVGenSearchableTables.inc"
 } // namespace llvm::RISCV
 
@@ -151,7 +150,6 @@ void RISCVDAGToDAGISel::PostprocessISelDAG() {
       continue;
 
     MadeChange |= doPeepholeSExtW(N);
-    MadeChange |= doPeepholeMaskedRVV(cast<MachineSDNode>(N));
   }
 
   CurDAG->setRoot(Dummy.getValue());
@@ -3320,110 +3318,9 @@ bool RISCVDAGToDAGISel::doPeepholeSExtW(SDNode *N) {
   return false;
 }
 
-static bool usesAllOnesMask(SDValue MaskOp, SDValue GlueOp) {
-  // Check that we're using V0 as a mask register.
-  if (!isa<RegisterSDNode>(MaskOp) ||
-      cast<RegisterSDNode>(MaskOp)->getReg() != RISCV::V0)
-    return false;
-
-  // The glued user defines V0.
-  const auto *Glued = GlueOp.getNode();
-
-  if (!Glued || Glued->getOpcode() != ISD::CopyToReg)
-    return false;
-
-  // Check that we're defining V0 as a mask register.
-  if (!isa<RegisterSDNode>(Glued->getOperand(1)) ||
-      cast<RegisterSDNode>(Glued->getOperand(1))->getReg() != RISCV::V0)
-    return false;
-
-  // Check the instruction defining V0; it needs to be a VMSET pseudo.
-  SDValue MaskSetter = Glued->getOperand(2);
-
-  // Sometimes the VMSET is wrapped in a COPY_TO_REGCLASS, e.g. if the mask came
-  // from an extract_subvector or insert_subvector.
-  if (MaskSetter->isMachineOpcode() &&
-      MaskSetter->getMachineOpcode() == RISCV::COPY_TO_REGCLASS)
-    MaskSetter = MaskSetter->getOperand(0);
-
-  const auto IsVMSet = [](unsigned Opc) {
-    return Opc == RISCV::PseudoVMSET_M_B1 || Opc == RISCV::PseudoVMSET_M_B16 ||
-           Opc == RISCV::PseudoVMSET_M_B2 || Opc == RISCV::PseudoVMSET_M_B32 ||
-           Opc == RISCV::PseudoVMSET_M_B4 || Opc == RISCV::PseudoVMSET_M_B64 ||
-           Opc == RISCV::PseudoVMSET_M_B8;
-  };
-
-  // TODO: Check that the VMSET is the expected bitwidth? The pseudo has
-  // undefined behaviour if it's the wrong bitwidth, so we could choose to
-  // assume that it's all-ones? Same applies to its VL.
-  return MaskSetter->isMachineOpcode() &&
-         IsVMSet(MaskSetter.getMachineOpcode());
-}
-
-// Return true if we can make sure mask of N is all-ones mask.
-static bool usesAllOnesMask(SDNode *N, unsigned MaskOpIdx) {
-  return usesAllOnesMask(N->getOperand(MaskOpIdx),
-                         N->getOperand(N->getNumOperands() - 1));
-}
-
 static bool isImplicitDef(SDValue V) {
   return V.isMachineOpcode() &&
          V.getMachineOpcode() == TargetOpcode::IMPLICIT_DEF;
-}
-
-// Optimize masked RVV pseudo instructions with a known all-ones mask to their
-// corresponding "unmasked" pseudo versions. The mask we're interested in will
-// take the form of a V0 physical register operand, with a glued
-// register-setting instruction.
-bool RISCVDAGToDAGISel::doPeepholeMaskedRVV(MachineSDNode *N) {
-  const RISCV::RISCVMaskedPseudoInfo *I =
-      RISCV::getMaskedPseudoInfo(N->getMachineOpcode());
-  if (!I)
-    return false;
-
-  unsigned MaskOpIdx = I->MaskOpIdx;
-  if (!usesAllOnesMask(N, MaskOpIdx))
-    return false;
-
-  // There are two classes of pseudos in the table - compares and
-  // everything else.  See the comment on RISCVMaskedPseudo for details.
-  const unsigned Opc = I->UnmaskedPseudo;
-  const MCInstrDesc &MCID = TII->get(Opc);
-  const bool UseTUPseudo = RISCVII::hasVecPolicyOp(MCID.TSFlags);
-#ifndef NDEBUG
-  const MCInstrDesc &MaskedMCID = TII->get(N->getMachineOpcode());
-  assert(RISCVII::hasVecPolicyOp(MaskedMCID.TSFlags) ==
-         RISCVII::hasVecPolicyOp(MCID.TSFlags) &&
-         "Masked and unmasked pseudos are inconsistent");
-  const bool HasTiedDest = RISCVII::isFirstDefTiedToFirstUse(MCID);
-  assert(UseTUPseudo == HasTiedDest && "Unexpected pseudo structure");
-#endif
-
-  SmallVector<SDValue, 8> Ops;
-  // Skip the merge operand at index 0 if !UseTUPseudo.
-  for (unsigned I = !UseTUPseudo, E = N->getNumOperands(); I != E; I++) {
-    // Skip the mask, and the Glue.
-    SDValue Op = N->getOperand(I);
-    if (I == MaskOpIdx || Op.getValueType() == MVT::Glue)
-      continue;
-    Ops.push_back(Op);
-  }
-
-  // Transitively apply any node glued to our new node.
-  const auto *Glued = N->getGluedNode();
-  if (auto *TGlued = Glued->getGluedNode())
-    Ops.push_back(SDValue(TGlued, TGlued->getNumValues() - 1));
-
-  MachineSDNode *Result =
-      CurDAG->getMachineNode(Opc, SDLoc(N), N->getVTList(), Ops);
-
-  if (!N->memoperands_empty())
-    CurDAG->setNodeMemRefs(Result, N->memoperands());
-
-  Result->setFlags(N->getFlags());
-  ReplaceUses(N, Result);
-
-  return true;
 }
 
 /// If our passthru is an implicit_def, use noreg instead.  This side

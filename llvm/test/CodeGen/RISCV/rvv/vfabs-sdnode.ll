@@ -130,16 +130,16 @@ define <vscale x 32 x half> @vfabs_nxv32f16(<vscale x 32 x half> %v) {
 ; ZVFHMIN-LABEL: vfabs_nxv32f16:
 ; ZVFHMIN:       # %bb.0:
 ; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
-; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
-; ZVFHMIN-NEXT:    vfabs.v v16, v16
-; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfncvt.f.f.w v8, v16
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfabs.v v16, v16
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfncvt.f.f.w v12, v16
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vfabs.v v16, v16
+; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vfncvt.f.f.w v8, v16
 ; ZVFHMIN-NEXT:    ret
   %r = call <vscale x 32 x half> @llvm.fabs.nxv32f16(<vscale x 32 x half> %v)
   ret <vscale x 32 x half> %r

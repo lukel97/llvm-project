@@ -178,19 +178,24 @@ define <vscale x 128 x i1> @vector_interleave_nxv128i1_nxv64i1(<vscale x 64 x i1
 ;
 ; ZVBB-LABEL: vector_interleave_nxv128i1_nxv64i1:
 ; ZVBB:       # %bb.0:
+; ZVBB-NEXT:    vmv1r.v v16, v8
+; ZVBB-NEXT:    vmv1r.v v1, v0
 ; ZVBB-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
-; ZVBB-NEXT:    vmv.v.i v24, 0
-; ZVBB-NEXT:    vmerge.vim v16, v24, 1, v0
-; ZVBB-NEXT:    vmv1r.v v0, v8
-; ZVBB-NEXT:    vmerge.vim v8, v24, 1, v0
+; ZVBB-NEXT:    vmv.v.i v8, 0
+; ZVBB-NEXT:    vmv1r.v v0, v16
+; ZVBB-NEXT:    vmerge.vim v16, v8, 1, v0
 ; ZVBB-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
-; ZVBB-NEXT:    vwsll.vi v24, v8, 8
-; ZVBB-NEXT:    vwaddu.wv v24, v24, v16
+; ZVBB-NEXT:    vwsll.vi v24, v16, 8
+; ZVBB-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
+; ZVBB-NEXT:    vmv1r.v v0, v1
+; ZVBB-NEXT:    vmerge.vim v8, v8, 1, v0
+; ZVBB-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
+; ZVBB-NEXT:    vwaddu.wv v24, v24, v8
 ; ZVBB-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; ZVBB-NEXT:    vmsne.vi v0, v24, 0
 ; ZVBB-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
-; ZVBB-NEXT:    vwsll.vi v24, v12, 8
-; ZVBB-NEXT:    vwaddu.wv v24, v24, v20
+; ZVBB-NEXT:    vwsll.vi v24, v20, 8
+; ZVBB-NEXT:    vwaddu.wv v24, v24, v12
 ; ZVBB-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; ZVBB-NEXT:    vmsne.vi v8, v24, 0
 ; ZVBB-NEXT:    ret

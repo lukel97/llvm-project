@@ -27,12 +27,23 @@
 //===---------------------------------------------------------------------===//
 
 #include "RISCV.h"
-#include "RISCVISelDAGToDAG.h"
 #include "RISCVSubtarget.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "riscv-fold-masks"
+
+namespace llvm::RISCV {
+struct RISCVMaskedPseudoInfo {
+  uint16_t MaskedPseudo;
+  uint16_t UnmaskedPseudo;
+  uint8_t MaskOpIdx;
+  uint8_t MaskAffectsResult : 1;
+};
+#define GET_RISCVMaskedPseudosTable_DECL
+#define GET_RISCVMaskedPseudosTable_IMPL
+#include "RISCVGenSearchableTables.inc"
+} // namespace llvm::RISCV
 
 namespace {
 
@@ -460,6 +471,9 @@ bool RISCVFoldMasks::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     CurrentV0Def = nullptr;
     for (MachineInstr &MI : make_early_inc_range(MBB)) {
+      // TODO: We can remove this if we handle TA merge in foldVMergeIntoOps.
+      Changed |= convertToUnmasked(MI, CurrentV0Def);
+
       Changed |= foldVMergeIntoOps(MI, CurrentV0Def);
       if (MI.definesRegister(RISCV::V0, TRI))
         CurrentV0Def = &MI;
