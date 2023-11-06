@@ -3271,9 +3271,9 @@ define <32 x i1> @fcmp_ogt_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3290,9 +3290,9 @@ define <32 x i1> @fcmp_ogt_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3325,9 +3325,9 @@ define <32 x i1> @fcmp_oge_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfge.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3344,9 +3344,9 @@ define <32 x i1> @fcmp_oge_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfle.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3379,9 +3379,9 @@ define <32 x i1> @fcmp_olt_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3398,9 +3398,9 @@ define <32 x i1> @fcmp_olt_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3433,9 +3433,9 @@ define <32 x i1> @fcmp_ole_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfle.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3452,9 +3452,9 @@ define <32 x i1> @fcmp_ole_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfge.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmv1r.v v0, v12
@@ -3489,9 +3489,9 @@ define <32 x i1> @fcmp_one_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v13, v12
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v13, v8, fa0, v0.t
@@ -3510,9 +3510,9 @@ define <32 x i1> @fcmp_one_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v13, v12
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v13, v8, fa0, v0.t
@@ -3544,9 +3544,9 @@ define <32 x i1> @fcmp_ord_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, ma
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v0, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v8, v12, fa0
+; CHECK-NEXT:    vmand.mm v0, v16, v8
 ; CHECK-NEXT:    ret
   %head = insertelement <32 x half> poison, half %b, i32 0
   %splat = shufflevector <32 x half> %head, <32 x half> poison, <32 x i32> zeroinitializer
@@ -3560,9 +3560,9 @@ define <32 x i1> @fcmp_ord_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, ma
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v0, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v8, v12, fa0
+; CHECK-NEXT:    vmand.mm v0, v8, v16
 ; CHECK-NEXT:    ret
   %head = insertelement <32 x half> poison, half %b, i32 0
   %splat = shufflevector <32 x half> %head, <32 x half> poison, <32 x i32> zeroinitializer
@@ -3594,9 +3594,9 @@ define <32 x i1> @fcmp_ueq_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v13, v12
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v13, v8, fa0, v0.t
@@ -3615,9 +3615,9 @@ define <32 x i1> @fcmp_ueq_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v13, v12
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v13, v8, fa0, v0.t
@@ -3652,9 +3652,9 @@ define <32 x i1> @fcmp_ugt_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfle.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3671,9 +3671,9 @@ define <32 x i1> @fcmp_ugt_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfge.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3706,9 +3706,9 @@ define <32 x i1> @fcmp_uge_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3725,9 +3725,9 @@ define <32 x i1> @fcmp_uge_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3760,9 +3760,9 @@ define <32 x i1> @fcmp_ult_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfge.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3779,9 +3779,9 @@ define <32 x i1> @fcmp_ult_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfle.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3814,9 +3814,9 @@ define <32 x i1> @fcmp_ule_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v16, v12
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v17, v16
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmfgt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3833,9 +3833,9 @@ define <32 x i1> @fcmp_ule_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, mu
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfeq.vf v16, v12, fa0
-; CHECK-NEXT:    vmfeq.vv v12, v8, v8
-; CHECK-NEXT:    vmand.mm v12, v12, v16
+; CHECK-NEXT:    vmfeq.vv v16, v8, v8
+; CHECK-NEXT:    vmfeq.vf v17, v12, fa0
+; CHECK-NEXT:    vmand.mm v12, v16, v17
 ; CHECK-NEXT:    vmv1r.v v0, v12
 ; CHECK-NEXT:    vmflt.vf v12, v8, fa0, v0.t
 ; CHECK-NEXT:    vmnot.m v0, v12
@@ -3902,9 +3902,9 @@ define <32 x i1> @fcmp_uno_vf_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, ma
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfne.vf v16, v12, fa0
-; CHECK-NEXT:    vmfne.vv v12, v8, v8
-; CHECK-NEXT:    vmor.mm v0, v12, v16
+; CHECK-NEXT:    vmfne.vv v16, v8, v8
+; CHECK-NEXT:    vmfne.vf v8, v12, fa0
+; CHECK-NEXT:    vmor.mm v0, v16, v8
 ; CHECK-NEXT:    ret
   %head = insertelement <32 x half> poison, half %b, i32 0
   %splat = shufflevector <32 x half> %head, <32 x half> poison, <32 x i32> zeroinitializer
@@ -3918,9 +3918,9 @@ define <32 x i1> @fcmp_uno_fv_v32f16(<32 x half> %va, half %b) nounwind strictfp
 ; CHECK-NEXT:    li a0, 32
 ; CHECK-NEXT:    vsetvli zero, a0, e16, m4, ta, ma
 ; CHECK-NEXT:    vfmv.v.f v12, fa0
-; CHECK-NEXT:    vmfne.vf v16, v12, fa0
-; CHECK-NEXT:    vmfne.vv v12, v8, v8
-; CHECK-NEXT:    vmor.mm v0, v16, v12
+; CHECK-NEXT:    vmfne.vv v16, v8, v8
+; CHECK-NEXT:    vmfne.vf v8, v12, fa0
+; CHECK-NEXT:    vmor.mm v0, v8, v16
 ; CHECK-NEXT:    ret
   %head = insertelement <32 x half> poison, half %b, i32 0
   %splat = shufflevector <32 x half> %head, <32 x half> poison, <32 x i32> zeroinitializer

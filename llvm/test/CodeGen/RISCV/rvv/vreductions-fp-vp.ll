@@ -200,64 +200,62 @@ define half @vpreduce_fadd_nxv64f16(half %s, <vscale x 64 x half> %v, <vscale x 
 ;
 ; ZVFHMIN-LABEL: vpreduce_fadd_nxv64f16:
 ; ZVFHMIN:       # %bb.0:
-; ZVFHMIN-NEXT:    csrr a3, vlenb
-; ZVFHMIN-NEXT:    srli a1, a3, 1
-; ZVFHMIN-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
+; ZVFHMIN-NEXT:    csrr a2, vlenb
+; ZVFHMIN-NEXT:    srli a1, a2, 1
+; ZVFHMIN-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
+; ZVFHMIN-NEXT:    slli a3, a2, 2
 ; ZVFHMIN-NEXT:    vslidedown.vx v1, v0, a1
-; ZVFHMIN-NEXT:    slli a5, a3, 2
-; ZVFHMIN-NEXT:    sub a1, a0, a5
-; ZVFHMIN-NEXT:    sltu a2, a0, a1
-; ZVFHMIN-NEXT:    addi a2, a2, -1
-; ZVFHMIN-NEXT:    and a1, a2, a1
-; ZVFHMIN-NEXT:    slli a4, a3, 1
-; ZVFHMIN-NEXT:    sub a2, a1, a4
-; ZVFHMIN-NEXT:    sltu a6, a1, a2
-; ZVFHMIN-NEXT:    bltu a1, a4, .LBB6_2
+; ZVFHMIN-NEXT:    mv a5, a0
+; ZVFHMIN-NEXT:    bltu a0, a3, .LBB6_2
 ; ZVFHMIN-NEXT:  # %bb.1:
-; ZVFHMIN-NEXT:    mv a1, a4
+; ZVFHMIN-NEXT:    mv a5, a3
 ; ZVFHMIN-NEXT:  .LBB6_2:
+; ZVFHMIN-NEXT:    slli a1, a2, 1
+; ZVFHMIN-NEXT:    sub a4, a5, a1
+; ZVFHMIN-NEXT:    sltu a6, a5, a4
 ; ZVFHMIN-NEXT:    addi a6, a6, -1
-; ZVFHMIN-NEXT:    bltu a0, a5, .LBB6_4
-; ZVFHMIN-NEXT:  # %bb.3:
-; ZVFHMIN-NEXT:    mv a0, a5
-; ZVFHMIN-NEXT:  .LBB6_4:
-; ZVFHMIN-NEXT:    and a2, a6, a2
-; ZVFHMIN-NEXT:    sub a5, a0, a4
-; ZVFHMIN-NEXT:    sltu a6, a0, a5
-; ZVFHMIN-NEXT:    addi a6, a6, -1
-; ZVFHMIN-NEXT:    and a5, a6, a5
-; ZVFHMIN-NEXT:    srli a3, a3, 2
+; ZVFHMIN-NEXT:    and a4, a6, a4
+; ZVFHMIN-NEXT:    srli a2, a2, 2
 ; ZVFHMIN-NEXT:    vsetvli a6, zero, e8, mf2, ta, ma
-; ZVFHMIN-NEXT:    vslidedown.vx v2, v0, a3
-; ZVFHMIN-NEXT:    bltu a0, a4, .LBB6_6
-; ZVFHMIN-NEXT:  # %bb.5:
-; ZVFHMIN-NEXT:    mv a0, a4
-; ZVFHMIN-NEXT:  .LBB6_6:
-; ZVFHMIN-NEXT:    vsetvli a4, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vslidedown.vx v2, v0, a2
+; ZVFHMIN-NEXT:    vsetvli a6, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v8
+; ZVFHMIN-NEXT:    bltu a5, a1, .LBB6_4
+; ZVFHMIN-NEXT:  # %bb.3:
+; ZVFHMIN-NEXT:    mv a5, a1
+; ZVFHMIN-NEXT:  .LBB6_4:
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli zero, a0, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a5, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfredusum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa5, fa5
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vsetvli a5, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v12
-; ZVFHMIN-NEXT:    vsetvli zero, a5, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a4, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vmv1r.v v0, v2
 ; ZVFHMIN-NEXT:    vfredusum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa5, fa5
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    sub a3, a0, a3
+; ZVFHMIN-NEXT:    sltu a0, a0, a3
+; ZVFHMIN-NEXT:    addi a0, a0, -1
+; ZVFHMIN-NEXT:    and a0, a0, a3
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    mv a3, a0
+; ZVFHMIN-NEXT:    bltu a0, a1, .LBB6_6
+; ZVFHMIN-NEXT:  # %bb.5:
+; ZVFHMIN-NEXT:    mv a3, a1
+; ZVFHMIN-NEXT:  .LBB6_6:
+; ZVFHMIN-NEXT:    vsetvli a4, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v16
-; ZVFHMIN-NEXT:    vsetvli zero, a1, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a3, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vmv1r.v v0, v1
 ; ZVFHMIN-NEXT:    vfredusum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
@@ -265,11 +263,15 @@ define half @vpreduce_fadd_nxv64f16(half %s, <vscale x 64 x half> %v, <vscale x 
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e8, mf2, ta, ma
-; ZVFHMIN-NEXT:    vslidedown.vx v0, v1, a3
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    sub a1, a0, a1
+; ZVFHMIN-NEXT:    sltu a0, a0, a1
+; ZVFHMIN-NEXT:    addi a0, a0, -1
+; ZVFHMIN-NEXT:    and a0, a0, a1
+; ZVFHMIN-NEXT:    vsetvli a1, zero, e8, mf2, ta, ma
+; ZVFHMIN-NEXT:    vslidedown.vx v0, v1, a2
+; ZVFHMIN-NEXT:    vsetvli a1, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v20
-; ZVFHMIN-NEXT:    vsetvli zero, a2, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a0, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfredusum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa0, fa5
@@ -306,64 +308,62 @@ define half @vpreduce_ord_fadd_nxv64f16(half %s, <vscale x 64 x half> %v, <vscal
 ;
 ; ZVFHMIN-LABEL: vpreduce_ord_fadd_nxv64f16:
 ; ZVFHMIN:       # %bb.0:
-; ZVFHMIN-NEXT:    csrr a3, vlenb
-; ZVFHMIN-NEXT:    srli a1, a3, 1
-; ZVFHMIN-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
+; ZVFHMIN-NEXT:    csrr a2, vlenb
+; ZVFHMIN-NEXT:    srli a1, a2, 1
+; ZVFHMIN-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
+; ZVFHMIN-NEXT:    slli a3, a2, 2
 ; ZVFHMIN-NEXT:    vslidedown.vx v1, v0, a1
-; ZVFHMIN-NEXT:    slli a5, a3, 2
-; ZVFHMIN-NEXT:    sub a1, a0, a5
-; ZVFHMIN-NEXT:    sltu a2, a0, a1
-; ZVFHMIN-NEXT:    addi a2, a2, -1
-; ZVFHMIN-NEXT:    and a1, a2, a1
-; ZVFHMIN-NEXT:    slli a4, a3, 1
-; ZVFHMIN-NEXT:    sub a2, a1, a4
-; ZVFHMIN-NEXT:    sltu a6, a1, a2
-; ZVFHMIN-NEXT:    bltu a1, a4, .LBB7_2
+; ZVFHMIN-NEXT:    mv a5, a0
+; ZVFHMIN-NEXT:    bltu a0, a3, .LBB7_2
 ; ZVFHMIN-NEXT:  # %bb.1:
-; ZVFHMIN-NEXT:    mv a1, a4
+; ZVFHMIN-NEXT:    mv a5, a3
 ; ZVFHMIN-NEXT:  .LBB7_2:
+; ZVFHMIN-NEXT:    slli a1, a2, 1
+; ZVFHMIN-NEXT:    sub a4, a5, a1
+; ZVFHMIN-NEXT:    sltu a6, a5, a4
 ; ZVFHMIN-NEXT:    addi a6, a6, -1
-; ZVFHMIN-NEXT:    bltu a0, a5, .LBB7_4
-; ZVFHMIN-NEXT:  # %bb.3:
-; ZVFHMIN-NEXT:    mv a0, a5
-; ZVFHMIN-NEXT:  .LBB7_4:
-; ZVFHMIN-NEXT:    and a2, a6, a2
-; ZVFHMIN-NEXT:    sub a5, a0, a4
-; ZVFHMIN-NEXT:    sltu a6, a0, a5
-; ZVFHMIN-NEXT:    addi a6, a6, -1
-; ZVFHMIN-NEXT:    and a5, a6, a5
-; ZVFHMIN-NEXT:    srli a3, a3, 2
+; ZVFHMIN-NEXT:    and a4, a6, a4
+; ZVFHMIN-NEXT:    srli a2, a2, 2
 ; ZVFHMIN-NEXT:    vsetvli a6, zero, e8, mf2, ta, ma
-; ZVFHMIN-NEXT:    vslidedown.vx v2, v0, a3
-; ZVFHMIN-NEXT:    bltu a0, a4, .LBB7_6
-; ZVFHMIN-NEXT:  # %bb.5:
-; ZVFHMIN-NEXT:    mv a0, a4
-; ZVFHMIN-NEXT:  .LBB7_6:
-; ZVFHMIN-NEXT:    vsetvli a4, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vslidedown.vx v2, v0, a2
+; ZVFHMIN-NEXT:    vsetvli a6, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v8
+; ZVFHMIN-NEXT:    bltu a5, a1, .LBB7_4
+; ZVFHMIN-NEXT:  # %bb.3:
+; ZVFHMIN-NEXT:    mv a5, a1
+; ZVFHMIN-NEXT:  .LBB7_4:
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli zero, a0, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a5, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfredosum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa5, fa5
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    vsetvli a5, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v12
-; ZVFHMIN-NEXT:    vsetvli zero, a5, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a4, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vmv1r.v v0, v2
 ; ZVFHMIN-NEXT:    vfredosum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa5, fa5
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    sub a3, a0, a3
+; ZVFHMIN-NEXT:    sltu a0, a0, a3
+; ZVFHMIN-NEXT:    addi a0, a0, -1
+; ZVFHMIN-NEXT:    and a0, a0, a3
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    mv a3, a0
+; ZVFHMIN-NEXT:    bltu a0, a1, .LBB7_6
+; ZVFHMIN-NEXT:  # %bb.5:
+; ZVFHMIN-NEXT:    mv a3, a1
+; ZVFHMIN-NEXT:  .LBB7_6:
+; ZVFHMIN-NEXT:    vsetvli a4, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v16
-; ZVFHMIN-NEXT:    vsetvli zero, a1, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a3, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vmv1r.v v0, v1
 ; ZVFHMIN-NEXT:    vfredosum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
@@ -371,11 +371,15 @@ define half @vpreduce_ord_fadd_nxv64f16(half %s, <vscale x 64 x half> %v, <vscal
 ; ZVFHMIN-NEXT:    fcvt.s.h fa5, fa5
 ; ZVFHMIN-NEXT:    vsetivli zero, 1, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfmv.s.f v8, fa5
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e8, mf2, ta, ma
-; ZVFHMIN-NEXT:    vslidedown.vx v0, v1, a3
-; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
+; ZVFHMIN-NEXT:    sub a1, a0, a1
+; ZVFHMIN-NEXT:    sltu a0, a0, a1
+; ZVFHMIN-NEXT:    addi a0, a0, -1
+; ZVFHMIN-NEXT:    and a0, a0, a1
+; ZVFHMIN-NEXT:    vsetvli a1, zero, e8, mf2, ta, ma
+; ZVFHMIN-NEXT:    vslidedown.vx v0, v1, a2
+; ZVFHMIN-NEXT:    vsetvli a1, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v20
-; ZVFHMIN-NEXT:    vsetvli zero, a2, e32, m8, ta, ma
+; ZVFHMIN-NEXT:    vsetvli zero, a0, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfredosum.vs v8, v24, v8, v0.t
 ; ZVFHMIN-NEXT:    vfmv.f.s fa5, v8
 ; ZVFHMIN-NEXT:    fcvt.h.s fa0, fa5
