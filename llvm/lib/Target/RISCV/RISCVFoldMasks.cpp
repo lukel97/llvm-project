@@ -445,8 +445,6 @@ bool RISCVFoldMasks::convertToUnmasked(MachineInstr &MI,
   if (!I)
     return false;
 
-  // TODO: Increment all MaskOpIdxs in tablegen by num of explicit defs?
-  unsigned MaskOpIdx = I->MaskOpIdx + MI.getNumExplicitDefs();
   if (!isAllOnesMask(MaskDef))
     return false;
 
@@ -465,6 +463,9 @@ bool RISCVFoldMasks::convertToUnmasked(MachineInstr &MI,
 #endif
 
   MI.setDesc(MCID);
+
+  // TODO: Increment all MaskOpIdxs in tablegen by num of explicit defs?
+  unsigned MaskOpIdx = I->MaskOpIdx + MI.getNumExplicitDefs();
   MI.removeOperand(MaskOpIdx);
 
   // The unmasked pseudo will no longer be constrained to the vrnov0 reg class,
