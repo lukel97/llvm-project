@@ -11,7 +11,7 @@ define <1 x i64> @llrint_v1i64_v1f32(<1 x float> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 16
 ; RV32-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
@@ -23,10 +23,10 @@ define <1 x i64> @llrint_v1i64_v1f32(<1 x float> %x) {
 ;
 ; RV64-LABEL: llrint_v1i64_v1f32:
 ; RV64:       # %bb.0:
-; RV64-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV64-NEXT:    vfmv.f.s fa5, v8
 ; RV64-NEXT:    fcvt.l.s a0, fa5
-; RV64-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e64, mf4, ta, ma
 ; RV64-NEXT:    vmv.s.x v8, a0
 ; RV64-NEXT:    ret
   %a = call <1 x i64> @llvm.llrint.v1i64.v1f32(<1 x float> %x)
@@ -47,7 +47,7 @@ define <2 x i64> @llrint_v2i64_v2f32(<2 x float> %x) {
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x20, 0x22, 0x11, 0x02, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 32 + 2 * vlenb
 ; RV32-NEXT:    addi a0, sp, 16
 ; RV32-NEXT:    vs1r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
@@ -79,7 +79,7 @@ define <2 x i64> @llrint_v2i64_v2f32(<2 x float> %x) {
 ;
 ; RV64-LABEL: llrint_v2i64_v2f32:
 ; RV64:       # %bb.0:
-; RV64-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV64-NEXT:    vfmv.f.s fa5, v8
 ; RV64-NEXT:    fcvt.l.s a0, fa5
 ; RV64-NEXT:    vsetivli zero, 2, e64, m1, ta, ma
@@ -112,7 +112,7 @@ define <3 x i64> @llrint_v3i64_v3f32(<3 x float> %x) {
 ; RV32-NEXT:    add a0, sp, a0
 ; RV32-NEXT:    addi a0, a0, 16
 ; RV32-NEXT:    vs1r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
@@ -175,7 +175,7 @@ define <3 x i64> @llrint_v3i64_v3f32(<3 x float> %x) {
 ;
 ; RV64-LABEL: llrint_v3i64_v3f32:
 ; RV64:       # %bb.0:
-; RV64-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV64-NEXT:    vfmv.f.s fa5, v8
 ; RV64-NEXT:    fcvt.l.s a0, fa5
 ; RV64-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
@@ -220,7 +220,7 @@ define <4 x i64> @llrint_v4i64_v4f32(<4 x float> %x) {
 ; RV32-NEXT:    add a0, sp, a0
 ; RV32-NEXT:    addi a0, a0, 16
 ; RV32-NEXT:    vs1r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
@@ -283,7 +283,7 @@ define <4 x i64> @llrint_v4i64_v4f32(<4 x float> %x) {
 ;
 ; RV64-LABEL: llrint_v4i64_v4f32:
 ; RV64:       # %bb.0:
-; RV64-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV64-NEXT:    vfmv.f.s fa5, v8
 ; RV64-NEXT:    fcvt.l.s a0, fa5
 ; RV64-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
@@ -329,7 +329,7 @@ define <8 x i64> @llrint_v8i64_v8f32(<8 x float> %x) {
 ; RV32-NEXT:    andi sp, sp, -64
 ; RV32-NEXT:    addi a0, sp, 192
 ; RV32-NEXT:    vs2r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    sw a1, 68(sp)
@@ -508,7 +508,7 @@ define <16 x i64> @llrint_v16i64_v16f32(<16 x float> %x) {
 ; RV32-NEXT:    call llrintf@plt
 ; RV32-NEXT:    sw a1, 196(sp)
 ; RV32-NEXT:    sw a0, 192(sp)
-; RV32-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e32, mf8, ta, ma
 ; RV32-NEXT:    addi a0, sp, 384
 ; RV32-NEXT:    vl4r.v v8, (a0) # Unknown-size Folded Reload
 ; RV32-NEXT:    vfmv.f.s fa0, v8
@@ -672,7 +672,7 @@ define <1 x i64> @llrint_v1i64_v1f64(<1 x double> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 16
 ; RV32-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrint@plt
 ; RV32-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
@@ -684,7 +684,7 @@ define <1 x i64> @llrint_v1i64_v1f64(<1 x double> %x) {
 ;
 ; RV64-LABEL: llrint_v1i64_v1f64:
 ; RV64:       # %bb.0:
-; RV64-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV64-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; RV64-NEXT:    vfmv.f.s fa5, v8
 ; RV64-NEXT:    fcvt.l.d a0, fa5
 ; RV64-NEXT:    vmv.s.x v8, a0
@@ -707,7 +707,7 @@ define <2 x i64> @llrint_v2i64_v2f64(<2 x double> %x) {
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x20, 0x22, 0x11, 0x02, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 32 + 2 * vlenb
 ; RV32-NEXT:    addi a0, sp, 16
 ; RV32-NEXT:    vs1r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrint@plt
 ; RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
@@ -769,7 +769,7 @@ define <4 x i64> @llrint_v4i64_v4f64(<4 x double> %x) {
 ; RV32-NEXT:    add a0, sp, a0
 ; RV32-NEXT:    addi a0, a0, 16
 ; RV32-NEXT:    vs2r.v v8, (a0) # Unknown-size Folded Spill
-; RV32-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; RV32-NEXT:    vfmv.f.s fa0, v8
 ; RV32-NEXT:    call llrint@plt
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
@@ -896,7 +896,7 @@ define <8 x i64> @llrint_v8i64_v8f64(<8 x double> %x) {
 ; RV32-NEXT:    call llrint@plt
 ; RV32-NEXT:    sw a1, 164(sp)
 ; RV32-NEXT:    sw a0, 160(sp)
-; RV32-NEXT:    vsetivli zero, 1, e64, m1, ta, ma
+; RV32-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; RV32-NEXT:    addi a0, sp, 256
 ; RV32-NEXT:    vl4r.v v8, (a0) # Unknown-size Folded Reload
 ; RV32-NEXT:    vfmv.f.s fa0, v8

@@ -150,7 +150,7 @@ for.body:                                         ; preds = %entry, %for.body
 define <vscale x 1 x i64> @test7(<vscale x 1 x i64> %a, i64 %b, <vscale x 1 x i1> %mask) nounwind {
 ; CHECK-LABEL: test7:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetivli zero, 1, e64, m1, tu, ma
+; CHECK-NEXT:    vsetivli zero, 1, e64, mf8, tu, ma
 ; CHECK-NEXT:    vmv.s.x v8, a0
 ; CHECK-NEXT:    ret
 entry:
@@ -165,7 +165,7 @@ entry:
 define <vscale x 1 x i64> @test8(<vscale x 1 x i64> %a, i64 %b, <vscale x 1 x i1> %mask) nounwind {
 ; CHECK-LABEL: test8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetivli zero, 2, e64, m1, tu, ma
+; CHECK-NEXT:    vsetivli zero, 2, e64, mf8, tu, ma
 ; CHECK-NEXT:    vmv.s.x v8, a0
 ; CHECK-NEXT:    ret
 entry:
@@ -196,7 +196,7 @@ entry:
 define <vscale x 1 x double> @test10(<vscale x 1 x double> %a, double %b) nounwind {
 ; CHECK-LABEL: test10:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetivli zero, 1, e64, m1, tu, ma
+; CHECK-NEXT:    vsetivli zero, 1, e64, mf8, tu, ma
 ; CHECK-NEXT:    vfmv.s.f v8, fa0
 ; CHECK-NEXT:    ret
 entry:
@@ -209,7 +209,7 @@ entry:
 define <vscale x 1 x double> @test11(<vscale x 1 x double> %a, double %b) nounwind {
 ; CHECK-LABEL: test11:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetivli zero, 2, e64, m1, tu, ma
+; CHECK-NEXT:    vsetivli zero, 2, e64, mf8, tu, ma
 ; CHECK-NEXT:    vfmv.s.f v8, fa0
 ; CHECK-NEXT:    ret
 entry:
@@ -329,7 +329,8 @@ entry:
 define double @test17(i64 %avl, <vscale x 1 x double> %a, <vscale x 1 x double> %b) nounwind {
 ; CHECK-LABEL: test17:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetvli a0, a0, e64, m1, ta, ma
+; CHECK-NEXT:    vsetvli a0, a0, e32, mf2, ta, ma
+; CHECK-NEXT:    vsetivli zero, 1, e64, mf8, ta, ma
 ; CHECK-NEXT:    vfmv.f.s fa5, v8
 ; CHECK-NEXT:    vsetvli zero, a0, e64, m1, ta, ma
 ; CHECK-NEXT:    vfadd.vv v8, v8, v9
@@ -381,7 +382,7 @@ entry:
 define <vscale x 1 x double> @test19(<vscale x 1 x double> %a, double %b) nounwind {
 ; CHECK-LABEL: test19:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetivli zero, 2, e64, m1, tu, ma
+; CHECK-NEXT:    vsetivli zero, 2, e64, mf8, tu, ma
 ; CHECK-NEXT:    vmv1r.v v9, v8
 ; CHECK-NEXT:    vfmv.s.f v9, fa0
 ; CHECK-NEXT:    vsetvli a0, zero, e64, m1, ta, ma

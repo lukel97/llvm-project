@@ -801,6 +801,9 @@ static VSETVLIInfo computeInfoForInstr(const MachineInstr &MI, uint64_t TSFlags,
 
   RISCVII::VLMUL VLMul = RISCVII::getLMul(TSFlags);
 
+  if (isScalarInsertInstr(MI) || isScalarExtractInstr(MI))
+    VLMul = RISCVII::LMUL_F8;
+
   unsigned Log2SEW = MI.getOperand(getSEWOpNum(MI)).getImm();
   // A Log2SEW of 0 is an operation on mask registers only.
   unsigned SEW = Log2SEW ? 1 << Log2SEW : 8;

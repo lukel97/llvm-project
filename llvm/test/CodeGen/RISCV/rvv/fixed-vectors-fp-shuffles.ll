@@ -59,9 +59,9 @@ define <4 x double> @vrgather_permute_shuffle_vu_v4f64(<4 x double> %x) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 4096
 ; CHECK-NEXT:    addi a0, a0, 513
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v10, a0
-; CHECK-NEXT:    vsetvli zero, zero, e16, mf2, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e16, mf2, ta, ma
 ; CHECK-NEXT:    vsext.vf2 v12, v10
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m2, ta, ma
 ; CHECK-NEXT:    vrgatherei16.vv v10, v8, v12
@@ -76,9 +76,9 @@ define <4 x double> @vrgather_permute_shuffle_uv_v4f64(<4 x double> %x) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 4096
 ; CHECK-NEXT:    addi a0, a0, 513
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v10, a0
-; CHECK-NEXT:    vsetvli zero, zero, e16, mf2, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e16, mf2, ta, ma
 ; CHECK-NEXT:    vsext.vf2 v12, v10
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m2, ta, ma
 ; CHECK-NEXT:    vrgatherei16.vv v10, v8, v12

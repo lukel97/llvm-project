@@ -329,9 +329,9 @@ define <4 x i8> @vslide1up_4xi8_neg_incorrect_insert(<4 x i8> %v, i8 %b) {
 ; CHECK-LABEL: vslide1up_4xi8_neg_incorrect_insert:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 8208
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v10, a0
-; CHECK-NEXT:    vsetvli zero, zero, e8, mf4, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e8, mf4, ta, ma
 ; CHECK-NEXT:    vrgather.vv v9, v8, v10
 ; CHECK-NEXT:    vmv1r.v v8, v9
 ; CHECK-NEXT:    ret
@@ -356,9 +356,9 @@ define <4 x i8> @vslide1up_4xi8_neg_incorrect_insert3(<4 x i8> %v, i8 %b) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 8208
 ; CHECK-NEXT:    addi a0, a0, 1
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v10, a0
-; CHECK-NEXT:    vsetvli zero, zero, e8, mf4, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e8, mf4, ta, ma
 ; CHECK-NEXT:    vrgather.vv v9, v8, v10
 ; CHECK-NEXT:    vmv1r.v v8, v9
 ; CHECK-NEXT:    ret
@@ -369,7 +369,7 @@ define <4 x i8> @vslide1up_4xi8_neg_incorrect_insert3(<4 x i8> %v, i8 %b) {
 define <2 x i8> @vslide1up_4xi8_neg_length_changing(<4 x i8> %v, i8 %b) {
 ; CHECK-LABEL: vslide1up_4xi8_neg_length_changing:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 4, e8, mf4, tu, ma
+; CHECK-NEXT:    vsetivli zero, 4, e8, mf8, tu, ma
 ; CHECK-NEXT:    vmv1r.v v9, v8
 ; CHECK-NEXT:    vmv.s.x v9, a0
 ; CHECK-NEXT:    vsetivli zero, 2, e8, mf8, ta, ma

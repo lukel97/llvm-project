@@ -915,7 +915,7 @@ define <vscale x 1 x i64> @intrinsic_vmv.s.x_x_nxv1i64(i64 %0, iXLen %1) nounwin
 ;
 ; RV64-LABEL: intrinsic_vmv.s.x_x_nxv1i64:
 ; RV64:       # %bb.0: # %entry
-; RV64-NEXT:    vsetvli zero, a1, e64, m1, ta, ma
+; RV64-NEXT:    vsetvli zero, a1, e64, mf8, ta, ma
 ; RV64-NEXT:    vmv.s.x v8, a0
 ; RV64-NEXT:    ret
 entry:
@@ -928,7 +928,7 @@ declare <vscale x 1 x half> @llvm.riscv.vfmv.s.f.nxv1f16(<vscale x 1 x half>, ha
 define <vscale x 1 x half> @intrinsic_vfmv.s.f_f_nxv1f16(half %0, iXLen %1) nounwind {
 ; CHECK-LABEL: intrinsic_vfmv.s.f_f_nxv1f16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vsetvli zero, a0, e16, mf4, ta, ma
+; CHECK-NEXT:    vsetvli zero, a0, e16, mf8, ta, ma
 ; CHECK-NEXT:    vfmv.s.f v8, fa0
 ; CHECK-NEXT:    ret
 entry:

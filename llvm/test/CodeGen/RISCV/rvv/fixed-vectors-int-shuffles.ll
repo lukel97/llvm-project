@@ -55,9 +55,9 @@ define <4 x i16> @vrgather_permute_shuffle_vu_v4i16(<4 x i16> %x) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 4096
 ; CHECK-NEXT:    addi a0, a0, 513
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v9, a0
-; CHECK-NEXT:    vsetvli zero, zero, e16, mf2, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e16, mf2, ta, ma
 ; CHECK-NEXT:    vsext.vf2 v10, v9
 ; CHECK-NEXT:    vrgather.vv v9, v8, v10
 ; CHECK-NEXT:    vmv1r.v v8, v9
@@ -71,9 +71,9 @@ define <4 x i16> @vrgather_permute_shuffle_uv_v4i16(<4 x i16> %x) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lui a0, 4096
 ; CHECK-NEXT:    addi a0, a0, 513
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e32, mf8, ta, ma
 ; CHECK-NEXT:    vmv.s.x v9, a0
-; CHECK-NEXT:    vsetvli zero, zero, e16, mf2, ta, ma
+; CHECK-NEXT:    vsetivli zero, 4, e16, mf2, ta, ma
 ; CHECK-NEXT:    vsext.vf2 v10, v9
 ; CHECK-NEXT:    vrgather.vv v9, v8, v10
 ; CHECK-NEXT:    vmv1r.v v8, v9

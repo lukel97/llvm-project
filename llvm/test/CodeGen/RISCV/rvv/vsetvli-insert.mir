@@ -233,7 +233,7 @@ body:             |
     ; CHECK: liveins: $v8
     ; CHECK-NEXT: {{  $}}
     ; CHECK-NEXT: [[COPY:%[0-9]+]]:vr = COPY $v8
-    ; CHECK-NEXT: dead $x0 = PseudoVSETIVLI 1, 216 /* e64, m1, ta, ma */, implicit-def $vl, implicit-def $vtype
+    ; CHECK-NEXT: dead $x0 = PseudoVSETIVLI 1, 221 /* e64, mf8, ta, ma */, implicit-def $vl, implicit-def $vtype
     ; CHECK-NEXT: [[PseudoVMV_X_S_M1_:%[0-9]+]]:gpr = PseudoVMV_X_S_M1 [[COPY]], 6 /* e64 */, implicit $vtype
     ; CHECK-NEXT: $x10 = COPY [[PseudoVMV_X_S_M1_]]
     ; CHECK-NEXT: PseudoRET implicit $x10
