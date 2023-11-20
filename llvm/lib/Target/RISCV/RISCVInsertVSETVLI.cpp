@@ -1032,26 +1032,24 @@ void RISCVInsertVSETVLI::transferBefore(VSETVLIInfo &Info,
   if (Info.hasSEWLMULRatioOnly() || !Info.isValid() || Info.isUnknown())
     Info = NewInfo;
 
-  DemandedFields Demanded = getDemanded(MI, MRI, ST);
-
   // If we don't use LMUL or the SEW/LMUL ratio, then adjust LMUL so that we
   // maintain the SEW/LMUL ratio. This allows us to eliminate VL toggles in more
   // places.
+  DemandedFields Demanded = getDemanded(MI, MRI, ST);
   if (!Demanded.LMUL && !Demanded.SEWLMULRatio && Info.isValid() &&
       !Info.isUnknown()) {
-    if (auto SameRatioLMUL = RISCVVType::getSameRatioLMUL(
+    if (auto NewVLMul = RISCVVType::getSameRatioLMUL(
             Info.getSEW(), Info.getVLMUL(), NewInfo.getSEW())) {
-      NewInfo.setVLMul(*SameRatioLMUL);
+      NewInfo.setVLMul(*NewVLMul);
       Demanded.LMUL = true;
     }
   }
 
-  // If AVL is defined by a vsetvli with the same VLMAX, we can replace the AVL
-  // operand with the AVL of the defining vsetvli.  We avoid general register
-  // AVLs to avoid extending live ranges without being sure we can kill the
-  // original source reg entirely.
-  if (RISCVII::hasVLOp(TSFlags) && NewInfo.hasAVLReg() &&
-      NewInfo.getAVLReg().isVirtual()) {
+  // If AVL is defined by a vsetvli with the same VLMAX, we can
+  // replace the AVL operand with the AVL of the defining vsetvli.
+  // We avoid general register AVLs to avoid extending live ranges
+  // without being sure we can kill the original source reg entirely.
+  if (NewInfo.hasAVLReg() && NewInfo.getAVLReg().isVirtual()) {
     MachineInstr *DefMI = MRI->getVRegDef(NewInfo.getAVLReg());
     if (DefMI && isVectorConfigInstr(*DefMI)) {
       VSETVLIInfo DefInfo = getInfoForVSETVLI(*DefMI);
