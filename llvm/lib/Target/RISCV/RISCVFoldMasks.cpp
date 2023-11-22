@@ -206,30 +206,18 @@ bool RISCVFoldMasks::foldVMergeIntoOps(MachineInstr &MI,
     return false;
 
   MachineOperand &TrueMergeOp = TrueMI.getOperand(1);
-  if (HasTiedDest && TrueMergeOp.getReg() != RISCV::NoRegister) {
-    // The vmerge instruction must be TU.
-    // FIXME: This could be relaxed, but we need to handle the policy for the
-    // resulting op correctly.
-    if (Merge->getReg() == RISCV::NoRegister)
-      return false;
-    // Both the vmerge instruction and the True instruction must have the same
-    // merge operand.
-    if (!isOpSameAs(TrueMergeOp, *False))
-      return false;
-  }
+  // Both the vmerge instruction and the True instruction must have the same
+  // merge operand.
+  if (HasTiedDest && !isOpSameAs(TrueMergeOp, *False))
+    return false;
 
-  if (IsMasked) {
-    assert(HasTiedDest && "Expected tied dest");
-    // The vmerge instruction must be TU.
-    if (Merge->getReg() == RISCV::NoRegister)
-      return false;
-    // The vmerge instruction must have an all 1s mask since we're going to keep
-    // the mask from the True instruction.
-    // FIXME: Support mask agnostic True instruction which would have an
-    // undef merge operand.
-    if (BaseOpc == RISCV::VMERGE_VVM && !isAllOnesMask(MaskDef))
-      return false;
-  }
+  assert((!IsMasked || HasTiedDest) && "Expected tied dest");
+  // The vmerge instruction must have an all 1s mask since we're going to keep
+  // the mask from the True instruction.
+  // FIXME: Support mask agnostic True instruction which would have an
+  // undef merge operand.
+  if (IsMasked && BaseOpc == RISCV::VMERGE_VVM && !isAllOnesMask(MaskDef))
+    return false;
 
   // Skip if True has side effect.
   // TODO: Support vleff and vlsegff.
