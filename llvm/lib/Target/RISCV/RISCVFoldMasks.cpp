@@ -208,8 +208,18 @@ bool RISCVFoldMasks::foldVMergeIntoOps(MachineInstr &MI,
   MachineOperand &TrueMergeOp = TrueMI.getOperand(1);
   // Both the vmerge instruction and the True instruction must have the same
   // merge operand.
-  if (HasTiedDest && !isOpSameAs(TrueMergeOp, *False))
-    return false;
+  bool NeedsCommute = false;
+  if (HasTiedDest && !isOpSameAs(TrueMergeOp, *False)) {
+    // We may be able to commute True's Merge operand.
+    if (!TrueMI.isCommutable())
+      return false;
+    unsigned Op1 = 1, Op2 = TargetInstrInfo::CommuteAnyOperandIndex;
+    if (!TII->findCommutedOpIndices(TrueMI, Op1, Op2))
+      return false;
+    if (!isOpSameAs(TrueMI.getOperand(Op2), *False))
+      return false;
+    NeedsCommute = true;
+  }
 
   assert((!IsMasked || HasTiedDest) && "Expected tied dest");
   // The vmerge instruction must have an all 1s mask since we're going to keep
@@ -281,6 +291,15 @@ bool RISCVFoldMasks::foldVMergeIntoOps(MachineInstr &MI,
   }
   if (!TrueMI.isSafeToMove(nullptr, SawStore))
     return false;
+
+  // At this point we're now committed to merging the vmerge.
+
+  if (NeedsCommute) {
+    assert(TII->commuteInstruction(TrueMI, false, 1,
+                                   TargetInstrInfo::CommuteAnyOperandIndex));
+    assert(isOpSameAs(TrueMI.getOperand(1), *False));
+  }
+
   TrueMI.moveBefore(&MI);
 
   // Set the merge to the false operand of the merge.
