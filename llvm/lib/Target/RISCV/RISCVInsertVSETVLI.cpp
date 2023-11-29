@@ -818,6 +818,7 @@ static VSETVLIInfo computeInfoForInstr(const MachineInstr &MI, uint64_t TSFlags,
       else
         InstrInfo.setAVLImm(Imm);
     } else {
+      assert(VLOp.getReg() != RISCV::NoRegister);
       InstrInfo.setAVLReg(VLOp.getReg());
     }
   } else {
@@ -863,40 +864,6 @@ static VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI) {
 void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
                      MachineBasicBlock::iterator InsertPt, DebugLoc DL,
                      const VSETVLIInfo &Info, const VSETVLIInfo &PrevInfo) {
-
-  if (PrevInfo.isValid() && !PrevInfo.isUnknown()) {
-    // Use X0, X0 form if the AVL is the same and the SEW+LMUL gives the same
-    // VLMAX.
-    if (Info.hasSameAVL(PrevInfo) && Info.hasSameVLMAX(PrevInfo)) {
-      BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETVLIX0))
-          .addReg(RISCV::X0, RegState::Define | RegState::Dead)
-          .addReg(RISCV::X0, RegState::Kill)
-          .addImm(Info.encodeVTYPE())
-          .addReg(RISCV::VL, RegState::Implicit);
-      return;
-    }
-
-    // If our AVL is a virtual register, it might be defined by a VSET(I)VLI. If
-    // it has the same VLMAX we want and the last VL/VTYPE we observed is the
-    // same, we can use the X0, X0 form.
-    if (Info.hasSameVLMAX(PrevInfo) && Info.hasAVLReg() &&
-        Info.getAVLReg().isVirtual()) {
-      if (MachineInstr *DefMI = MRI->getVRegDef(Info.getAVLReg())) {
-        if (isVectorConfigInstr(*DefMI)) {
-          VSETVLIInfo DefInfo = getInfoForVSETVLI(*DefMI);
-          if (DefInfo.hasSameAVL(PrevInfo) && DefInfo.hasSameVLMAX(PrevInfo)) {
-            BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETVLIX0))
-                .addReg(RISCV::X0, RegState::Define | RegState::Dead)
-                .addReg(RISCV::X0, RegState::Kill)
-                .addImm(Info.encodeVTYPE())
-                .addReg(RISCV::VL, RegState::Implicit);
-            return;
-          }
-        }
-      }
-    }
-  }
-
   if (Info.hasAVLImm()) {
     BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETIVLI))
         .addReg(RISCV::X0, RegState::Define | RegState::Dead)
@@ -1565,6 +1532,68 @@ bool RISCVInsertVSETVLI::runOnMachineFunction(MachineFunction &MF) {
     emitVSETVLIs(MBB);
 
   // Now that all vsetvlis are explicit, go through and do block local
+  // DSE and peephole based demanded fields based transforms.  Note that
+  // this *must* be done outside the main dataflow so long as we allow
+  // any cross block analysis within the dataflow.  We can't have both
+  // demanded fields based mutation and non-local analysis in the
+  // dataflow at the same time without introducing inconsistencies.
+  for (MachineBasicBlock &MBB : MF)
+    doLocalPostpass(MBB);
+
+  // It's safe to use the blockinfo here because we aren't doing any dmeanded fields analysis: the state is precisely preserved throughout.
+  for (MachineBasicBlock &MBB : MF) {
+    MachineInstr *NextMI = nullptr;
+
+    auto ConvertToX0X0 = [&](MachineInstr *MI, VSETVLIInfo PrevInfo) {
+      VSETVLIInfo MIInfo = getInfoForVSETVLI(*MI);
+      assert(PrevInfo.isValid());
+
+      
+      if (PrevInfo.isUnknown()) return;
+      
+      // If our AVL is a virtual register, it might be defined by a VSET(I)VLI. If
+      // it has the same VLMAX we want and the last VL/VTYPE we observed is the
+      // same, we can use the X0, X0 form.
+      if (MIInfo.hasSameVLMAX(PrevInfo) && MIInfo.hasAVLReg() &&
+          MIInfo.getAVLReg().isVirtual() && MI->getOperand(0).isDead()) {
+	if (MachineInstr *DefMI = MRI->getVRegDef(MIInfo.getAVLReg())) {
+          if (isVectorConfigInstr(*DefMI)) {
+            VSETVLIInfo DefInfo = getInfoForVSETVLI(*DefMI);
+            if (DefInfo.hasSameAVL(PrevInfo) && DefInfo.hasSameVLMAX(PrevInfo)) {
+	      MI->setDesc(TII->get(RISCV::PseudoVSETVLIX0));
+	      MI->getOperand(0).ChangeToRegister(RISCV::X0, true, false, false, true);
+	      MI->getOperand(1).ChangeToRegister(RISCV::X0, false, false, true, false);
+	      MI->addOperand(MachineOperand::CreateReg(RISCV::VL, false, true));
+              return;
+	    }
+          }
+	}
+      }
+      
+      if (PrevInfo.hasSameVLMAX(MIInfo) && PrevInfo.hasSameAVL(MIInfo) && MI->getOperand(0).isDead()) {
+	MI->setDesc(TII->get(RISCV::PseudoVSETVLIX0));
+	MI->getOperand(0).ChangeToRegister(RISCV::X0, true, false, false, true);
+	MI->getOperand(1).ChangeToRegister(RISCV::X0, false, false, true, false);
+	MI->addOperand(MachineOperand::CreateReg(RISCV::VL, false, true));
+      }
+    };
+
+    VSETVLIInfo Info = BlockInfo[MBB.getNumber()].Pred;
+    for (MachineInstr &MI : MBB) {
+      // transferBefore(Info, MI);
+      if (isVectorConfigInstr(MI)) {
+	VSETVLIInfo NewInfo = getInfoForVSETVLI(MI);
+	ConvertToX0X0(&MI, Info);
+	Info = NewInfo;
+	continue;
+      }
+      transferAfter(Info, MI);
+    }
+
+    if (NextMI)
+      ConvertToX0X0(NextMI, BlockInfo[MBB.getNumber()].Pred);
+  }
+    // Now that all vsetvlis are explicit, go through and do block local
   // DSE and peephole based demanded fields based transforms.  Note that
   // this *must* be done outside the main dataflow so long as we allow
   // any cross block analysis within the dataflow.  We can't have both

@@ -217,7 +217,7 @@ define <2 x i64> @mgather_v2i64_align4(<2 x ptr> %ptrs, <2 x i1> %m, <2 x i64> %
 ; RV64-SLOW-NEXT:    vmv1r.v v8, v9
 ; RV64-SLOW-NEXT:    ret
 ; RV64-SLOW-NEXT:  .LBB5_3: # %cond.load
-; RV64-SLOW-NEXT:    vsetvli zero, zero, e64, m1, tu, ma
+; RV64-SLOW-NEXT:    vsetivli zero, 1, e64, m1, tu, ma
 ; RV64-SLOW-NEXT:    vmv.x.s a1, v8
 ; RV64-SLOW-NEXT:    lwu a2, 4(a1)
 ; RV64-SLOW-NEXT:    lwu a1, 0(a1)
