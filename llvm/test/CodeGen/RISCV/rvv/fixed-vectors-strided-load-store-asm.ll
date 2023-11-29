@@ -59,13 +59,13 @@ define void @gather_masked(ptr noalias nocapture %A, ptr noalias nocapture reado
 ; V-NEXT:    addi a3, a3, 873
 ; V-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
 ; V-NEXT:    vmv.s.x v0, a3
-; V-NEXT:    li a3, 32
-; V-NEXT:    li a4, 5
+; V-NEXT:    li a4, 32
+; V-NEXT:    li a3, 5
+; V-NEXT:    vsetvli zero, a4, e8, m1, ta, mu
 ; V-NEXT:  .LBB1_1: # %vector.body
 ; V-NEXT:    # =>This Inner Loop Header: Depth=1
-; V-NEXT:    vsetvli zero, a3, e8, m1, ta, mu
 ; V-NEXT:    vmv1r.v v9, v8
-; V-NEXT:    vlse8.v v9, (a1), a4, v0.t
+; V-NEXT:    vlse8.v v9, (a1), a3, v0.t
 ; V-NEXT:    vle8.v v10, (a0)
 ; V-NEXT:    vadd.vv v9, v10, v9
 ; V-NEXT:    vse8.v v9, (a0)
@@ -83,13 +83,13 @@ define void @gather_masked(ptr noalias nocapture %A, ptr noalias nocapture reado
 ; ZVE32F-NEXT:    addi a3, a3, 873
 ; ZVE32F-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
 ; ZVE32F-NEXT:    vmv.s.x v0, a3
-; ZVE32F-NEXT:    li a3, 32
-; ZVE32F-NEXT:    li a4, 5
+; ZVE32F-NEXT:    li a4, 32
+; ZVE32F-NEXT:    li a3, 5
+; ZVE32F-NEXT:    vsetvli zero, a4, e8, m1, ta, mu
 ; ZVE32F-NEXT:  .LBB1_1: # %vector.body
 ; ZVE32F-NEXT:    # =>This Inner Loop Header: Depth=1
-; ZVE32F-NEXT:    vsetvli zero, a3, e8, m1, ta, mu
 ; ZVE32F-NEXT:    vmv1r.v v9, v8
-; ZVE32F-NEXT:    vlse8.v v9, (a1), a4, v0.t
+; ZVE32F-NEXT:    vlse8.v v9, (a1), a3, v0.t
 ; ZVE32F-NEXT:    vle8.v v10, (a0)
 ; ZVE32F-NEXT:    vadd.vv v9, v10, v9
 ; ZVE32F-NEXT:    vse8.v v9, (a0)
@@ -329,20 +329,20 @@ define void @scatter_masked(ptr noalias nocapture %A, ptr noalias nocapture read
 ; V-LABEL: scatter_masked:
 ; V:       # %bb.0: # %entry
 ; V-NEXT:    li a2, 1024
-; V-NEXT:    li a3, 32
-; V-NEXT:    lui a4, 983765
-; V-NEXT:    addi a4, a4, 873
+; V-NEXT:    li a4, 32
+; V-NEXT:    lui a3, 983765
+; V-NEXT:    addi a3, a3, 873
 ; V-NEXT:    vsetivli zero, 1, e32, mf2, ta, ma
-; V-NEXT:    vmv.s.x v0, a4
-; V-NEXT:    li a4, 5
+; V-NEXT:    vmv.s.x v0, a3
+; V-NEXT:    li a3, 5
+; V-NEXT:    vsetvli zero, a4, e8, m1, ta, mu
 ; V-NEXT:  .LBB6_1: # %vector.body
 ; V-NEXT:    # =>This Inner Loop Header: Depth=1
-; V-NEXT:    vsetvli zero, a3, e8, m1, ta, mu
 ; V-NEXT:    vle8.v v9, (a1)
 ; V-NEXT:    vmv1r.v v10, v8
-; V-NEXT:    vlse8.v v10, (a0), a4, v0.t
+; V-NEXT:    vlse8.v v10, (a0), a3, v0.t
 ; V-NEXT:    vadd.vv v9, v10, v9
-; V-NEXT:    vsse8.v v9, (a0), a4, v0.t
+; V-NEXT:    vsse8.v v9, (a0), a3, v0.t
 ; V-NEXT:    addi a2, a2, -32
 ; V-NEXT:    addi a1, a1, 32
 ; V-NEXT:    addi a0, a0, 160
@@ -353,20 +353,20 @@ define void @scatter_masked(ptr noalias nocapture %A, ptr noalias nocapture read
 ; ZVE32F-LABEL: scatter_masked:
 ; ZVE32F:       # %bb.0: # %entry
 ; ZVE32F-NEXT:    li a2, 1024
-; ZVE32F-NEXT:    li a3, 32
-; ZVE32F-NEXT:    lui a4, 983765
-; ZVE32F-NEXT:    addi a4, a4, 873
+; ZVE32F-NEXT:    li a4, 32
+; ZVE32F-NEXT:    lui a3, 983765
+; ZVE32F-NEXT:    addi a3, a3, 873
 ; ZVE32F-NEXT:    vsetivli zero, 1, e32, m1, ta, ma
-; ZVE32F-NEXT:    vmv.s.x v0, a4
-; ZVE32F-NEXT:    li a4, 5
+; ZVE32F-NEXT:    vmv.s.x v0, a3
+; ZVE32F-NEXT:    li a3, 5
+; ZVE32F-NEXT:    vsetvli zero, a4, e8, m1, ta, mu
 ; ZVE32F-NEXT:  .LBB6_1: # %vector.body
 ; ZVE32F-NEXT:    # =>This Inner Loop Header: Depth=1
-; ZVE32F-NEXT:    vsetvli zero, a3, e8, m1, ta, mu
 ; ZVE32F-NEXT:    vle8.v v9, (a1)
 ; ZVE32F-NEXT:    vmv1r.v v10, v8
-; ZVE32F-NEXT:    vlse8.v v10, (a0), a4, v0.t
+; ZVE32F-NEXT:    vlse8.v v10, (a0), a3, v0.t
 ; ZVE32F-NEXT:    vadd.vv v9, v10, v9
-; ZVE32F-NEXT:    vsse8.v v9, (a0), a4, v0.t
+; ZVE32F-NEXT:    vsse8.v v9, (a0), a3, v0.t
 ; ZVE32F-NEXT:    addi a2, a2, -32
 ; ZVE32F-NEXT:    addi a1, a1, 32
 ; ZVE32F-NEXT:    addi a0, a0, 160

@@ -841,7 +841,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB, MachineInstr &MI,
 
 // Return a VSETVLIInfo representing the changes made by this VSETVLI or
 // VSETIVLI instruction.
-static VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI) {
+static VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI, VSETVLIInfo *CurInfo = nullptr) {
   VSETVLIInfo NewInfo;
   if (MI.getOpcode() == RISCV::PseudoVSETIVLI) {
     NewInfo.setAVLImm(MI.getOperand(1).getImm());
@@ -849,9 +849,17 @@ static VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI) {
     assert(MI.getOpcode() == RISCV::PseudoVSETVLI ||
            MI.getOpcode() == RISCV::PseudoVSETVLIX0);
     Register AVLReg = MI.getOperand(1).getReg();
-    assert((AVLReg != RISCV::X0 || MI.getOperand(0).getReg() != RISCV::X0) &&
-           "Can't handle X0, X0 vsetvli yet");
-    NewInfo.setAVLReg(AVLReg);
+    // assert((AVLReg != RISCV::X0 || MI.getOperand(0).getReg() != RISCV::X0) &&
+    //        "Can't handle X0, X0 vsetvli yet");
+    if (AVLReg == RISCV::X0 && MI.getOperand(0).getReg() == RISCV::X0) {
+      assert(CurInfo);
+      if (CurInfo->hasAVLImm())
+	NewInfo.setAVLImm(CurInfo->getAVLImm());
+      else
+        NewInfo.setAVLReg(CurInfo->getAVLReg());
+    } else {
+      NewInfo.setAVLReg(AVLReg);
+    }
   }
   NewInfo.setVTYPE(MI.getOperand(2).getImm());
 
@@ -1088,7 +1096,7 @@ void RISCVInsertVSETVLI::transferBefore(VSETVLIInfo &Info,
 void RISCVInsertVSETVLI::transferAfter(VSETVLIInfo &Info,
                                        const MachineInstr &MI) const {
   if (isVectorConfigInstr(MI)) {
-    Info = getInfoForVSETVLI(MI);
+    Info = getInfoForVSETVLI(MI, &Info);
     return;
   }
 
@@ -1314,14 +1322,15 @@ void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
 /// this is geared to catch the common case of a fixed length vsetvl in a single
 /// block loop when it could execute once in the preheader instead.
 void RISCVInsertVSETVLI::doPRE(MachineBasicBlock &MBB) {
-  if (!BlockInfo[MBB.getNumber()].Pred.isUnknown())
-    return;
+  BlockInfo[MBB.getNumber()].Pred.dump();
+  // if (!BlockInfo[MBB.getNumber()].Pred.isUnknown())
+  //   return;
 
   MachineBasicBlock *UnavailablePred = nullptr;
   VSETVLIInfo AvailableInfo;
   for (MachineBasicBlock *P : MBB.predecessors()) {
     const VSETVLIInfo &PredInfo = BlockInfo[P->getNumber()].Exit;
-    if (PredInfo.isUnknown()) {
+    if (PredInfo.isUnknown() || P->getSingleSuccessor()) {
       if (UnavailablePred)
         return;
       UnavailablePred = P;
