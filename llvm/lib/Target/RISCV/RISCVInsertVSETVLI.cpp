@@ -822,7 +822,7 @@ static VSETVLIInfo computeInfoForInstr(const MachineInstr &MI, uint64_t TSFlags,
     }
   } else {
     assert(isScalarExtractInstr(MI));
-    InstrInfo.setAVLReg(RISCV::NoRegister);
+    InstrInfo.setAVLImm(1);
   }
 #ifndef NDEBUG
   if (std::optional<unsigned> EEW = getEEWForLoadStore(MI)) {
@@ -906,25 +906,6 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
   }
 
   Register AVLReg = Info.getAVLReg();
-  if (AVLReg == RISCV::NoRegister) {
-    // We can only use x0, x0 if there's no chance of the vtype change causing
-    // the previous vl to become invalid.
-    if (PrevInfo.isValid() && !PrevInfo.isUnknown() &&
-        Info.hasSameVLMAX(PrevInfo)) {
-      BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETVLIX0))
-          .addReg(RISCV::X0, RegState::Define | RegState::Dead)
-          .addReg(RISCV::X0, RegState::Kill)
-          .addImm(Info.encodeVTYPE())
-          .addReg(RISCV::VL, RegState::Implicit);
-      return;
-    }
-    // Otherwise use an AVL of 1 to avoid depending on previous vl.
-    BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETIVLI))
-        .addReg(RISCV::X0, RegState::Define | RegState::Dead)
-        .addImm(1)
-        .addImm(Info.encodeVTYPE());
-    return;
-  }
 
   if (AVLReg.isVirtual())
     MRI->constrainRegClass(AVLReg, &RISCV::GPRNoX0RegClass);
