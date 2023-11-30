@@ -110,8 +110,9 @@ define void @v4xi64_concat_vector_insert_idx0(ptr %a, ptr %b, i64 %x) {
 ; RV64-NEXT:    vle64.v v10, (a1)
 ; RV64-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
 ; RV64-NEXT:    vslideup.vi v8, v10, 2
-; RV64-NEXT:    vsetvli zero, zero, e64, m2, tu, ma
+; RV64-NEXT:    vsetivli zero, 4, e64, m1, tu, ma
 ; RV64-NEXT:    vmv.s.x v8, a2
+; RV64-NEXT:    vsetivli zero, 4, e64, m2, ta, ma
 ; RV64-NEXT:    vse64.v v8, (a0)
 ; RV64-NEXT:    ret
   %v1 = load <2 x i64>, ptr %a
