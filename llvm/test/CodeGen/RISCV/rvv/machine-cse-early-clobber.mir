@@ -19,7 +19,8 @@ body: |
     ; CHECK: liveins: $v0
     ; CHECK-NEXT: {{  $}}
     ; CHECK-NEXT: %mask:vmv0 = COPY $v0
-    ; CHECK-NEXT: early-clobber %res:vr = PseudoVMSEQ_VV_M2_MASK %mask, $noreg, $noreg, %mask, $noreg, 3 /* e8 */, implicit $vl, implicit $vtype
+    ; CHECK-NEXT: %pt:vr = COPY %mask
+    ; CHECK-NEXT: early-clobber %res:vr = PseudoVMSEQ_VV_M2_MASK %pt, $noreg, $noreg, %mask, $noreg, 3 /* e8 */, implicit $vl, implicit $vtype
     ; CHECK-NEXT: $v0 = COPY %res
     ; CHECK-NEXT: PseudoRET implicit $v0
     %mask:vmv0 = COPY $v0

@@ -205,6 +205,23 @@ bool MachineCSE::PerformTrivialCopyPropagation(MachineInstr *MI,
     // class given a super-reg class and subreg index.
     if (DefMI->getOperand(1).getSubReg())
       continue;
+
+    // If MO is tied-def, then we might end up constraining the register class
+    // of the def when coalescing the copy. If the def is an early-clobber and
+    // another operand uses SrcReg, then we will need to allocate two separate
+    // registers for them. So avoid coalescing if we will end up with a register
+    // class that doesn't have at least two registers. See #75347
+    bool HasAnotherUse =
+        any_of(MI->uses(), [&MO, &SrcReg](MachineOperand &OtherMO) {
+          return OtherMO.getOperandNo() != MO.getOperandNo() &&
+                 OtherMO.isReg() && OtherMO.getReg() == SrcReg;
+        });
+    unsigned TiedDefIdx;
+    if (MI->isRegTiedToDefOperand(MO.getOperandNo(), &TiedDefIdx) &&
+        MI->getOperand(TiedDefIdx).isEarlyClobber() && HasAnotherUse &&
+        MRI->getRegClass(SrcReg)->getNumRegs() < 2)
+      continue;
+
     if (!MRI->constrainRegAttrs(SrcReg, Reg))
       continue;
     LLVM_DEBUG(dbgs() << "Coalescing: " << *DefMI);
