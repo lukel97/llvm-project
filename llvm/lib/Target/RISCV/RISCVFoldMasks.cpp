@@ -16,9 +16,12 @@
 //
 //===---------------------------------------------------------------------===//
 
+#include "MCTargetDesc/RISCVBaseInfo.h"
+#include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "RISCV.h"
 #include "RISCVISelDAGToDAG.h"
 #include "RISCVSubtarget.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -49,6 +52,7 @@ public:
 private:
   bool convertToUnmasked(MachineInstr &MI, MachineInstr *MaskDef);
   bool convertVMergeToVMv(MachineInstr &MI, MachineInstr *MaskDef);
+  bool foldVMergeIntoVL(MachineInstr &MI, MachineInstr *MaskDef);
 
   bool isAllOnesMask(MachineInstr *MaskDef);
 };
@@ -176,6 +180,78 @@ bool RISCVFoldMasks::convertToUnmasked(MachineInstr &MI,
   return true;
 }
 
+bool RISCVFoldMasks::foldVMergeIntoVL(MachineInstr &MI,
+                                      MachineInstr *CurrentV0Def) {
+
+  // Transform
+  // %t = VFOO ...
+  // %f = VBAR pt=undef, ..., vl=...
+  // %v = VMERGE undef, %f, %t, mask=0b1100, vl=4
+  // into
+  // %t = VFOO undef, ...
+  // %v = VBAR %t, ..., vl=...2
+  if (RISCV::getRVVMCOpcode(MI.getOpcode()) != RISCV::VMERGE_VVM)
+    return false;
+  if (MI.getOperand(1).getReg() != RISCV::NoRegister)
+    return false;
+  assert(MI.getOperand(4).getReg() == RISCV::V0);
+  Register MaskDefReg =
+      TRI->lookThruCopyLike(CurrentV0Def->getOperand(1).getReg(), MRI);
+  if (!MaskDefReg.isVirtual())
+    return false;
+  MachineOperand &False = MI.getOperand(2);
+  if (False.getReg() == RISCV::NoRegister || !MRI->hasOneUse(False.getReg()))
+    return false;
+  MachineInstr *FalseDef = MRI->getVRegDef(False.getReg());
+  
+  const MCInstrDesc &FalseMCID = TII->get(FalseDef->getOpcode());
+
+  const bool FalseHasPassthru = RISCVII::isFirstDefTiedToFirstUse(FalseMCID);
+const bool FalseHasVLOp = RISCVII::hasVLOp(FalseMCID.TSFlags);
+const bool FalseHasPolicyOp = RISCVII::hasVecPolicyOp(FalseMCID.TSFlags);
+  if (!FalseHasPassthru || !FalseHasVLOp || !FalseHasPolicyOp || FalseDef->getOperand(1).getReg() != RISCV::NoRegister)
+    return false;
+  
+// DOn't allow masked pseudos
+  if (RISCV::getMaskedPseudoInfo(FalseDef->getOpcode()))
+    return false;
+
+// Changing VL or Mask shouldn't affect the lanewise result.
+  // const RISCV::RISCVMaskedPseudoInfo *Info =
+  //     RISCV::lookupMaskedIntrinsicByUnmasked(FalseDef->getOpcode());
+  // if (Info->MaskAffectsResult)
+  //   return false;
+
+  MachineInstr *MaskDef = MRI->getVRegDef(MaskDefReg);
+  MachineOperand &VL = MI.getOperand(5);
+  if (!VL.isImm())
+    return false;
+  if (RISCV::getRVVMCOpcode(MaskDef->getOpcode()) != RISCV::VMV_V_I)
+    return false;
+  assert(MaskDef->getOperand(3).getImm() == 1);
+  uint64_t Mask = MaskDef->getOperand(2).getImm();
+  if (!isShiftedMask_64(Mask))
+    return false;
+  if (llvm::bit_width(Mask) < VL.getImm())
+    return false;
+
+  unsigned LeadingZeroes = llvm::countr_zero(Mask);
+
+// TODO: check FalseDef has no mask
+// TODO: check changing VL of FalseDef doesn't affect lanewise result (reductions e.g.)
+// TODO: Erase mask if not used by others.
+  FalseDef->moveBefore(&MI);
+  FalseDef->getOperand(1).setReg(MI.getOperand(3).getReg());
+  FalseDef->getOperand(RISCVII::getVLOpNum(TII->get(FalseDef->getOpcode()))).setImm(LeadingZeroes);
+  
+  MachineOperand &PolicyOp = FalseDef->getOperand(RISCVII::getVecPolicyOpNum(FalseMCID));
+  PolicyOp.setImm(PolicyOp.getImm() & ~RISCVII::TAIL_AGNOSTIC);
+
+  MRI->replaceRegWith(MI.getOperand(0).getReg(), False.getReg());
+  MI.eraseFromParent();
+  return true;
+}
+
 bool RISCVFoldMasks::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -201,9 +277,10 @@ bool RISCVFoldMasks::runOnMachineFunction(MachineFunction &MF) {
   MachineInstr *CurrentV0Def;
   for (MachineBasicBlock &MBB : MF) {
     CurrentV0Def = nullptr;
-    for (MachineInstr &MI : MBB) {
+    for (MachineInstr &MI : llvm::make_early_inc_range(MBB)) {
       Changed |= convertToUnmasked(MI, CurrentV0Def);
       Changed |= convertVMergeToVMv(MI, CurrentV0Def);
+      Changed |= foldVMergeIntoVL(MI, CurrentV0Def);
 
       if (MI.definesRegister(RISCV::V0, TRI))
         CurrentV0Def = &MI;
