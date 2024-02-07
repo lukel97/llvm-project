@@ -3979,6 +3979,14 @@ void SelectionDAGBuilder::visitShuffleVector(const User &I) {
 
       setValue(&I, DAG.getVectorShuffle(VT, DL, Src1, Src2, MappedOps));
       return;
+    } else {
+      EVT SrcVT = Src1.getValueType();
+      SmallVector<int> PaddedMask(Mask);
+      PaddedMask.resize(SrcVT.getVectorNumElements(), -1);
+      // PaddedMask.assign(Mask.begin(), Mask.end());
+      SDValue Shuffle = DAG.getVectorShuffle(SrcVT, DL, Src1, Src2, PaddedMask);
+      setValue(&I, DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, VT, Shuffle, DAG.getVectorIdxConstant(0, DL)));
+      return;
     }
   }
 

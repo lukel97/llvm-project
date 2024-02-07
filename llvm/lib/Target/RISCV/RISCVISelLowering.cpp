@@ -15006,8 +15006,8 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
   if (VT.getVectorNumElements() == 1)
     return SDValue();
 
-  if (SDValue V = combineBuildVectorToShuffle(N, DAG, TLI))
-    return V;
+  // if (SDValue V = combineBuildVectorToShuffle(N, DAG, TLI))
+  //   return V;
 
   /// If we have a build_vector where each lane is binop X, C, where C
   /// is a constant (but not necessarily the same constant on all lanes),
