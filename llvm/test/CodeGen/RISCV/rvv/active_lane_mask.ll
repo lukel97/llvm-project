@@ -232,6 +232,73 @@ define <128 x i1> @fv128(ptr %p, i64 %index, i64 %tc) {
   ret <128 x i1> %mask
 }
 
+define <vscale x 2 x i32> @masked_load(i64 %index, i64 %tc, ptr %p, <vscale x 2 x i32> %pt) {
+; CHECK-LABEL: masked_load:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli a3, zero, e64, m2, ta, ma
+; CHECK-NEXT:    vid.v v10
+; CHECK-NEXT:    vsaddu.vx v10, v10, a0
+; CHECK-NEXT:    vmsltu.vx v0, v10, a1
+; CHECK-NEXT:    vsetvli zero, zero, e32, m1, ta, mu
+; CHECK-NEXT:    vle32.v v8, (a2), v0.t
+; CHECK-NEXT:    ret
+  %mask = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 %index, i64 %tc)
+  %v = call <vscale x 2 x i32> @llvm.masked.load.nxv2i32.p0(ptr %p, i32 4, <vscale x 2 x i1> %mask, <vscale x 2 x i32> %pt)
+  ret <vscale x 2 x i32> %v
+}
+
+define <vscale x 2 x i32> @masked_load_zero_base(i64 %tc, ptr %p, <vscale x 2 x i32> %pt) {
+; CHECK-LABEL: masked_load_zero_base:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli zero, a0, e32, m1, tu, ma
+; CHECK-NEXT:    vle32.v v8, (a1)
+; CHECK-NEXT:    ret
+  %mask = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 0, i64 %tc)
+  %v = call <vscale x 2 x i32> @llvm.masked.load.nxv2i32.p0(ptr %p, i32 4, <vscale x 2 x i1> %mask, <vscale x 2 x i32> %pt)
+  ret <vscale x 2 x i32> %v
+}
+
+define <vscale x 2 x i32> @masked_load_const_tc(i64 %base, ptr %p, <vscale x 2 x i32> %pt) {
+; CHECK-LABEL: masked_load_const_tc:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli a2, zero, e64, m2, ta, ma
+; CHECK-NEXT:    vid.v v10
+; CHECK-NEXT:    vsaddu.vx v10, v10, a0
+; CHECK-NEXT:    vmsleu.vi v0, v10, 7
+; CHECK-NEXT:    vsetvli zero, zero, e32, m1, ta, mu
+; CHECK-NEXT:    vle32.v v8, (a1), v0.t
+; CHECK-NEXT:    ret
+  %mask = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 %base, i64 8)
+  %v = call <vscale x 2 x i32> @llvm.masked.load.nxv2i32.p0(ptr %p, i32 4, <vscale x 2 x i1> %mask, <vscale x 2 x i32> %pt)
+  ret <vscale x 2 x i32> %v
+}
+
+define <vscale x 2 x i32> @masked_load_zero_base_const_tc(ptr %p, <vscale x 2 x i32> %pt) {
+; CHECK-LABEL: masked_load_zero_base_const_tc:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 8, e32, m1, tu, ma
+; CHECK-NEXT:    vle32.v v8, (a0)
+; CHECK-NEXT:    ret
+  %mask = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 0, i64 8)
+  %v = call <vscale x 2 x i32> @llvm.masked.load.nxv2i32.p0(ptr %p, i32 4, <vscale x 2 x i1> %mask, <vscale x 2 x i32> %pt)
+  ret <vscale x 2 x i32> %v
+}
+
+define <vscale x 2 x i32> @masked_gather(ptr %p, i64 %stride, <vscale x 2 x i32> %pt) {
+; CHECK-LABEL: masked_gather:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 8, e32, m1, tu, ma
+; CHECK-NEXT:    vlse32.v v8, (a0), a1
+; CHECK-NEXT:    ret
+  %mask = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 0, i64 8)
+  %step = call <vscale x 2 x i64> @llvm.experimental.stepvector.nxv2i64()
+  %stride.head = insertelement <vscale x 2 x i64> poison, i64 %stride, i32 0
+  %stride.splat = shufflevector <vscale x 2 x i64> %stride.head, <vscale x 2 x i64> poison, <vscale x 2 x i32> zeroinitializer
+  %offset = mul <vscale x 2 x i64> %step, %stride.splat
+  %ps = getelementptr i8, ptr %p, <vscale x 2 x i64> %offset
+  %v = call <vscale x 2 x i32> @llvm.masked.gather.nxv2i32.nxv2p0(<vscale x 2 x ptr> %ps, i32 4, <vscale x 2 x i1> %mask, <vscale x 2 x i32> %pt)
+  ret <vscale x 2 x i32> %v
+}
 
 declare <vscale x 1 x i1> @llvm.get.active.lane.mask.nxv1i1.i64(i64, i64)
 declare <2 x i1> @llvm.get.active.lane.mask.v2i1.i64(i64, i64)

@@ -16,9 +16,11 @@
 //
 //===---------------------------------------------------------------------===//
 
+#include "MCTargetDesc/RISCVBaseInfo.h"
 #include "RISCV.h"
 #include "RISCVISelDAGToDAG.h"
 #include "RISCVSubtarget.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -27,6 +29,8 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "riscv-fold-masks"
+
+STATISTIC(NumMasksFoldedIntoVL, "Number of masks folded into VL");
 
 namespace {
 
@@ -47,10 +51,18 @@ public:
   StringRef getPassName() const override { return "RISC-V Fold Masks"; }
 
 private:
-  bool convertToUnmasked(MachineInstr &MI, MachineInstr *MaskDef);
+  bool foldAllOnesMask(MachineInstr &MI, MachineInstr *MaskDef);
   bool convertVMergeToVMv(MachineInstr &MI, MachineInstr *MaskDef);
+  bool foldMaskIntoVL(MachineInstr &MI, MachineInstr *MaskDef);
 
   bool isAllOnesMask(MachineInstr *MaskDef);
+  /// Check if a pseudo's VL operand will be equal to VLMAX.
+  bool isVLMAX(const MachineInstr &MI) const;
+  /// Check if a pseudo doesn't use it's passthru (i.e there are no inactive
+  /// elements)
+  bool usesPassthru(const MachineInstr &MI) const;
+  void convertToUnmasked(MachineInstr &MI,
+                         const RISCV::RISCVMaskedPseudoInfo *PseudoInfo);
 };
 
 } // namespace
@@ -132,8 +144,41 @@ bool RISCVFoldMasks::convertVMergeToVMv(MachineInstr &MI, MachineInstr *V0Def) {
   return true;
 }
 
-bool RISCVFoldMasks::convertToUnmasked(MachineInstr &MI,
-                                       MachineInstr *MaskDef) {
+void RISCVFoldMasks::convertToUnmasked(MachineInstr &MI, const RISCV::RISCVMaskedPseudoInfo *PseudoInfo) {
+  // There are two classes of pseudos in the table - compares and
+  // everything else.  See the comment on RISCVMaskedPseudo for details.
+  const unsigned Opc = PseudoInfo->UnmaskedPseudo;
+  const MCInstrDesc &MCID = TII->get(Opc);
+  [[maybe_unused]] const bool HasPolicyOp =
+      RISCVII::hasVecPolicyOp(MCID.TSFlags);
+  const bool HasPassthru = RISCVII::isFirstDefTiedToFirstUse(MCID);
+#ifndef NDEBUG
+  const MCInstrDesc &MaskedMCID = TII->get(MI.getOpcode());
+  assert(RISCVII::hasVecPolicyOp(MaskedMCID.TSFlags) ==
+         RISCVII::hasVecPolicyOp(MCID.TSFlags) &&
+         "Masked and unmasked pseudos are inconsistent");
+  assert(HasPolicyOp == HasPassthru && "Unexpected pseudo structure");
+#endif
+
+  MI.setDesc(MCID);
+
+  // TODO: Increment all MaskOpIdxs in tablegen by num of explicit defs?
+  unsigned MaskOpIdx = PseudoInfo->MaskOpIdx + MI.getNumExplicitDefs();
+  MI.removeOperand(MaskOpIdx);
+
+  // The unmasked pseudo will no longer be constrained to the vrnov0 reg
+  // class, so try and relax it to vr.
+  MRI->recomputeRegClass(MI.getOperand(0).getReg());
+  unsigned PassthruOpIdx = MI.getNumExplicitDefs();
+  if (HasPassthru) {
+    if (MI.getOperand(PassthruOpIdx).getReg() != RISCV::NoRegister)
+      MRI->recomputeRegClass(MI.getOperand(PassthruOpIdx).getReg());
+  } else
+    MI.removeOperand(PassthruOpIdx);
+}
+
+bool RISCVFoldMasks::foldAllOnesMask(MachineInstr &MI,
+					      MachineInstr *MaskDef) {
   const RISCV::RISCVMaskedPseudoInfo *I =
       RISCV::getMaskedPseudoInfo(MI.getOpcode());
   if (!I)
@@ -142,39 +187,129 @@ bool RISCVFoldMasks::convertToUnmasked(MachineInstr &MI,
   if (!isAllOnesMask(MaskDef))
     return false;
 
-  // There are two classes of pseudos in the table - compares and
-  // everything else.  See the comment on RISCVMaskedPseudo for details.
-  const unsigned Opc = I->UnmaskedPseudo;
-  const MCInstrDesc &MCID = TII->get(Opc);
-  [[maybe_unused]] const bool HasPolicyOp =
-      RISCVII::hasVecPolicyOp(MCID.TSFlags);
-  const bool HasPassthru = RISCVII::isFirstDefTiedToFirstUse(MCID);
-#ifndef NDEBUG
-  const MCInstrDesc &MaskedMCID = TII->get(MI.getOpcode());
-  assert(RISCVII::hasVecPolicyOp(MaskedMCID.TSFlags) ==
-             RISCVII::hasVecPolicyOp(MCID.TSFlags) &&
-         "Masked and unmasked pseudos are inconsistent");
-  assert(HasPolicyOp == HasPassthru && "Unexpected pseudo structure");
-#endif
-  (void)HasPolicyOp;
-
-  MI.setDesc(MCID);
-
-  // TODO: Increment all MaskOpIdxs in tablegen by num of explicit defs?
-  unsigned MaskOpIdx = I->MaskOpIdx + MI.getNumExplicitDefs();
-  MI.removeOperand(MaskOpIdx);
-
-  // The unmasked pseudo will no longer be constrained to the vrnov0 reg class,
-  // so try and relax it to vr.
-  MRI->recomputeRegClass(MI.getOperand(0).getReg());
-  unsigned PassthruOpIdx = MI.getNumExplicitDefs();
-  if (HasPassthru) {
-    if (MI.getOperand(PassthruOpIdx).getReg() != RISCV::NoRegister)
-      MRI->recomputeRegClass(MI.getOperand(PassthruOpIdx).getReg());
-  } else
-    MI.removeOperand(PassthruOpIdx);
+  convertToUnmasked(MI, I);
 
   return true;
+}
+
+bool RISCVFoldMasks::isVLMAX(const MachineInstr &MI) const {
+  const MCInstrDesc &MCID = MI.getDesc();
+  assert(RISCVII::hasVLOp(MCID.TSFlags));
+  
+  const MachineOperand &VL = MI.getOperand(RISCVII::getVLOpNum(MCID));
+  assert(RISCVII::hasSEWOp(MCID.TSFlags));
+  const unsigned SEW = RISCVII::getSEWOpNum(MCID);
+  const RISCVII::VLMUL LMUL = RISCVII::getLMul(MCID.TSFlags);
+  
+  if (VL.isImm() && VL.getImm() == RISCV::VLMaxSentinel)
+    return true;
+
+  if (!VL.isReg() || !VL.getReg().isVirtual())
+    return false;
+  MachineInstr *VLDef = MRI->getVRegDef(VL.getReg());
+  if (!VLDef || VLDef->getOpcode() != RISCV::PseudoVSETVLIX0)
+    return false;
+  unsigned VLDefVTYPE = VLDef->getOperand(2).getImm();
+  if (RISCVVType::getSEWLMULRatio(RISCVVType::getSEW(VLDefVTYPE),
+                                  RISCVVType::getVLMUL(VLDefVTYPE)) !=
+      RISCVVType::getSEWLMULRatio(SEW, LMUL))
+    return false;
+  return true;
+}
+
+bool RISCVFoldMasks::usesPassthru(const MachineInstr &MI) const {
+  const MCInstrDesc &MCID = MI.getDesc();
+  assert(RISCVII::isFirstDefTiedToFirstUse(MCID));
+
+  if (MI.getOperand(1).getReg() == RISCV::NoRegister)
+    return false;
+
+  if (RISCVII::hasVLOp(MCID.TSFlags) && !isVLMAX(MI))
+    return true;
+
+  // TODO: Check if the mask is all ones, in which case the passthru isn't used.
+  if (RISCV::getMaskedPseudoInfo(MI.getOpcode()))
+    return true;
+  
+  return false;
+}
+
+bool RISCVFoldMasks::foldMaskIntoVL(MachineInstr &MI, MachineInstr *CurrentV0Def) {
+  const RISCV::RISCVMaskedPseudoInfo *I =
+    RISCV::getMaskedPseudoInfo(MI.getOpcode());
+
+  if (!I)
+    return false;
+  
+   MachineOperand &VL = MI.getOperand(RISCVII::getVLOpNum(MI.getDesc()));
+  
+   unsigned Policy;
+   if (RISCVII::hasVecPolicyOp(MI.getDesc().TSFlags))
+     Policy = MI.getOperand(RISCVII::getVecPolicyOpNum(MI.getDesc())).getImm();
+
+   Register MaskDefReg =
+       TRI->lookThruCopyLike(CurrentV0Def->getOperand(1).getReg(), MRI);
+   if (!MaskDefReg.isVirtual())
+     return false;
+   MachineInstr *MaskDef = MRI->getVRegDef(MaskDefReg);
+
+   // Look for a vmsltu.vx/vmsleu.vx used with a vid.v. This will produce a mask
+   // with a non-zero sequence of ones starting from the least signifcant bit.
+   std::variant<unsigned, Register> MaskVL;
+   switch (RISCV::getRVVMCOpcode(MaskDef->getOpcode())) {
+   case RISCV::VMSLEU_VI:
+     MaskVL.emplace<unsigned>(MaskDef->getOperand(2).getImm() + 1);
+     break;
+   case RISCV::VMSLTU_VX: {
+     Register Reg = MaskDef->getOperand(2).getReg();
+     if (Reg.isPhysical())
+       return false;
+     MaskVL.emplace<Register>(Reg);
+     break;
+   }
+   // TODO: Handle this.
+   case RISCV::VMSLEU_VX:
+     return false;
+   default:
+     return false;
+   }
+
+   MachineInstr *VID = MRI->getVRegDef(MaskDef->getOperand(1).getReg());
+   // TODO: Handle scaled or offset VID e.g. add x, (step_vector n)
+   if (!VID || RISCV::getRVVMCOpcode(VID->getOpcode()) != RISCV::VID_V ||
+       usesPassthru(*VID))
+     return false;
+
+   // TODO: We could allow constant VLs where we know it's less than MaskVL.
+   if (!isVLMAX(MI))
+     return false;
+
+   if (const unsigned *Imm (std::get_if<unsigned>(&MaskVL)); Imm)
+     VL.ChangeToImmediate(*Imm);
+   else {
+     VL.ChangeToRegister(std::get<Register>(MaskVL), false);
+     MRI->constrainRegClass(std::get<Register>(MaskVL), &RISCV::GPRNoX0RegClass);
+   }
+
+   convertToUnmasked(MI, I);
+
+   // If the masked pseudo had a policy op, the unmasked pseudo will have one
+   // too.
+   if (RISCVII::hasVecPolicyOp(MI.getDesc().TSFlags)) {
+     // Start with a ta,ma policy:
+     // - There's no tail since we only handle VL=VLMAX, so use ta
+     // - There's no mask anymore, so use ma
+     unsigned NewPolicy = RISCVII::TAIL_AGNOSTIC | RISCVII::MASK_AGNOSTIC;
+     // If the previous policy was mu, then make it tu now that the mask is done
+     // via VL.
+     if (!(Policy & RISCVII::MASK_AGNOSTIC))
+       NewPolicy &= ~RISCVII::TAIL_AGNOSTIC;
+  
+     MI.getOperand(RISCVII::getVecPolicyOpNum(MI.getDesc())).setImm(NewPolicy);
+   }
+  
+   NumMasksFoldedIntoVL++;
+   return true;
 }
 
 bool RISCVFoldMasks::runOnMachineFunction(MachineFunction &MF) {
@@ -203,8 +338,9 @@ bool RISCVFoldMasks::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     CurrentV0Def = nullptr;
     for (MachineInstr &MI : MBB) {
-      Changed |= convertToUnmasked(MI, CurrentV0Def);
+      Changed |= foldAllOnesMask(MI, CurrentV0Def);
       Changed |= convertVMergeToVMv(MI, CurrentV0Def);
+      Changed |= foldMaskIntoVL(MI, CurrentV0Def);
 
       if (MI.definesRegister(RISCV::V0, TRI))
         CurrentV0Def = &MI;
