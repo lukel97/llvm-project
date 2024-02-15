@@ -10640,6 +10640,8 @@ MachineSDNode *SelectionDAG::getMachineNode(unsigned Opcode, const SDLoc &DL,
 /// TargetOpcode::EXTRACT_SUBREG nodes.
 SDValue SelectionDAG::getTargetExtractSubreg(int SRIdx, const SDLoc &DL, EVT VT,
                                              SDValue Operand) {
+  if (Operand.isUndef())
+    return getUNDEF(VT);
   SDValue SRIdxVal = getTargetConstant(SRIdx, DL, MVT::i32);
   SDNode *Subreg = getMachineNode(TargetOpcode::EXTRACT_SUBREG, DL,
                                   VT, Operand, SRIdxVal);
