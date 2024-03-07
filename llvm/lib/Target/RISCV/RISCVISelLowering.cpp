@@ -12833,6 +12833,44 @@ static SDValue transformAddImmMulImm(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::ADD, DL, VT, New1, DAG.getConstant(CB, DL, VT));
 }
 
+// add (zext, zext) -> zext (add (zext, zext))
+// sub (zext, zext) -> sext (sub (zext, zext))
+//   where the sum of the extend widths match, and the inner zexts
+//   add at least one bit.  (For profitability on rvv, we use a
+//   power of two for both inner and outer extend.)
+static SDValue combineAddSubZExt(SDNode *N, SelectionDAG &DAG, const RISCVSubtarget &Subtarget) {
+
+  EVT VT = N->getValueType(0);
+  if (!VT.isVector() || !Subtarget.getTargetLowering()->isTypeLegal(VT))
+    return SDValue();
+
+  SDValue N0 = N->getOperand(0);
+  SDValue N1 = N->getOperand(1);
+  if (N0.getOpcode() != ISD::ZERO_EXTEND || N1.getOpcode() != ISD::ZERO_EXTEND)
+    return SDValue();
+  if (!N0.hasOneUse() || !N1.hasOneUse())
+    return SDValue();
+  
+  SDValue Src0 = N0.getOperand(0);
+  SDValue Src1 = N1.getOperand(0);
+  EVT SrcVT = Src0.getValueType();
+  if (!Subtarget.getTargetLowering()->isTypeLegal(SrcVT) ||
+      SrcVT != Src1.getValueType() || SrcVT.getScalarSizeInBits() < 8 ||
+      SrcVT.getScalarSizeInBits() >= VT.getScalarSizeInBits() / 2)
+    return SDValue();
+  
+  LLVMContext &C = *DAG.getContext();
+  EVT ElemVT = VT.getVectorElementType().getHalfSizedIntegerVT(C);
+  EVT NarrowVT = EVT::getVectorVT(C, ElemVT, VT.getVectorElementCount());
+      
+  Src0 = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(Src0), NarrowVT, Src0);
+  Src1 = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(Src1), NarrowVT, Src1);
+      
+  unsigned OuterExtend = N->getOpcode() == ISD::ADD ? ISD::ZERO_EXTEND : ISD::SIGN_EXTEND;
+  return DAG.getNode(OuterExtend, SDLoc(N), VT,
+                     DAG.getNode(N->getOpcode(), SDLoc(N), NarrowVT, Src0, Src1));
+}
+
 // Try to turn (add (xor bool, 1) -1) into (neg bool).
 static SDValue combineAddOfBooleanXor(SDNode *N, SelectionDAG &DAG) {
   SDValue N0 = N->getOperand(0);
@@ -12869,6 +12907,8 @@ static SDValue performADDCombine(SDNode *N, SelectionDAG &DAG,
   if (SDValue V = combineBinOpToReduce(N, DAG, Subtarget))
     return V;
   if (SDValue V = combineBinOpOfExtractToReduceTree(N, DAG, Subtarget))
+    return V;
+  if (SDValue V = combineAddSubZExt(N, DAG, Subtarget))
     return V;
 
   // fold (add (select lhs, rhs, cc, 0, y), x) ->
@@ -12937,28 +12977,8 @@ static SDValue performSUBCombine(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-  // sub (zext, zext) -> sext (sub (zext, zext))
-  //   where the sum of the extend widths match, and the inner zexts
-  //   add at least one bit.  (For profitability on rvv, we use a
-  //   power of two for both inner and outer extend.)
-  if (VT.isVector() && Subtarget.getTargetLowering()->isTypeLegal(VT) &&
-      N0.getOpcode() == N1.getOpcode() && N0.getOpcode() == ISD::ZERO_EXTEND &&
-      N0.hasOneUse() && N1.hasOneUse()) {
-    SDValue Src0 = N0.getOperand(0);
-    SDValue Src1 = N1.getOperand(0);
-    EVT SrcVT = Src0.getValueType();
-    if (Subtarget.getTargetLowering()->isTypeLegal(SrcVT) &&
-        SrcVT == Src1.getValueType() && SrcVT.getScalarSizeInBits() >= 8 &&
-        SrcVT.getScalarSizeInBits() < VT.getScalarSizeInBits() / 2) {
-      LLVMContext &C = *DAG.getContext();
-      EVT ElemVT = VT.getVectorElementType().getHalfSizedIntegerVT(C);
-      EVT NarrowVT = EVT::getVectorVT(C, ElemVT, VT.getVectorElementCount());
-      Src0 = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(Src0), NarrowVT, Src0);
-      Src1 = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(Src1), NarrowVT, Src1);
-      return DAG.getNode(ISD::SIGN_EXTEND, SDLoc(N), VT,
-                         DAG.getNode(ISD::SUB, SDLoc(N), NarrowVT, Src0, Src1));
-    }
-  }
+  if (SDValue V = combineAddSubZExt(N, DAG, Subtarget))
+    return V;
 
   // fold (sub x, (select lhs, rhs, cc, 0, y)) ->
   //      (select lhs, rhs, cc, x, (sub x, y))
