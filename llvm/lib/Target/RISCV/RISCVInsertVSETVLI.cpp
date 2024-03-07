@@ -24,6 +24,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "MCTargetDesc/RISCVBaseInfo.h"
 #include "RISCV.h"
 #include "RISCVSubtarget.h"
 #include "llvm/ADT/Statistic.h"
@@ -175,7 +176,8 @@ static bool isMaskRegOp(const MachineInstr &MI) {
 /// specification.  Agnostic requires each lane to either be undisturbed, or
 /// take the value -1; no other value is allowed.
 static bool hasUndefinedMergeOp(const MachineInstr &MI,
-                                const MachineRegisterInfo &MRI) {
+                                const MachineRegisterInfo &MRI,
+				const TargetInstrInfo *TII) {
 
   unsigned UseOpIdx;
   if (!MI.isRegTiedToUseOperand(0, &UseOpIdx))
@@ -201,6 +203,23 @@ static bool hasUndefinedMergeOp(const MachineInstr &MI,
           return false;
       }
       return true;
+    }
+
+    if (RISCVII::hasVLOp(TII->get(UseMI->getOpcode()).TSFlags) && hasUndefinedMergeOp(*UseMI, MRI, TII)) {
+      if (RISCVII::hasVLOp(TII->get(MI.getOpcode()).TSFlags)) {
+	const MachineOperand &VLOp = MI.getOperand(RISCVII::getVLOpNum(TII->get(MI.getOpcode())));
+	const MachineOperand &UseVLOp = UseMI->getOperand(RISCVII::getVLOpNum(TII->get(UseMI->getOpcode())));
+	if (VLOp.isImm() && UseVLOp.isImm()) {
+	  if ((uint64_t)VLOp.getImm() >= (uint64_t)UseVLOp.getImm()) {
+	    if (!isScalarInsertInstr(MI)) {
+	      if (!RISCVII::usesMaskPolicy(TII->get(MI.getOpcode()).TSFlags)) {
+		// assert(false);
+		return true;
+	      }
+	    }
+	  }
+	}
+      }
     }
   }
   return false;
@@ -409,7 +428,7 @@ DemandedFields getDemanded(const MachineInstr &MI,
     // this for any tail agnostic operation, but we can't as TA requires
     // tail lanes to either be the original value or -1.  We are writing
     // unknown bits to the lanes here.
-    if (hasUndefinedMergeOp(MI, *MRI)) {
+    if (hasUndefinedMergeOp(MI, *MRI, ST->getInstrInfo())) {
       if (isFloatScalarMoveOrScalarSplatInstr(MI) && !ST->hasVInstructionsF64())
         Res.SEW = DemandedFields::SEWGreaterThanOrEqualAndLessThan64;
       else
@@ -825,7 +844,7 @@ static VSETVLIInfo computeInfoForInstr(const MachineInstr &MI, uint64_t TSFlags,
 
   bool TailAgnostic = true;
   bool MaskAgnostic = true;
-  if (!hasUndefinedMergeOp(MI, *MRI)) {
+  if (!hasUndefinedMergeOp(MI, *MRI, ST.getInstrInfo())) {
     // Start with undisturbed.
     TailAgnostic = false;
     MaskAgnostic = false;
@@ -1022,7 +1041,7 @@ bool RISCVInsertVSETVLI::needVSETVLI(const MachineInstr &MI,
   // * The LMUL1 restriction is for machines whose latency may depend on VL.
   // * As above, this is only legal for tail "undefined" not "agnostic".
   if (isVSlideInstr(MI) && Require.hasAVLImm() && Require.getAVLImm() == 1 &&
-      isLMUL1OrSmaller(CurInfo.getVLMUL()) && hasUndefinedMergeOp(MI, *MRI)) {
+      isLMUL1OrSmaller(CurInfo.getVLMUL()) && hasUndefinedMergeOp(MI, *MRI, ST->getInstrInfo())) {
     Used.VLAny = false;
     Used.VLZeroness = true;
     Used.LMUL = false;
@@ -1035,7 +1054,7 @@ bool RISCVInsertVSETVLI::needVSETVLI(const MachineInstr &MI,
   // Since a splat is non-constant time in LMUL, we do need to be careful to not
   // increase the number of active vector registers (unlike for vmv.s.x.)
   if (isScalarSplatInstr(MI) && Require.hasAVLImm() && Require.getAVLImm() == 1 &&
-      isLMUL1OrSmaller(CurInfo.getVLMUL()) && hasUndefinedMergeOp(MI, *MRI)) {
+      isLMUL1OrSmaller(CurInfo.getVLMUL()) && hasUndefinedMergeOp(MI, *MRI, ST->getInstrInfo())) {
     Used.LMUL = false;
     Used.SEWLMULRatio = false;
     Used.VLAny = false;
