@@ -1085,6 +1085,7 @@ static void fixupModifyVRegLIAfterInsertMI(MachineInstr *MI,
   if (LIS->isNotInMIMap(*MI))
     LIS->InsertMachineInstrInMaps(*MI);
 
+  LIS->handleMove(*MI);
   SmallVector<Register> NeedFixupVReg;
   getVRegFromMI(MI, NeedFixupVReg);
 
