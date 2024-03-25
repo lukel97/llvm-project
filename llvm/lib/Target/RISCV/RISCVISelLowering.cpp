@@ -15479,7 +15479,7 @@ static SDValue performCONCAT_VECTORSCombine(SDNode *N, SelectionDAG &DAG,
 static SDValue combineToVWMACC(SDNode *N, SelectionDAG &DAG,
                                const RISCVSubtarget &Subtarget) {
 
-  assert(N->getOpcode() == RISCVISD::ADD_VL || N->getOpcode() == ISD::ADD);
+  assert(N->getOpcode() == RISCVISD::VWADD_W_VL || N->getOpcode() == RISCVISD::VWADDU_W_VL || N->getOpcode() == RISCVISD::ADD_VL || N->getOpcode() == ISD::ADD);
 
   if (N->getValueType(0).isFixedLengthVector())
     return SDValue();
@@ -15510,6 +15510,12 @@ static SDValue combineToVWMACC(SDNode *N, SelectionDAG &DAG,
   if (!IsVWMulOpc(MulOp.getOpcode()))
     return SDValue();
 
+  // If add is vwadd.wv, mul needs to be the .w operand
+  if (N->getOpcode() == RISCVISD::VWADD_W_VL || N->getOpcode() == RISCVISD::VWADDU_W_VL) {
+    if (MulOp.getValueType() != N->getValueType(0))
+      return SDValue();
+  }
+
   SDValue MulMergeOp = MulOp.getOperand(2);
 
   if (!MulMergeOp.isUndef())
@@ -15530,6 +15536,19 @@ static SDValue combineToVWMACC(SDNode *N, SelectionDAG &DAG,
 
   if (AddMask != MulMask || AddVL != MulVL)
     return SDValue();
+
+  if (N->getOpcode() == RISCVISD::VWADDU_W_VL) {
+    if (Addend.getOpcode() == RISCVISD::VZEXT_VL)
+      Addend = DAG.getNode(RISCVISD::VZEXT_VL, SDLoc(Addend), N->getValueType(0), Addend->ops());
+    else
+      Addend = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(Addend), N->getValueType(0), Addend);
+  }
+  if (N->getOpcode() == RISCVISD::VWADD_W_VL) {
+    if (Addend.getOpcode() == RISCVISD::VSEXT_VL)
+      Addend = DAG.getNode(RISCVISD::VSEXT_VL, SDLoc(Addend), N->getValueType(0), Addend->ops());
+    else
+      Addend = DAG.getNode(ISD::SIGN_EXTEND, SDLoc(Addend), N->getValueType(0), Addend);
+  }
 
   unsigned Opc = RISCVISD::VWMACC_VL + MulOp.getOpcode() - RISCVISD::VWMUL_VL;
   static_assert(RISCVISD::VWMACC_VL + 1 == RISCVISD::VWMACCU_VL,
@@ -16308,6 +16327,9 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     return combineToVWMACC(N, DAG, Subtarget);
   case RISCVISD::VWADD_W_VL:
   case RISCVISD::VWADDU_W_VL:
+    if (SDValue V = combineToVWMACC(N, DAG, Subtarget))
+      return V;
+    [[fallthrough]];
   case RISCVISD::VWSUB_W_VL:
   case RISCVISD::VWSUBU_W_VL:
     return performVWADDSUBW_VLCombine(N, DCI, Subtarget);
