@@ -13706,6 +13706,9 @@ struct NodeExtensionHelper {
     case ISD::MUL:
     case RISCVISD::MUL_VL:
       return RISCVISD::VWMULU_VL;
+    case ISD::SHL:
+    case RISCVISD::SHL_VL:
+      return RISCVISD::VWSLL_VL;
     default:
       llvm_unreachable("Unexpected opcode");
     }
@@ -13855,7 +13858,7 @@ struct NodeExtensionHelper {
   }
 
   /// Check if \p Root supports any extension folding combines.
-  static bool isSupportedRoot(const SDNode *Root) {
+  static bool isSupportedRoot(const SDNode *Root, const RISCVSubtarget &Subtarget) {
     switch (Root->getOpcode()) {
     case ISD::ADD:
     case ISD::SUB:
@@ -13877,6 +13880,11 @@ struct NodeExtensionHelper {
     case RISCVISD::VFWADD_W_VL:
     case RISCVISD::VFWSUB_W_VL:
       return true;
+    case ISD::SHL:
+    case RISCVISD::SHL_VL:
+      return Root->getValueType(0).isScalableVector() && Subtarget.hasStdExtZvbb();
+    case RISCVISD::VWSLL_VL:
+      return Subtarget.hasStdExtZvbb();
     default:
       return false;
     }
@@ -13885,7 +13893,7 @@ struct NodeExtensionHelper {
   /// Build a NodeExtensionHelper for \p Root.getOperand(\p OperandIdx).
   NodeExtensionHelper(SDNode *Root, unsigned OperandIdx, SelectionDAG &DAG,
                       const RISCVSubtarget &Subtarget) {
-    assert(isSupportedRoot(Root) && "Trying to build an helper with an "
+    assert(isSupportedRoot(Root, Subtarget) && "Trying to build an helper with an "
                                     "unsupported root");
     assert(OperandIdx < 2 && "Requesting something else than LHS or RHS");
     assert(DAG.getTargetLoweringInfo().isTypeLegal(Root->getValueType(0)));
@@ -13938,11 +13946,12 @@ struct NodeExtensionHelper {
   static std::pair<SDValue, SDValue>
   getMaskAndVL(const SDNode *Root, SelectionDAG &DAG,
                const RISCVSubtarget &Subtarget) {
-    assert(isSupportedRoot(Root) && "Unexpected root");
+    assert(isSupportedRoot(Root, Subtarget) && "Unexpected root");
     switch (Root->getOpcode()) {
     case ISD::ADD:
     case ISD::SUB:
-    case ISD::MUL: {
+    case ISD::MUL:
+    case ISD::SHL: {
       SDLoc DL(Root);
       MVT VT = Root->getSimpleValueType(0);
       return getDefaultScalableVLOps(VT, DL, DAG, Subtarget);
@@ -13979,6 +13988,8 @@ struct NodeExtensionHelper {
     case RISCVISD::VWSUBU_W_VL:
     case RISCVISD::FSUB_VL:
     case RISCVISD::VFWSUB_W_VL:
+    case ISD::SHL:
+    case RISCVISD::SHL_VL:
       return false;
     default:
       llvm_unreachable("Unexpected opcode");
@@ -14031,6 +14042,7 @@ struct CombineResult {
     case ISD::ADD:
     case ISD::SUB:
     case ISD::MUL:
+    case ISD::SHL:
       Merge = DAG.getUNDEF(Root->getValueType(0));
       break;
     }
@@ -14215,6 +14227,11 @@ NodeExtensionHelper::getSupportedFoldings(const SDNode *Root) {
     // vfwadd_w|vfwsub_w -> vfwadd|vfwsub
     Strategies.push_back(canFoldToVWWithFPEXT);
     break;
+  case ISD::SHL:
+  case RISCVISD::SHL_VL:
+    // shl -> vwsll
+    Strategies.push_back(canFoldToVWWithZEXT);
+    break;
   default:
     llvm_unreachable("Unexpected opcode");
   }
@@ -14234,6 +14251,7 @@ NodeExtensionHelper::getSupportedFoldings(const SDNode *Root) {
 /// vwsub_w(u) -> vwsub(u)
 /// vfwadd_w -> vfwadd
 /// vfwsub_w -> vfwsub
+/// vsll -> vwsll
 static SDValue combineBinOp_VLToVWBinOp_VL(SDNode *N,
                                            TargetLowering::DAGCombinerInfo &DCI,
                                            const RISCVSubtarget &Subtarget) {
@@ -14241,7 +14259,7 @@ static SDValue combineBinOp_VLToVWBinOp_VL(SDNode *N,
   if (DCI.isBeforeLegalize())
     return SDValue();
 
-  if (!NodeExtensionHelper::isSupportedRoot(N))
+  if (!NodeExtensionHelper::isSupportedRoot(N, Subtarget))
     return SDValue();
 
   SmallVector<SDNode *> Worklist;
@@ -14252,7 +14270,7 @@ static SDValue combineBinOp_VLToVWBinOp_VL(SDNode *N,
 
   while (!Worklist.empty()) {
     SDNode *Root = Worklist.pop_back_val();
-    if (!NodeExtensionHelper::isSupportedRoot(Root))
+    if (!NodeExtensionHelper::isSupportedRoot(Root, Subtarget))
       return SDValue();
 
     NodeExtensionHelper LHS(N, 0, DAG, Subtarget);
@@ -16337,9 +16355,12 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
                               VPSN->getMemOperand(), IndexType);
     break;
   }
+  case RISCVISD::SHL_VL:
+    if (SDValue V = combineBinOp_VLToVWBinOp_VL(N, DCI, Subtarget))
+      return V;
+    [[fallthrough]];
   case RISCVISD::SRA_VL:
-  case RISCVISD::SRL_VL:
-  case RISCVISD::SHL_VL: {
+  case RISCVISD::SRL_VL: {
     SDValue ShAmt = N->getOperand(1);
     if (ShAmt.getOpcode() == RISCVISD::SPLAT_VECTOR_SPLIT_I64_VL) {
       // We don't need the upper 32 bits of a 64-bit element for a shift amount.
@@ -16359,6 +16380,10 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     [[fallthrough]];
   case ISD::SRL:
   case ISD::SHL: {
+    if (N->getOpcode() == ISD::SHL) {
+      if (SDValue V = combineBinOp_VLToVWBinOp_VL(N, DCI, Subtarget))
+	return V;
+    }
     SDValue ShAmt = N->getOperand(1);
     if (ShAmt.getOpcode() == RISCVISD::SPLAT_VECTOR_SPLIT_I64_VL) {
       // We don't need the upper 32 bits of a 64-bit element for a shift amount.
