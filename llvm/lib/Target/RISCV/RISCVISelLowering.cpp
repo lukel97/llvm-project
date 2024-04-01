@@ -14276,6 +14276,8 @@ static SDValue combineBinOp_VLToVWBinOp_VL(SDNode *N,
                                 &Inserted](const NodeExtensionHelper &Op) {
       if (Op.needToPromoteOtherUsers()) {
         for (SDNode *TheUse : Op.OrigOperand->uses()) {
+	  if (TheUse->getOpcode() == RISCVISD::VMERGE_VL)
+	    continue;
           if (Inserted.insert(TheUse).second)
             Worklist.push_back(TheUse);
         }
@@ -14348,6 +14350,7 @@ static SDValue combineBinOp_VLToVWBinOp_VL(SDNode *N,
 //      (vwsub(u).wv y, (vmerge cond, x, 0)) -> vwsub(u).wv y, x, y, cond
 // y will be the Passthru and cond will be the Mask.
 static SDValue combineVWADDSUBWSelect(SDNode *N, SelectionDAG &DAG) {
+  return SDValue();
   unsigned Opc = N->getOpcode();
   assert(Opc == RISCVISD::VWADD_W_VL || Opc == RISCVISD::VWADDU_W_VL ||
          Opc == RISCVISD::VWSUB_W_VL || Opc == RISCVISD::VWSUBU_W_VL);

@@ -2357,6 +2357,12 @@ static SDValue foldSelectWithIdentityConstant(SDNode *N, SelectionDAG &DAG,
   if (ShouldCommuteOperands)
     std::swap(N0, N1);
 
+  std::optional<unsigned> Extend;
+  if (N1.hasOneUse() && (N1.getOpcode() == ISD::SIGN_EXTEND || N1.getOpcode() == ISD::ZERO_EXTEND)) {
+    Extend = N1.getOpcode();
+    N1 = N1.getOperand(0);
+  }
+
   // TODO: Should this apply to scalar select too?
   if (N1.getOpcode() != ISD::VSELECT || !N1.hasOneUse())
     return SDValue();
@@ -2372,17 +2378,33 @@ static SDValue foldSelectWithIdentityConstant(SDNode *N, SelectionDAG &DAG,
   SDValue TVal = N1.getOperand(1);
   SDValue FVal = N1.getOperand(2);
 
+  // TODO:
+  // binop N0, (op (vselect Cond, IDC, FVal))
+  // -->
+  // vselect Cond, N0, (binop N0, (op FVal))
+
   // This transform increases uses of N0, so freeze it to be safe.
   // binop N0, (vselect Cond, IDC, FVal) --> vselect Cond, N0, (binop N0, FVal)
   unsigned OpNo = ShouldCommuteOperands ? 0 : 1;
   if (isNeutralConstant(Opcode, N->getFlags(), TVal, OpNo)) {
     SDValue F0 = DAG.getFreeze(N0);
+    if (Extend)
+      FVal = DAG.getNode(*Extend, SDLoc(N), VT, FVal);
     SDValue NewBO = DAG.getNode(Opcode, SDLoc(N), VT, F0, FVal, N->getFlags());
     return DAG.getSelect(SDLoc(N), VT, Cond, F0, NewBO);
   }
+
+
+  // TODO:
+  // binop N0, (op (vselect Cond, TVal, IDC))
+  // -->
+  // vselect Cond, (binop N0, (op TVal)), N0
+  
   // binop N0, (vselect Cond, TVal, IDC) --> vselect Cond, (binop N0, TVal), N0
   if (isNeutralConstant(Opcode, N->getFlags(), FVal, OpNo)) {
     SDValue F0 = DAG.getFreeze(N0);
+    if (Extend)
+      TVal = DAG.getNode(*Extend, SDLoc(N), VT, TVal);
     SDValue NewBO = DAG.getNode(Opcode, SDLoc(N), VT, F0, TVal, N->getFlags());
     return DAG.getSelect(SDLoc(N), VT, Cond, NewBO, F0);
   }
