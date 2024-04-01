@@ -87,14 +87,22 @@ bool RISCVCodeGenPrepare::visitBinaryOperator(BinaryOperator &BO) {
   using namespace PatternMatch;
 
   Value *Mask, *RHS;
-  if (!match(&BO, m_c_BinOp(m_OneUse(m_ZExt(m_Value(Mask))), m_Value(RHS))))
+  if (!match(&BO, m_c_BinOp(m_OneUse(m_ZExtOrSExt(m_Value(Mask))), m_Value(RHS))))
     return false;
+
+  bool SExt = false;
+  if (!match(&BO, m_c_BinOp(m_ZExt(m_Specific(Mask)), m_Specific(RHS)))) {
+    SExt = true;
+    assert(match(&BO, m_c_BinOp(m_SExt(m_Specific(Mask)), m_Specific(RHS))));
+  }
 
   if (!Mask->getType()->isIntOrIntVectorTy(1))
     return false;
 
   IRBuilder<> Builder(&BO);
-  Value *Splat = ConstantInt::get(BO.getType(), 1);
+  Value *Splat = SExt
+                     ? ConstantInt::getAllOnesValue(BO.getType())
+                     : ConstantInt::get(BO.getType(), 1);
   Value *NewBO = Builder.CreateBinOp(BO.getOpcode(), RHS, Splat);
   if (Instruction *I = dyn_cast<Instruction>(NewBO))
     I->copyIRFlags(&BO);
