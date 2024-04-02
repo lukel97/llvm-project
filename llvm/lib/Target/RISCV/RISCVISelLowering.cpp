@@ -7839,33 +7839,9 @@ SDValue RISCVTargetLowering::lowerVectorMaskExt(SDValue Op, SelectionDAG &DAG,
   assert(Src.getValueType().isVector() &&
          Src.getValueType().getVectorElementType() == MVT::i1);
 
-  if (VecVT.isScalableVector()) {
-    SDValue SplatZero = DAG.getConstant(0, DL, VecVT);
-    SDValue SplatTrueVal = DAG.getConstant(ExtTrueVal, DL, VecVT);
-    return DAG.getNode(ISD::VSELECT, DL, VecVT, Src, SplatTrueVal, SplatZero);
-  }
-
-  MVT ContainerVT = getContainerForFixedLengthVector(VecVT);
-  MVT I1ContainerVT =
-      MVT::getVectorVT(MVT::i1, ContainerVT.getVectorElementCount());
-
-  SDValue CC = convertToScalableVector(I1ContainerVT, Src, DAG, Subtarget);
-
-  SDValue VL = getDefaultVLOps(VecVT, ContainerVT, DL, DAG, Subtarget).second;
-
-  MVT XLenVT = Subtarget.getXLenVT();
-  SDValue SplatZero = DAG.getConstant(0, DL, XLenVT);
-  SDValue SplatTrueVal = DAG.getConstant(ExtTrueVal, DL, XLenVT);
-
-  SplatZero = DAG.getNode(RISCVISD::VMV_V_X_VL, DL, ContainerVT,
-                          DAG.getUNDEF(ContainerVT), SplatZero, VL);
-  SplatTrueVal = DAG.getNode(RISCVISD::VMV_V_X_VL, DL, ContainerVT,
-                             DAG.getUNDEF(ContainerVT), SplatTrueVal, VL);
-  SDValue Select =
-      DAG.getNode(RISCVISD::VMERGE_VL, DL, ContainerVT, CC, SplatTrueVal,
-                  SplatZero, DAG.getUNDEF(ContainerVT), VL);
-
-  return convertFromScalableVector(VecVT, Select, DAG, Subtarget);
+  SDValue SplatZero = DAG.getConstant(0, DL, VecVT);
+  SDValue SplatTrueVal = DAG.getConstant(ExtTrueVal, DL, VecVT);
+  return DAG.getNode(ISD::VSELECT, DL, VecVT, Src, SplatTrueVal, SplatZero);
 }
 
 SDValue RISCVTargetLowering::lowerFixedLengthVectorExtendToRVV(
