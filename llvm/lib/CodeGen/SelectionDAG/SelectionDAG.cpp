@@ -11549,7 +11549,7 @@ bool llvm::isNeutralConstant(unsigned Opcode, SDNodeFlags Flags, SDValue V,
                              unsigned OperandNo) {
   // NOTE: The cases should match with IR's ConstantExpr::getBinOpIdentity().
   // TODO: Target-specific opcodes could be added.
-  if (auto *Const = isConstOrConstSplat(V)) {
+  if (auto *Const = isConstOrConstSplat(V, false, true)) {
     switch (Opcode) {
     case ISD::ADD:
     case ISD::OR:
