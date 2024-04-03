@@ -3257,6 +3257,10 @@ public:
     return false;
   }
 
+  virtual bool aggressivelyPreferVectorShuffleToBuildVector(EVT VT) const {
+    return false;
+  }
+
   /// Try to convert an extract element of a vector binary operation into an
   /// extract element followed by a scalar operation.
   virtual bool shouldScalarizeBinop(SDValue VecOp) const {

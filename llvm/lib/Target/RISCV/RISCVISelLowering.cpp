@@ -2240,6 +2240,10 @@ bool RISCVTargetLowering::isExtractSubvectorCheap(EVT ResVT, EVT SrcVT,
   return Index == 0 || Index == ResElts;
 }
 
+bool RISCVTargetLowering::aggressivelyPreferVectorShuffleToBuildVector(EVT VT) const {
+    return true;
+}
+
 MVT RISCVTargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                       CallingConv::ID CC,
                                                       EVT VT) const {
