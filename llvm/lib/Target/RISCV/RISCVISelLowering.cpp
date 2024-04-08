@@ -16543,6 +16543,12 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
   }
   case ISD::SPLAT_VECTOR: {
     EVT VT = N->getValueType(0);
+    unsigned ScalarSize = N->getOperand(0).getValueSizeInBits();
+    unsigned EltWidth = VT.getScalarSizeInBits();
+    if (ScalarSize > EltWidth)
+      if (SimplifyDemandedLowBitsHelper(0, EltWidth))
+        return SDValue(N, 0);
+
     // Only perform this combine on legal MVT types.
     if (!isTypeLegal(VT))
       break;
