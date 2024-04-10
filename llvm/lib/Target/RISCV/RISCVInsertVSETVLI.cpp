@@ -1073,8 +1073,7 @@ static void getVRegFromMI(MachineInstr *MI, SmallVector<Register> &VRegs) {
   }
 }
 
-static void fixupModifyVRegLIAfterInsertMI(MachineInstr *MI,
-                                           LiveIntervals *LIS) {
+static void fixupLIAfterInsertMI(MachineInstr *MI, LiveIntervals *LIS) {
 
   if (!LIS)
     return;
@@ -1090,7 +1089,7 @@ static void fixupModifyVRegLIAfterInsertMI(MachineInstr *MI,
     fixupModifyVRegLI(VReg, LIS);
 }
 
-static void removeMIAndFixupModifyVRegLI(MachineInstr *MI, LiveIntervals *LIS) {
+static void removeMIAndFixupLI(MachineInstr *MI, LiveIntervals *LIS) {
 
   SmallVector<Register> NeedFixupVReg;
   getVRegFromMI(MI, NeedFixupVReg);
@@ -1120,7 +1119,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
               .addReg(RISCV::X0, RegState::Kill)
               .addImm(Info.encodeVTYPE())
               .addReg(RISCV::VL, RegState::Implicit);
-      fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+      fixupLIAfterInsertMI(NeedFixupMI, LIS);
       return;
     }
 
@@ -1132,11 +1131,12 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
       if (isVectorConfigInstr(DefMI)) {
         VSETVLIInfo DefInfo = getInfoForVSETVLI(DefMI, *MRI);
         if (DefInfo.hasSameAVL(PrevInfo) && DefInfo.hasSameVLMAX(PrevInfo)) {
-          BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETVLIX0))
+          auto NeedFixupMI = BuildMI(MBB, InsertPt, DL, TII->get(RISCV::PseudoVSETVLIX0))
               .addReg(RISCV::X0, RegState::Define | RegState::Dead)
               .addReg(RISCV::X0, RegState::Kill)
               .addImm(Info.encodeVTYPE())
               .addReg(RISCV::VL, RegState::Implicit);
+          fixupLIAfterInsertMI(NeedFixupMI, LIS);
           return;
         }
       }
@@ -1149,7 +1149,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
             .addReg(RISCV::X0, RegState::Define | RegState::Dead)
             .addImm(Info.getAVLImm())
             .addImm(Info.encodeVTYPE());
-    fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+    fixupLIAfterInsertMI(NeedFixupMI, LIS);
     return;
   }
 
@@ -1164,7 +1164,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
               .addReg(RISCV::X0, RegState::Kill)
               .addImm(Info.encodeVTYPE())
               .addReg(RISCV::VL, RegState::Implicit);
-      fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+      fixupLIAfterInsertMI(NeedFixupMI, LIS);
       return;
     }
     // Otherwise use an AVL of 1 to avoid depending on previous vl.
@@ -1173,7 +1173,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
             .addReg(RISCV::X0, RegState::Define | RegState::Dead)
             .addImm(1)
             .addImm(Info.encodeVTYPE());
-    fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+    fixupLIAfterInsertMI(NeedFixupMI, LIS);
     return;
   }
 
@@ -1192,7 +1192,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
                          .addReg(RISCV::X0, RegState::Define | RegState::Dead)
                          .addReg(AVLReg)
                          .addImm(Info.encodeVTYPE());
-  fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+  fixupLIAfterInsertMI(NeedFixupMI, LIS);
 }
 
 static bool isLMUL1OrSmaller(RISCVII::VLMUL LMUL) {
@@ -1570,7 +1570,7 @@ void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
           // dead now.
           if (VLOpDef && TII->isAddImmediate(*VLOpDef, Reg) &&
               MRI->use_nodbg_empty(Reg))
-            removeMIAndFixupModifyVRegLI(VLOpDef, LIS);
+            removeMIAndFixupLI(VLOpDef, LIS);
           if (IsVirtVLOpReg)
             fixupModifyVRegLI(VLOpReg, LIS);
         }
@@ -1869,7 +1869,7 @@ void RISCVInsertVSETVLI::insertReadVL(MachineBasicBlock &MBB) {
       if (!MRI->use_nodbg_empty(VLOutput)) {
         auto NeedFixupMI = BuildMI(MBB, I, MI.getDebugLoc(),
                                    TII->get(RISCV::PseudoReadVL), VLOutput);
-        fixupModifyVRegLIAfterInsertMI(NeedFixupMI, LIS);
+        fixupLIAfterInsertMI(NeedFixupMI, LIS);
       }
       // We don't use the vl output of the VLEFF/VLSEGFF anymore.
       MI.getOperand(1).setReg(RISCV::X0);
