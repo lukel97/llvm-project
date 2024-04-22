@@ -1615,7 +1615,10 @@ bool RISCVCoalesceVSETVLI::runOnBasicBlock(MachineBasicBlock &MBB) {
             DefLI.addSegment(S);
             DefVNI->def = MISlot;
 
-            // DefReg may have had no uses, in which case we need to shrink
+	    if (!DefLI.isSpillable())
+	      DefLI.setWeight(0);
+
+            // defreg may have had no uses, in which case we need to shrink
             // the LiveInterval up to MI.
             LIS->shrinkToUses(&DefLI);
           }
