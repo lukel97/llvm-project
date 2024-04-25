@@ -359,9 +359,6 @@ struct Formula {
   /// Base offset for complex addressing.
   int64_t BaseOffset = 0;
 
-  /// Whether any complex addressing has a base register.
-  bool HasBaseReg = false;
-
   /// The scale of any complex addressing.
   int64_t Scale = 0;
 
@@ -380,6 +377,9 @@ struct Formula {
   /// However, every formula inserted into the LSRInstance must be in canonical
   /// form.
   SmallVector<const SCEV *, 4> BaseRegs;
+
+  /// Whether any complex addressing has a base register.
+  bool hasBaseReg() const { return !BaseRegs.empty(); }
 
   /// The 'scaled' register for this use. This should be non-null when Scale is
   /// not zero.
@@ -480,13 +480,11 @@ void Formula::initialMatch(const SCEV *S, Loop *L, ScalarEvolution &SE) {
     const SCEV *Sum = SE.getAddExpr(Good);
     if (!Sum->isZero())
       BaseRegs.push_back(Sum);
-    HasBaseReg = true;
   }
   if (!Bad.empty()) {
     const SCEV *Sum = SE.getAddExpr(Bad);
     if (!Sum->isZero())
       BaseRegs.push_back(Sum);
-    HasBaseReg = true;
   }
   canonicalize(*L);
 }
@@ -635,13 +633,6 @@ void Formula::print(raw_ostream &OS) const {
   for (const SCEV *BaseReg : BaseRegs) {
     if (!First) OS << " + "; else First = false;
     OS << "reg(" << *BaseReg << ')';
-  }
-  if (HasBaseReg && BaseRegs.empty()) {
-    if (!First) OS << " + "; else First = false;
-    OS << "**error: HasBaseReg**";
-  } else if (!HasBaseReg && !BaseRegs.empty()) {
-    if (!First) OS << " + "; else First = false;
-    OS << "**error: !HasBaseReg**";
   }
   if (Scale != 0) {
     if (!First) OS << " + "; else First = false;
@@ -1420,7 +1411,7 @@ void Cost::RateFormula(const Formula &F,
     // specifically not supported.
     if (LU.Kind == LSRUse::Address && Offset != 0 &&
         !isAMCompletelyFolded(*TTI, LSRUse::Address, LU.AccessTy, F.BaseGV,
-                              Offset, F.HasBaseReg, F.Scale, Fixup.UserInst))
+                              Offset, F.hasBaseReg(), F.Scale, Fixup.UserInst))
       C.NumBaseAdds++;
   }
 
@@ -1759,7 +1750,7 @@ static bool isAMCompletelyFolded(const TargetTransformInfo &TTI,
   // compile time sake.
   assert((F.isCanonical(L) || F.Scale != 0));
   return isAMCompletelyFolded(TTI, MinOffset, MaxOffset, Kind, AccessTy,
-                              F.BaseGV, F.BaseOffset, F.HasBaseReg, F.Scale);
+                              F.BaseGV, F.BaseOffset, F.hasBaseReg(), F.Scale);
 }
 
 /// Test whether we know how to expand the current formula.
@@ -1781,7 +1772,7 @@ static bool isLegalUse(const TargetTransformInfo &TTI, int64_t MinOffset,
                        int64_t MaxOffset, LSRUse::KindType Kind,
                        MemAccessTy AccessTy, const Formula &F) {
   return isLegalUse(TTI, MinOffset, MaxOffset, Kind, AccessTy, F.BaseGV,
-                    F.BaseOffset, F.HasBaseReg, F.Scale);
+                    F.BaseOffset, F.hasBaseReg(), F.Scale);
 }
 
 static bool isAMCompletelyFolded(const TargetTransformInfo &TTI,
@@ -1790,15 +1781,15 @@ static bool isAMCompletelyFolded(const TargetTransformInfo &TTI,
   if (LU.Kind == LSRUse::Address && TTI.LSRWithInstrQueries()) {
     for (const LSRFixup &Fixup : LU.Fixups)
       if (!isAMCompletelyFolded(TTI, LSRUse::Address, LU.AccessTy, F.BaseGV,
-                                (F.BaseOffset + Fixup.Offset), F.HasBaseReg,
+                                (F.BaseOffset + Fixup.Offset), F.hasBaseReg(),
                                 F.Scale, Fixup.UserInst))
         return false;
     return true;
   }
 
   return isAMCompletelyFolded(TTI, LU.MinOffset, LU.MaxOffset, LU.Kind,
-                              LU.AccessTy, F.BaseGV, F.BaseOffset, F.HasBaseReg,
-                              F.Scale);
+                              LU.AccessTy, F.BaseGV, F.BaseOffset,
+                              F.hasBaseReg(), F.Scale);
 }
 
 static InstructionCost getScalingFactorCost(const TargetTransformInfo &TTI,
@@ -1817,11 +1808,11 @@ static InstructionCost getScalingFactorCost(const TargetTransformInfo &TTI,
   case LSRUse::Address: {
     // Check the scaling factor cost with both the min and max offsets.
     InstructionCost ScaleCostMinOffset = TTI.getScalingFactorCost(
-        LU.AccessTy.MemTy, F.BaseGV, F.BaseOffset + LU.MinOffset, F.HasBaseReg,
-        F.Scale, LU.AccessTy.AddrSpace);
+        LU.AccessTy.MemTy, F.BaseGV, F.BaseOffset + LU.MinOffset,
+        F.hasBaseReg(), F.Scale, LU.AccessTy.AddrSpace);
     InstructionCost ScaleCostMaxOffset = TTI.getScalingFactorCost(
-        LU.AccessTy.MemTy, F.BaseGV, F.BaseOffset + LU.MaxOffset, F.HasBaseReg,
-        F.Scale, LU.AccessTy.AddrSpace);
+        LU.AccessTy.MemTy, F.BaseGV, F.BaseOffset + LU.MaxOffset,
+        F.hasBaseReg(), F.Scale, LU.AccessTy.AddrSpace);
 
     assert(ScaleCostMinOffset.isValid() && ScaleCostMaxOffset.isValid() &&
            "Legal addressing mode has an illegal cost!");
@@ -3435,7 +3426,6 @@ LSRInstance::InsertSupplementalFormula(const SCEV *S,
                                        LSRUse &LU, size_t LUIdx) {
   Formula F;
   F.BaseRegs.push_back(S);
-  F.HasBaseReg = true;
   bool Inserted = InsertFormula(LU, LUIdx, F);
   assert(Inserted && "Supplemental formula already exists!"); (void)Inserted;
 }
@@ -4088,7 +4078,6 @@ void LSRInstance::GenerateScales(LSRUse &LU, unsigned LUIdx, Formula Base) {
   // Check each interesting stride.
   for (int64_t Factor : Factors) {
     Base.Scale = Factor;
-    Base.HasBaseReg = Base.BaseRegs.size() > 1;
     // Check whether this scale is going to be legal.
     if (!isLegalUse(TTI, LU.MinOffset, LU.MaxOffset, LU.Kind, LU.AccessTy,
                     Base)) {
@@ -4104,8 +4093,8 @@ void LSRInstance::GenerateScales(LSRUse &LU, unsigned LUIdx, Formula Base) {
     }
     // For an ICmpZero, negating a solitary base register won't lead to
     // new solutions.
-    if (LU.Kind == LSRUse::ICmpZero &&
-        !Base.HasBaseReg && Base.BaseOffset == 0 && !Base.BaseGV)
+    if (LU.Kind == LSRUse::ICmpZero && !Base.hasBaseReg() &&
+        Base.BaseOffset == 0 && !Base.BaseGV)
       continue;
     // For each addrec base reg, if its loop is current loop, apply the scale.
     for (size_t i = 0, e = Base.BaseRegs.size(); i != e; ++i) {
