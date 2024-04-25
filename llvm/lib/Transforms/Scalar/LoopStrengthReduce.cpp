@@ -5127,6 +5127,24 @@ void LSRInstance::NarrowSearchSpaceUsingHeuristics() {
   if (FilterSameScaledReg)
     NarrowSearchSpaceByFilterFormulaWithSameScaledReg();
   NarrowSearchSpaceByFilterPostInc();
+  for (size_t LUIdx = 0, NumUses = Uses.size(); LUIdx != NumUses; ++LUIdx) {
+    LSRUse &LU = Uses[LUIdx];
+    for (size_t i = 0, e = LU.Formulae.size(); i != e; ++i) {
+      if (LU.Formulae.size() == 1)
+	break;
+      Formula &F = LU.Formulae[i];
+      if ((F.Scale != 0)) {
+	LLVM_DEBUG(dbgs() << "  Deleting "; F.print(dbgs()); dbgs() << '\n');
+	LU.DeleteFormula(F);
+	LU.RecomputeRegs(LUIdx, RegUses);
+	--e;
+	--i;
+	assert(e != 0 && "Use has no formulae left! Is Regs inconsistent?");
+	continue;
+      }
+    }
+  }
+  LLVM_DEBUG(dbgs() << "After removing unfolded offsets:\n"; print_uses(dbgs()));
   if (LSRExpNarrow)
     NarrowSearchSpaceByDeletingCostlyFormulas();
   else
