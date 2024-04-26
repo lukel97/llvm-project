@@ -1450,7 +1450,6 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
     return true;
 
   if (!MRI->isSSA()) {
-
     // For O0
     if (!LIS)
       return true;
@@ -1482,6 +1481,7 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
           !DefInfo.hasSameVTYPE(PBBInfo.Exit))
         return true;
     }
+    return false;
   } else {
     // We need the AVL to be produce by a PHI node in this basic block.
     const MachineInstr *PHI = &Require.getAVLDefMI();
@@ -1512,9 +1512,9 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
         return true;
     }
 
-  // If all the incoming values to the PHI checked out, we don't need
-  // to insert a VSETVLI.
-  return false;
+    // If all the incoming values to the PHI checked out, we don't need
+    // to insert a VSETVLI.
+    return false;
   }
 }
 
