@@ -1481,7 +1481,6 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
           !DefInfo.hasSameVTYPE(PBBInfo.Exit))
         return true;
     }
-    return false;
   } else {
     // We need the AVL to be produce by a PHI node in this basic block.
     const MachineInstr *PHI = &Require.getAVLDefMI();
@@ -1511,11 +1510,10 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
       if (PBBExit.isUnknown() || !PBBExit.hasSameVTYPE(Require))
         return true;
     }
-
-    // If all the incoming values to the PHI checked out, we don't need
-    // to insert a VSETVLI.
-    return false;
   }
+  // If all the incoming values to the PHI checked out, we don't need
+  // to insert a VSETVLI.
+  return false;
 }
 
 void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
