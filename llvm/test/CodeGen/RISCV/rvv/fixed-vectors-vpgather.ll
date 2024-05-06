@@ -282,31 +282,31 @@ define <32 x i8> @vpgather_baseidx_v32i8(ptr %base, <32 x i8> %idxs, <32 x i1> %
 ; RV64-LABEL: vpgather_baseidx_v32i8:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    li a3, 16
-; RV64-NEXT:    vmv2r.v v10, v8
 ; RV64-NEXT:    mv a2, a1
 ; RV64-NEXT:    bltu a1, a3, .LBB13_2
 ; RV64-NEXT:  # %bb.1:
 ; RV64-NEXT:    li a2, 16
 ; RV64-NEXT:  .LBB13_2:
 ; RV64-NEXT:    vsetivli zero, 16, e64, m8, ta, ma
-; RV64-NEXT:    vsext.vf8 v16, v10
+; RV64-NEXT:    vsext.vf8 v16, v8
 ; RV64-NEXT:    vsetvli zero, a2, e8, m1, ta, ma
-; RV64-NEXT:    vluxei64.v v8, (a0), v16, v0.t
+; RV64-NEXT:    vluxei64.v v10, (a0), v16, v0.t
 ; RV64-NEXT:    addi a2, a1, -16
 ; RV64-NEXT:    sltu a1, a1, a2
 ; RV64-NEXT:    addi a1, a1, -1
 ; RV64-NEXT:    and a1, a1, a2
 ; RV64-NEXT:    vsetivli zero, 16, e8, m2, ta, ma
-; RV64-NEXT:    vslidedown.vi v10, v10, 16
+; RV64-NEXT:    vslidedown.vi v8, v8, 16
 ; RV64-NEXT:    vsetivli zero, 16, e64, m8, ta, ma
-; RV64-NEXT:    vsext.vf8 v16, v10
+; RV64-NEXT:    vsext.vf8 v16, v8
 ; RV64-NEXT:    vsetivli zero, 2, e8, mf4, ta, ma
 ; RV64-NEXT:    vslidedown.vi v0, v0, 2
 ; RV64-NEXT:    vsetvli zero, a1, e8, m1, ta, ma
-; RV64-NEXT:    vluxei64.v v10, (a0), v16, v0.t
+; RV64-NEXT:    vluxei64.v v8, (a0), v16, v0.t
 ; RV64-NEXT:    li a0, 32
 ; RV64-NEXT:    vsetvli zero, a0, e8, m2, ta, ma
-; RV64-NEXT:    vslideup.vi v8, v10, 16
+; RV64-NEXT:    vslideup.vi v10, v8, 16
+; RV64-NEXT:    vmv.v.v v8, v10
 ; RV64-NEXT:    ret
   %ptrs = getelementptr inbounds i8, ptr %base, <32 x i8> %idxs
   %v = call <32 x i8> @llvm.vp.gather.v32i8.v32p0(<32 x ptr> %ptrs, <32 x i1> %m, i32 %evl)

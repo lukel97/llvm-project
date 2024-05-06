@@ -993,33 +993,6 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB, MachineInstr &MI,
   insertVSETVLI(MBB, MachineBasicBlock::iterator(&MI), DL, Info, PrevInfo);
 }
 
-static void fixupModifyVRegLI(Register VReg, LiveIntervals *LIS) {
-  if (LIS->hasInterval(VReg))
-    LIS->removeInterval(VReg);
-  LIS->createAndComputeVirtRegInterval(VReg);
-}
-
-static void getVRegFromMI(MachineInstr *MI, SmallVector<Register> &VRegs) {
-  for (auto &MO : MI->operands()) {
-    if (!MO.isReg() || MO.getReg() == 0 || !MO.getReg().isVirtual())
-      continue;
-    Register Reg = MO.getReg();
-    VRegs.push_back(Reg);
-  }
-}
-
-static void fixupLIAfterInsertMI(MachineInstr *MI, LiveIntervals *LIS) {
-  if (LIS->isNotInMIMap(*MI))
-    LIS->InsertMachineInstrInMaps(*MI);
-
-  LIS->handleMove(*MI);
-  SmallVector<Register> NeedFixupVReg;
-  getVRegFromMI(MI, NeedFixupVReg);
-
-  for (auto VReg : NeedFixupVReg)
-    fixupModifyVRegLI(VReg, LIS);
-}
-
 void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
                      MachineBasicBlock::iterator InsertPt, DebugLoc DL,
                      const VSETVLIInfo &Info, const VSETVLIInfo &PrevInfo) {
@@ -1035,7 +1008,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
               .addReg(RISCV::X0, RegState::Kill)
               .addImm(Info.encodeVTYPE())
               .addReg(RISCV::VL, RegState::Implicit);
-      fixupLIAfterInsertMI(NeedFixupMI, LIS);
+      LIS->InsertMachineInstrInMaps(*NeedFixupMI);
       return;
     }
 
@@ -1054,7 +1027,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
                   .addReg(RISCV::X0, RegState::Kill)
                   .addImm(Info.encodeVTYPE())
                   .addReg(RISCV::VL, RegState::Implicit);
-          fixupLIAfterInsertMI(NeedFixupMI, LIS);
+          LIS->InsertMachineInstrInMaps(*NeedFixupMI);
           return;
         }
       }
@@ -1067,7 +1040,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
             .addReg(RISCV::X0, RegState::Define | RegState::Dead)
             .addImm(Info.getAVLImm())
             .addImm(Info.encodeVTYPE());
-    fixupLIAfterInsertMI(NeedFixupMI, LIS);
+    LIS->InsertMachineInstrInMaps(*NeedFixupMI);
     return;
   }
 
@@ -1082,7 +1055,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
               .addReg(RISCV::X0, RegState::Kill)
               .addImm(Info.encodeVTYPE())
               .addReg(RISCV::VL, RegState::Implicit);
-      fixupLIAfterInsertMI(NeedFixupMI, LIS);
+      LIS->InsertMachineInstrInMaps(*NeedFixupMI);
       return;
     }
     // Otherwise use an AVL of 1 to avoid depending on previous vl.
@@ -1091,7 +1064,7 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
             .addReg(RISCV::X0, RegState::Define | RegState::Dead)
             .addImm(1)
             .addImm(Info.encodeVTYPE());
-    fixupLIAfterInsertMI(NeedFixupMI, LIS);
+    LIS->InsertMachineInstrInMaps(*NeedFixupMI);
     return;
   }
 
@@ -1102,8 +1075,8 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
             .addReg(DestReg, RegState::Define | RegState::Dead)
             .addReg(RISCV::X0, RegState::Kill)
             .addImm(Info.encodeVTYPE());
-
-    fixupLIAfterInsertMI(NeedFixupMI, LIS);
+    LIS->InsertMachineInstrInMaps(*NeedFixupMI);
+    LIS->createAndComputeVirtRegInterval(DestReg);
     return;
   }
 
@@ -1113,7 +1086,10 @@ void RISCVInsertVSETVLI::insertVSETVLI(MachineBasicBlock &MBB,
                          .addReg(RISCV::X0, RegState::Define | RegState::Dead)
                          .addReg(AVLReg)
                          .addImm(Info.encodeVTYPE());
-  fixupLIAfterInsertMI(NeedFixupMI, LIS);
+  LIS->InsertMachineInstrInMaps(*NeedFixupMI);
+  LIS->getInterval(AVLReg).extendInBlock(
+      LIS->getMBBStartIdx(&MBB),
+      LIS->getInstructionIndex(*NeedFixupMI).getRegSlot());
 }
 
 static bool isLMUL1OrSmaller(RISCVII::VLMUL LMUL) {
@@ -1737,16 +1713,20 @@ void RISCVInsertVSETVLI::insertReadVL(MachineBasicBlock &MBB) {
     MachineInstr &MI = *I++;
     if (RISCV::isFaultFirstLoad(MI)) {
       Register VLOutput = MI.getOperand(1).getReg();
-      assert(MI.getOperand(1).getReg().isVirtual());
-      if (!MRI->use_nodbg_empty(VLOutput)) {
-        auto NeedFixupMI = BuildMI(MBB, I, MI.getDebugLoc(),
-                                   TII->get(RISCV::PseudoReadVL), VLOutput);
-        fixupLIAfterInsertMI(NeedFixupMI, LIS);
+      assert(VLOutput.isVirtual());
+      if (!MI.getOperand(1).isDead()) {
+        auto ReadVLMI = BuildMI(MBB, I, MI.getDebugLoc(),
+                                TII->get(RISCV::PseudoReadVL), VLOutput);
+        // Move the LiveInterval's definition down to PseudoReadVL.
+        SlotIndex NewDefSI =
+            LIS->InsertMachineInstrInMaps(*ReadVLMI).getRegSlot();
+        LiveInterval &DefLI = LIS->getInterval(VLOutput);
+        VNInfo *DefVNI = DefLI.getVNInfoAt(DefLI.beginIndex());
+        DefLI.removeSegment(DefLI.beginIndex(), NewDefSI);
+        DefVNI->def = NewDefSI;
       }
       // We don't use the vl output of the VLEFF/VLSEGFF anymore.
       MI.getOperand(1).setReg(RISCV::X0);
-
-      fixupModifyVRegLI(VLOutput, LIS);
     }
   }
 }

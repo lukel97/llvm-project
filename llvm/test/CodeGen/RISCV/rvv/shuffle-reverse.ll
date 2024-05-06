@@ -429,17 +429,17 @@ define <8 x i64> @v4i64_2(<4 x i64> %a, <4 x i64> %b) {
 ; CHECK-LABEL: v4i64_2:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vmv2r.v v16, v10
-; CHECK-NEXT:    vmv2r.v v12, v8
 ; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
-; CHECK-NEXT:    vid.v v14
-; CHECK-NEXT:    vrsub.vi v15, v14, 7
+; CHECK-NEXT:    vid.v v10
+; CHECK-NEXT:    vrsub.vi v11, v10, 7
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, ma
-; CHECK-NEXT:    vrgatherei16.vv v8, v12, v15
+; CHECK-NEXT:    vrgatherei16.vv v12, v8, v11
 ; CHECK-NEXT:    vsetvli zero, zero, e16, m1, ta, ma
-; CHECK-NEXT:    vrsub.vi v12, v14, 3
+; CHECK-NEXT:    vrsub.vi v8, v10, 3
 ; CHECK-NEXT:    vmv.v.i v0, 15
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, mu
-; CHECK-NEXT:    vrgatherei16.vv v8, v16, v12, v0.t
+; CHECK-NEXT:    vrgatherei16.vv v12, v16, v8, v0.t
+; CHECK-NEXT:    vmv.v.v v8, v12
 ; CHECK-NEXT:    ret
   %v8i64 = shufflevector <4 x i64> %a, <4 x i64> %b, <8 x i32> <i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
   ret <8 x i64> %v8i64
@@ -700,17 +700,17 @@ define <8 x double> @v4f64_2(<4 x double> %a, <4 x double> %b) {
 ; CHECK-LABEL: v4f64_2:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vmv2r.v v16, v10
-; CHECK-NEXT:    vmv2r.v v12, v8
 ; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
-; CHECK-NEXT:    vid.v v14
-; CHECK-NEXT:    vrsub.vi v15, v14, 7
+; CHECK-NEXT:    vid.v v10
+; CHECK-NEXT:    vrsub.vi v11, v10, 7
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, ma
-; CHECK-NEXT:    vrgatherei16.vv v8, v12, v15
+; CHECK-NEXT:    vrgatherei16.vv v12, v8, v11
 ; CHECK-NEXT:    vsetvli zero, zero, e16, m1, ta, ma
-; CHECK-NEXT:    vrsub.vi v12, v14, 3
+; CHECK-NEXT:    vrsub.vi v8, v10, 3
 ; CHECK-NEXT:    vmv.v.i v0, 15
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, mu
-; CHECK-NEXT:    vrgatherei16.vv v8, v16, v12, v0.t
+; CHECK-NEXT:    vrgatherei16.vv v12, v16, v8, v0.t
+; CHECK-NEXT:    vmv.v.v v8, v12
 ; CHECK-NEXT:    ret
   %v8f64 = shufflevector <4 x double> %a, <4 x double> %b, <8 x i32> <i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
   ret <8 x double> %v8f64

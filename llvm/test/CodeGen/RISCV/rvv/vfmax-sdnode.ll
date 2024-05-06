@@ -301,15 +301,15 @@ define <vscale x 32 x half> @vfmax_nxv32f16_vf(<vscale x 32 x half> %a, half %b)
 ; ZVFHMIN-NEXT:    vfmv.v.f v16, fa5
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfncvt.f.f.w v24, v16
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v0, v8
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v24
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v8
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v0, v24
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
-; ZVFHMIN-NEXT:    vfmax.vv v24, v0, v16
+; ZVFHMIN-NEXT:    vfmax.vv v16, v16, v0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
-; ZVFHMIN-NEXT:    vfncvt.f.f.w v8, v24
-; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v12
+; ZVFHMIN-NEXT:    vfncvt.f.f.w v8, v16
+; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
-; ZVFHMIN-NEXT:    vfmax.vv v16, v24, v16
+; ZVFHMIN-NEXT:    vfmax.vv v16, v16, v0
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfncvt.f.f.w v12, v16
 ; ZVFHMIN-NEXT:    ret
