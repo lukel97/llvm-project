@@ -1691,16 +1691,16 @@ declare <vscale x 16 x ptr> @llvm.vector.insert.nxv8p0.nxv16p0(<vscale x 16 x pt
 define void @mscatter_nxv16f64(<vscale x 8 x double> %val0, <vscale x 8 x double> %val1, <vscale x 8 x ptr> %ptrs0, <vscale x 8 x ptr> %ptrs1, <vscale x 16 x i1> %m) {
 ; RV32-LABEL: mscatter_nxv16f64:
 ; RV32:       # %bb.0:
-; RV32-NEXT:    vl4re32.v v24, (a0)
-; RV32-NEXT:    vl4re32.v v28, (a1)
+; RV32-NEXT:    vl4re32.v v28, (a0)
+; RV32-NEXT:    vl4re32.v v24, (a1)
 ; RV32-NEXT:    vsetvli a0, zero, e64, m8, ta, ma
-; RV32-NEXT:    vsoxei32.v v8, (zero), v24, v0.t
+; RV32-NEXT:    vsoxei32.v v8, (zero), v28, v0.t
 ; RV32-NEXT:    csrr a0, vlenb
 ; RV32-NEXT:    srli a0, a0, 3
 ; RV32-NEXT:    vsetvli a1, zero, e8, mf4, ta, ma
 ; RV32-NEXT:    vslidedown.vx v0, v0, a0
 ; RV32-NEXT:    vsetvli a0, zero, e64, m8, ta, ma
-; RV32-NEXT:    vsoxei32.v v16, (zero), v28, v0.t
+; RV32-NEXT:    vsoxei32.v v16, (zero), v24, v0.t
 ; RV32-NEXT:    ret
 ;
 ; RV64-LABEL: mscatter_nxv16f64:

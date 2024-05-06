@@ -437,17 +437,17 @@ define void @test_compresstore_v128i16(ptr %p, <128 x i1> %mask, <128 x i16> %da
 ; RV64-NEXT:    vsetvli zero, a2, e16, m8, ta, ma
 ; RV64-NEXT:    vse16.v v24, (a0)
 ; RV64-NEXT:    vsetivli zero, 8, e8, m1, ta, ma
-; RV64-NEXT:    vslidedown.vi v8, v0, 8
+; RV64-NEXT:    vslidedown.vi v24, v0, 8
 ; RV64-NEXT:    vsetvli zero, a1, e16, m8, ta, ma
-; RV64-NEXT:    vcompress.vm v24, v16, v8
-; RV64-NEXT:    vcpop.m a2, v8
+; RV64-NEXT:    vcompress.vm v8, v16, v24
+; RV64-NEXT:    vcpop.m a2, v24
 ; RV64-NEXT:    vsetvli zero, a1, e64, m1, ta, ma
 ; RV64-NEXT:    vmv.x.s a1, v0
 ; RV64-NEXT:    cpop a1, a1
 ; RV64-NEXT:    slli a1, a1, 1
 ; RV64-NEXT:    add a0, a0, a1
 ; RV64-NEXT:    vsetvli zero, a2, e16, m8, ta, ma
-; RV64-NEXT:    vse16.v v24, (a0)
+; RV64-NEXT:    vse16.v v8, (a0)
 ; RV64-NEXT:    ret
 ;
 ; RV32-LABEL: test_compresstore_v128i16:
