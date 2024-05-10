@@ -1761,6 +1761,41 @@ bool RISCVCoalesceVSETVLI::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF)
     Changed |= coalesceVSETVLIs(MBB);
 
+  // return Changed;
+
+  auto *TRI = ST->getRegisterInfo();
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &MI : MBB) {
+      if (MI.getOpcode() != RISCV::PseudoVSETVLIX0 || !MI.getOperand(0).isDead())
+	continue;
+
+      auto FindFoo = [&MI, &MBB, &TRI, this]() -> MachineInstr * {
+
+	for (auto MII = ++MI.getReverseIterator(); MII != MBB.rend(); MII++) {
+	  if (MII->readsRegister(RISCV::VL, TRI) || MII->readsRegister(RISCV::VTYPE, TRI) || MII->modifiesRegister(RISCV::VL, TRI) || MII->modifiesRegister(RISCV::VTYPE, TRI))
+	    return nullptr;
+
+	  bool DefsGPR = any_of(MII->defs(), [this](MachineOperand &Def) { return Def.getReg().isVirtual() && MRI->getRegClass(Def.getReg()) == &RISCV::GPRRegClass; });
+
+	  if (!DefsGPR)
+	    continue;
+	  
+	  return &*MII;
+	  
+	}
+	return nullptr;
+      };
+
+
+      if (auto Foo = FindFoo()) {
+	MI.moveBefore(Foo);
+	LIS->handleMove(MI);
+	Changed |= true;
+      }
+    }
+  }
+
   return Changed;
 }
 
