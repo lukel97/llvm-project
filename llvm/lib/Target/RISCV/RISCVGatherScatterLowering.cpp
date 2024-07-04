@@ -516,12 +516,10 @@ bool RISCVGatherScatterLowering::tryCreateStridedLoadStore(IntrinsicInst *II,
 
   Builder.SetInsertPoint(II);
 
+  Value *EVL = Builder.CreateElementCount(
+      IntegerType::get(Ctx, 32), cast<VectorType>(DataType)->getElementCount());
   CallInst *Call;
   if (II->getIntrinsicID() == Intrinsic::masked_gather) {
-    Value *EVL = Builder.CreateElementCount(
-        IntegerType::get(Ctx, 32),
-        cast<VectorType>(DataType)->getElementCount());
-
     Call = Builder.CreateIntrinsic(
         Intrinsic::experimental_vp_strided_load,
         {DataType, BasePtr->getType(), Stride->getType()},
@@ -531,9 +529,9 @@ bool RISCVGatherScatterLowering::tryCreateStridedLoadStore(IntrinsicInst *II,
         {II->getOperand(2), Call, II->getArgOperand(3), EVL});
   } else
     Call = Builder.CreateIntrinsic(
-        Intrinsic::riscv_masked_strided_store,
+        Intrinsic::experimental_vp_strided_store,
         {DataType, BasePtr->getType(), Stride->getType()},
-        {II->getArgOperand(0), BasePtr, Stride, II->getArgOperand(3)});
+        {II->getArgOperand(0), BasePtr, Stride, II->getArgOperand(3), EVL});
 
   Call->takeName(II);
   II->replaceAllUsesWith(Call);
