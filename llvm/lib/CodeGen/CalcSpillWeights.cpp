@@ -275,6 +275,8 @@ float VirtRegAuxInfo::weightCalcHelper(LiveInterval &LI, SlotIndex *Start,
       if (Writes && IsExiting && LIS.isLiveOutOfMBB(LI, MBB))
         Weight *= 3;
 
+      Weight *= TRI.getSpillSize(*MRI.getRegClass(LI.reg()));
+
       TotalWeight += Weight;
     }
 
