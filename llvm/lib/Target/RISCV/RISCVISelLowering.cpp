@@ -11177,6 +11177,20 @@ SDValue RISCVTargetLowering::lowerVPOp(SDValue Op, SelectionDAG &DAG) const {
     }
     // Pass through operands which aren't fixed-length vectors.
     if (!V.getValueType().isFixedLengthVector()) {
+      if (VT.isScalableVector() &&
+          ISD::getVPExplicitVectorLengthIdx(Op.getOpcode()) == OpIdx.index()) {
+        SDValue F = V;
+        if (F.getOpcode() == ISD::ZERO_EXTEND ||
+            (F.getOpcode() == ISD::AND &&
+             isa<ConstantSDNode>(F.getOperand(1)) &&
+             F.getConstantOperandVal(1) == UINT64_C(0xffffffff)))
+          F = F.getOperand(0);
+        if (F.getOpcode() == ISD::VSCALE &&
+            F.getConstantOperandVal(0) == VT.getVectorMinNumElements()) {
+          V = DAG.getConstant(-1, DL, Subtarget.getXLenVT());
+        }
+      }
+
       Ops.push_back(V);
       continue;
     }
