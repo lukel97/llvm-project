@@ -21,6 +21,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -516,12 +517,19 @@ bool RISCVGatherScatterLowering::tryCreateStridedLoadStore(IntrinsicInst *II,
   Builder.SetInsertPoint(II);
 
   CallInst *Call;
-  if (II->getIntrinsicID() == Intrinsic::masked_gather)
+  if (II->getIntrinsicID() == Intrinsic::masked_gather) {
+    Value *EVL = Builder.CreateElementCount(
+        IntegerType::get(Ctx, 32),
+        cast<VectorType>(DataType)->getElementCount());
+
     Call = Builder.CreateIntrinsic(
-        Intrinsic::riscv_masked_strided_load,
+        Intrinsic::experimental_vp_strided_load,
         {DataType, BasePtr->getType(), Stride->getType()},
-        {II->getArgOperand(3), BasePtr, Stride, II->getArgOperand(2)});
-  else
+        {BasePtr, Stride, II->getArgOperand(2), EVL});
+    Call = Builder.CreateIntrinsic(
+        Intrinsic::vp_select, {DataType},
+        {II->getOperand(2), Call, II->getArgOperand(3), EVL});
+  } else
     Call = Builder.CreateIntrinsic(
         Intrinsic::riscv_masked_strided_store,
         {DataType, BasePtr->getType(), Stride->getType()},
