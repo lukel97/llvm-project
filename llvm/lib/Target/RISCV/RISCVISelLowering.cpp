@@ -10748,6 +10748,23 @@ SDValue RISCVTargetLowering::lowerMaskedLoad(SDValue Op,
   return DAG.getMergeValues({Result, Chain}, DL);
 }
 
+static SDValue convertEVLToAVL(SDValue V, SDLoc DL, MVT VT, SelectionDAG &DAG,
+                               const RISCVSubtarget &Subtarget) {
+
+  if (VT.isScalableVector()) {
+    SDValue F = V;
+    if (F.getOpcode() == ISD::ZERO_EXTEND ||
+        (F.getOpcode() == ISD::AND && isa<ConstantSDNode>(F.getOperand(1)) &&
+         F.getConstantOperandVal(1) == UINT64_C(0xffffffff)))
+      F = F.getOperand(0);
+    if (F.getOpcode() == ISD::VSCALE &&
+        F.getConstantOperandVal(0) == VT.getVectorMinNumElements()) {
+      V = DAG.getConstant(-1, DL, Subtarget.getXLenVT());
+    }
+  }
+  return V;
+}
+
 SDValue RISCVTargetLowering::lowerMaskedStore(SDValue Op,
                                               SelectionDAG &DAG) const {
   SDLoc DL(Op);
@@ -10763,7 +10780,8 @@ SDValue RISCVTargetLowering::lowerMaskedStore(SDValue Op,
   if (const auto *VPStore = dyn_cast<VPStoreSDNode>(Op)) {
     Val = VPStore->getValue();
     Mask = VPStore->getMask();
-    VL = VPStore->getVectorLength();
+    VL = convertEVLToAVL(VPStore->getVectorLength(), DL,
+                         Val.getSimpleValueType(), DAG, Subtarget);
   } else {
     const auto *MStore = cast<MaskedStoreSDNode>(Op);
     Val = MStore->getValue();
@@ -11099,19 +11117,8 @@ SDValue RISCVTargetLowering::lowerVPOp(SDValue Op, SelectionDAG &DAG) const {
     }
     // Pass through operands which aren't fixed-length vectors.
     if (!V.getValueType().isFixedLengthVector()) {
-      if (VT.isScalableVector() &&
-          ISD::getVPExplicitVectorLengthIdx(Op.getOpcode()) == OpIdx.index()) {
-        SDValue F = V;
-        if (F.getOpcode() == ISD::ZERO_EXTEND ||
-            (F.getOpcode() == ISD::AND &&
-             isa<ConstantSDNode>(F.getOperand(1)) &&
-             F.getConstantOperandVal(1) == UINT64_C(0xffffffff)))
-          F = F.getOperand(0);
-        if (F.getOpcode() == ISD::VSCALE &&
-            F.getConstantOperandVal(0) == VT.getVectorMinNumElements()) {
-          V = DAG.getConstant(-1, DL, Subtarget.getXLenVT());
-        }
-      }
+      if (ISD::getVPExplicitVectorLengthIdx(Op.getOpcode()) == OpIdx.index())
+        V = convertEVLToAVL(V, DL, VT, DAG, Subtarget);
 
       Ops.push_back(V);
       continue;
@@ -11638,7 +11645,8 @@ SDValue RISCVTargetLowering::lowerVPStridedLoad(SDValue Op,
     }
     Ops.push_back(Mask);
   }
-  Ops.push_back(VPNode->getVectorLength());
+  Ops.push_back(
+      convertEVLToAVL(VPNode->getVectorLength(), DL, VT, DAG, Subtarget));
   if (!IsUnmasked) {
     SDValue Policy = DAG.getTargetConstant(RISCVII::TAIL_AGNOSTIC, DL, XLenVT);
     Ops.push_back(Policy);
@@ -11685,7 +11693,8 @@ SDValue RISCVTargetLowering::lowerVPStridedStore(SDValue Op,
     }
     Ops.push_back(Mask);
   }
-  Ops.push_back(VPNode->getVectorLength());
+  Ops.push_back(
+      convertEVLToAVL(VPNode->getVectorLength(), DL, VT, DAG, Subtarget));
 
   return DAG.getMemIntrinsicNode(ISD::INTRINSIC_VOID, DL, VPNode->getVTList(),
                                  Ops, VPNode->getMemoryVT(),
