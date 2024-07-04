@@ -1711,12 +1711,6 @@ let TargetPrefix = "riscv" in {
   }
 
   // Strided loads/stores for fixed vectors.
-  def int_riscv_masked_strided_load
-        : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
-                                [LLVMMatchType<0>, llvm_anyptr_ty,
-                                 llvm_anyint_ty,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>],
-                                [NoCapture<ArgIndex<1>>, IntrReadMem]>;
   def int_riscv_masked_strided_store
         : DefaultAttrsIntrinsic<[],
                                 [llvm_anyvector_ty, llvm_anyptr_ty,
