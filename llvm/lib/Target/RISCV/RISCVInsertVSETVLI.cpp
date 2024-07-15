@@ -1439,6 +1439,8 @@ void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
         // register contents are unchanged, the abstract model can change.
         if (!PrefixTransparent || needVSETVLIPHI(CurInfo, MBB))
           insertVSETVLI(MBB, MI, MI.getDebugLoc(), CurInfo, PrevInfo);
+	if (LIS)
+	  MBB.getParent()->verify(LIS, LIS->getSlotIndexes());
         PrefixTransparent = false;
       }
 
@@ -1645,7 +1647,8 @@ void RISCVInsertVSETVLI::coalesceVSETVLIs(MachineBasicBlock &MBB) const {
   Used.demandVTYPE();
   SmallVector<MachineInstr*> ToDelete;
   for (MachineInstr &MI : make_range(MBB.rbegin(), MBB.rend())) {
-
+    if (LIS)
+      MBB.getParent()->verify(LIS, LIS->getSlotIndexes());
     if (!isVectorConfigInstr(MI)) {
       Used.doUnion(getDemanded(MI, ST));
       if (MI.isCall() || MI.isInlineAsm() ||
@@ -1715,6 +1718,7 @@ void RISCVInsertVSETVLI::coalesceVSETVLIs(MachineBasicBlock &MBB) const {
           MI.setDesc(NextMI->getDesc());
         }
         MI.getOperand(2).setImm(NextMI->getOperand(2).getImm());
+        NextMI->getOperand(0).setReg(RISCV::NoRegister);
         ToDelete.push_back(NextMI);
         // fallthrough
       }
@@ -1811,8 +1815,11 @@ bool RISCVInsertVSETVLI::runOnMachineFunction(MachineFunction &MF) {
   }
 
   // Perform partial redundancy elimination of vsetvli transitions.
-  for (MachineBasicBlock &MBB : MF)
+  for (MachineBasicBlock &MBB : MF) {
     doPRE(MBB);
+    if (LIS)
+      MBB.getParent()->verify(LIS, LIS->getSlotIndexes());
+  }
 
   // Phase 3 - add any vsetvli instructions needed in the block. Use the
   // Phase 2 information to avoid adding vsetvlis before the first vector

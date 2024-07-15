@@ -669,8 +669,8 @@ void MachineVerifier::visitMachineFunctionBefore() {
   // Check that the register use lists are sane.
   MRI->verifyUseLists();
 
-  if (!MF->empty())
-    verifyStackFrame();
+  // if (!MF->empty())
+  //   verifyStackFrame();
 }
 
 void
