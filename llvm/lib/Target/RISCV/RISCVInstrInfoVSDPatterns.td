@@ -123,7 +123,7 @@ class VPatBinarySDNode_XI<SDPatternOperator vop,
                      avl, log2sew, TA_MA)>;
 
 multiclass VPatBinarySDNode_VV_VX<SDPatternOperator vop, string instruction_name,
-                                  list<VTypeInfo> vtilist = AllIntegerVectors,
+                                  list<VTypeInfo> vtilist = AllScalableAndFixedIntegerVectors,
                                   bit isSEWAware = 0> {
   foreach vti = vtilist in {
     let Predicates = GetVTypePredicates<vti>.Predicates in {
@@ -141,7 +141,7 @@ multiclass VPatBinarySDNode_VV_VX<SDPatternOperator vop, string instruction_name
 multiclass VPatBinarySDNode_VV_VX_VI<SDPatternOperator vop, string instruction_name,
                                      Operand ImmType = simm5>
     : VPatBinarySDNode_VV_VX<vop, instruction_name> {
-  foreach vti = AllIntegerVectors in {
+  foreach vti = AllScalableAndFixedIntegerVectors in {
     let Predicates = GetVTypePredicates<vti>.Predicates in
     def : VPatBinarySDNode_XI<vop, instruction_name, "VI",
                               vti.Vector, vti.Vector, vti.Log2SEW,
@@ -470,7 +470,7 @@ multiclass VPatNConvertFP2ISDNode_W<SDPatternOperator vop,
 
 multiclass VPatWidenBinarySDNode_VV_VX<SDNode op, PatFrags extop1, PatFrags extop2,
                                        string instruction_name> {
-  foreach vtiToWti = AllWidenableIntVectors in {
+  foreach vtiToWti = AllScalableAndFixedWidenableIntVectors in {
     defvar vti = vtiToWti.Vti;
     defvar wti = vtiToWti.Wti;
     let Predicates = !listconcat(GetVTypePredicates<vti>.Predicates,
@@ -491,7 +491,7 @@ multiclass VPatWidenBinarySDNode_VV_VX<SDNode op, PatFrags extop1, PatFrags exto
 
 multiclass VPatWidenBinarySDNode_WV_WX<SDNode op, PatFrags extop,
                                        string instruction_name> {
-  foreach vtiToWti = AllWidenableIntVectors in {
+  foreach vtiToWti = AllScalableAndFixedWidenableIntVectors in {
     defvar vti = vtiToWti.Vti;
     defvar wti = vtiToWti.Wti;
     let Predicates = !listconcat(GetVTypePredicates<vti>.Predicates,
@@ -834,7 +834,7 @@ multiclass VPatWidenFPNegMulSacSDNode_VV_VF_RM<string instruction_name> {
 }
 
 multiclass VPatMultiplyAddSDNode_VV_VX<SDNode op, string instruction_name> {
-  foreach vti = AllIntegerVectors in {
+  foreach vti = AllScalableAndFixedIntegerVectors in {
     defvar suffix = vti.LMul.MX;
     let Predicates = GetVTypePredicates<vti>.Predicates in {
       // NOTE: We choose VMADD because it has the most commuting freedom. So it
@@ -877,7 +877,7 @@ multiclass VPatAVGADD_VV_VX_RM<SDNode vop, int vxrm, string suffix = ""> {
 //===----------------------------------------------------------------------===//
 
 // 7.4. Vector Unit-Stride Instructions
-foreach vti = AllVectors in
+foreach vti = AllScalableAndFixedIntegerVectors in
   let Predicates = !if(!eq(vti.Scalar, f16), [HasVInstructionsF16Minimal],
                        GetVTypePredicates<vti>.Predicates) in 
   defm : VPatUSLoadStoreSDNode<vti.Vector, vti.Log2SEW, vti.LMul,
@@ -893,7 +893,7 @@ defm : VPatBinarySDNode_VV_VX_VI<add, "PseudoVADD">;
 defm : VPatBinarySDNode_VV_VX<sub, "PseudoVSUB">;
 // Handle VRSUB specially since it's the only integer binary op with reversed
 // pattern operands
-foreach vti = AllIntegerVectors in {
+foreach vti = AllScalableAndFixedIntegerVectors in {
   // FIXME: The AddedComplexity here is covering up a missing matcher for
   // widening vwsub.vx which can recognize a extended folded into the
   // scalar of the splat.
@@ -922,7 +922,7 @@ defm : VPatWidenBinarySDNode_VV_VX_WV_WX<sub, zext_oneuse, "PseudoVWSUBU">;
 defm : VPatWidenBinarySDNode_VV_VX_WV_WX<sub, anyext_oneuse, "PseudoVWSUBU">;
 
 // shl (ext v, splat 1) is a special case of widening add.
-foreach vtiToWti = AllWidenableIntVectors in {
+foreach vtiToWti = AllScalableAndFixedWidenableIntVectors in {
   defvar vti = vtiToWti.Vti;
   defvar wti = vtiToWti.Wti;
   let Predicates = !listconcat(GetVTypePredicates<vti>.Predicates,
@@ -933,6 +933,7 @@ foreach vtiToWti = AllWidenableIntVectors in {
                   (wti.Vector (IMPLICIT_DEF)), vti.RegClass:$rs1, vti.RegClass:$rs1,
                   vti.AVL, vti.Log2SEW, TA_MA)>;
     def : Pat<(shl (wti.Vector (zext_oneuse (vti.Vector vti.RegClass:$rs1))),
+                   // TODO: Need to make this splat 1 generic over fixed and scalable types
                    (wti.Vector (riscv_vmv_v_x_vl (wti.Vector undef), 1, (XLenVT srcvalue)))),
               (!cast<Instruction>("PseudoVWADDU_VV_"#vti.LMul.MX)
                   (wti.Vector (IMPLICIT_DEF)), vti.RegClass:$rs1, vti.RegClass:$rs1,
@@ -942,6 +943,7 @@ foreach vtiToWti = AllWidenableIntVectors in {
               (!cast<Instruction>("PseudoVWADDU_VV_"#vti.LMul.MX)
                   (wti.Vector (IMPLICIT_DEF)), vti.RegClass:$rs1, vti.RegClass:$rs1,
                   vti.AVL, vti.Log2SEW, TA_MA)>;
+    if wti.Vector.isScalable then {
     def : Pat<(shl (wti.Vector (riscv_sext_vl_oneuse (vti.Vector vti.RegClass:$rs1), (vti.Mask V0), VLOpFrag)),
                    (wti.Vector (riscv_vmv_v_x_vl (wti.Vector undef), 1, (XLenVT srcvalue)))),
               (!cast<Instruction>("PseudoVWADD_VV_"#vti.LMul.MX#"_MASK")
@@ -952,22 +954,23 @@ foreach vtiToWti = AllWidenableIntVectors in {
               (!cast<Instruction>("PseudoVWADDU_VV_"#vti.LMul.MX#"_MASK")
                   (wti.Vector (IMPLICIT_DEF)), vti.RegClass:$rs1, vti.RegClass:$rs1,
                   (vti.Mask V0), GPR:$vl, vti.Log2SEW, TAIL_AGNOSTIC)>;
+    }
   }
 }
 
 // 11.3. Vector Integer Extension
 defm : VPatExtendSDNode_V<[zext, anyext], "PseudoVZEXT", "VF2",
-                          AllFractionableVF2IntVectors>;
+                          AllFixedAndScalableFractionableVF2IntVectors>;
 defm : VPatExtendSDNode_V<[sext],         "PseudoVSEXT", "VF2",
-                          AllFractionableVF2IntVectors>;
+                          AllFixedAndScalableFractionableVF2IntVectors>;
 defm : VPatExtendSDNode_V<[zext, anyext], "PseudoVZEXT", "VF4",
-                          AllFractionableVF4IntVectors>;
+                          AllFixedAndScalableFractionableVF4IntVectors>;
 defm : VPatExtendSDNode_V<[sext],         "PseudoVSEXT", "VF4",
-                          AllFractionableVF4IntVectors>;
+                          AllFixedAndScalableFractionableVF4IntVectors>;
 defm : VPatExtendSDNode_V<[zext, anyext], "PseudoVZEXT", "VF8",
-                          AllFractionableVF8IntVectors>;
+                          AllFixedAndScalableFractionableVF8IntVectors>;
 defm : VPatExtendSDNode_V<[sext],         "PseudoVSEXT", "VF8",
-                          AllFractionableVF8IntVectors>;
+                          AllFixedAndScalableFractionableVF8IntVectors>;
 
 // 11.5. Vector Bitwise Logical Instructions
 defm : VPatBinarySDNode_VV_VX_VI<and, "PseudoVAND">;
@@ -1454,4 +1457,15 @@ foreach vti = NoGroupFloatVectors in {
   let Predicates = GetVTypePredicates<vti>.Predicates in
   def : Pat<(vti.Scalar (extractelt (vti.Vector vti.RegClass:$rs2), 0)),
             (vfmv_f_s_inst vti.RegClass:$rs2, vti.Log2SEW)>;
+}
+
+foreach vti = FixedLengthVectors in {
+  defvar vslidedown_v_i_inst = !cast<Instruction>("PseudoVSLIDEDOWN_VI_" # vti.LMul.MX);
+  defvar vmv_x_s_inst = !cast<Instruction>(!strconcat("PseudoVMV_",
+                                                      vti.ScalarSuffix,
+                                                      "_S"));
+  // let Predicates = GetVTypePredicates<vti>.Predicates in
+  // def : Pat<(vti.Scalar (extractelt (vti.Vector vti.RegClass:$rs2), uimm5:$idx)),
+  //           (vmv_x_s_inst (vslidedown_v_i_inst (IMPLICIT_DEF), vti.RegClass:$rs2, $idx, vti.AVL, vti.Log2SEW, 0),
+  //                         vti.Log2SEW)>;
 }

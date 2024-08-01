@@ -362,6 +362,66 @@ defvar vbool16_t = nxv4i1;
 defvar vbool32_t = nxv2i1;
 defvar vbool64_t = nxv1i1;
 
+defvar FixedVTs = [
+v1i8,
+v2i8,
+v3i8,
+v4i8,
+v8i8,
+v16i8,
+v32i8,
+v64i8,
+v128i8,
+v256i8,
+v512i8,
+v1024i8,
+
+v1i16,
+v2i16,
+v3i16,
+v4i16,
+v8i16,
+v16i16,
+v32i16,
+v64i16,
+v128i16,
+v256i16,
+v512i16,
+
+v1i32,
+v2i32,
+v3i32,
+v4i32,
+v5i32,
+v6i32,
+v7i32,
+v8i32,
+v9i32,
+v10i32,
+v11i32,
+v12i32,
+v16i32,
+v32i32,
+v64i32,
+v128i32,
+v256i32,
+v512i32,
+v1024i32,
+v2048i32,
+
+v1i64,
+v2i64,
+v3i64,
+v4i64,
+v8i64,
+v16i64,
+v32i64,
+v64i64,
+v128i64,
+v256i64
+];
+
+
 // There is no need to define register classes for fractional LMUL.
 defvar LMULList = [1, 2, 4, 8];
 
@@ -508,27 +568,30 @@ class VReg<list<ValueType> regTypes, dag regList, int Vlmul>
   let VLMul = Vlmul;
 }
 
+
 defvar VMaskVTs = [vbool1_t, vbool2_t, vbool4_t, vbool8_t, vbool16_t,
                    vbool32_t, vbool64_t];
 
-defvar VM1VTs = [vint8m1_t, vint16m1_t, vint32m1_t, vint64m1_t,
+defvar VM1VTs = !listconcat([vint8m1_t, vint16m1_t, vint32m1_t, vint64m1_t,
                  vbfloat16m1_t, vfloat16m1_t, vfloat32m1_t,
                  vfloat64m1_t, vint8mf2_t, vint8mf4_t, vint8mf8_t,
                  vint16mf2_t, vint16mf4_t, vint32mf2_t,
                  vfloat16mf4_t, vfloat16mf2_t, vbfloat16mf4_t,
-                 vbfloat16mf2_t, vfloat32mf2_t];
+                 vbfloat16mf2_t, vfloat32mf2_t], FixedVTs);
 
-defvar VM2VTs = [vint8m2_t, vint16m2_t, vint32m2_t, vint64m2_t,
+defvar VM2VTs = !listconcat([vint8m2_t, vint16m2_t, vint32m2_t, vint64m2_t,
                  vfloat16m2_t, vbfloat16m2_t,
-                 vfloat32m2_t, vfloat64m2_t];
+                 vfloat32m2_t, vfloat64m2_t,
+                 // Types that fit in 2 * RVVBitsPerBlock i.e. 128bits                 
+                 v16i8, v8i16, v4i32, v2i64], FixedVTs);
 
-defvar VM4VTs = [vint8m4_t, vint16m4_t, vint32m4_t, vint64m4_t,
+defvar VM4VTs = !listconcat([vint8m4_t, vint16m4_t, vint32m4_t, vint64m4_t,
                  vfloat16m4_t, vbfloat16m4_t,
-                 vfloat32m4_t, vfloat64m4_t];
+                 vfloat32m4_t, vfloat64m4_t], FixedVTs);
 
-defvar VM8VTs = [vint8m8_t, vint16m8_t, vint32m8_t, vint64m8_t,
+defvar VM8VTs = !listconcat([vint8m8_t, vint16m8_t, vint32m8_t, vint64m8_t,
                  vfloat16m8_t, vbfloat16m8_t,
-                 vfloat32m8_t, vfloat64m8_t];
+                 vfloat32m8_t, vfloat64m8_t], FixedVTs);
 
 // We reverse the order of last 8 registers so that we don't needlessly prevent
 // allocation of higher lmul register groups while still putting v0 last in the

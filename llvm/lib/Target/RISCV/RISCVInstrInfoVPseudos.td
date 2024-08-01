@@ -264,7 +264,9 @@ class VTypeInfo<ValueType Vec, ValueType Mas, int Sew, LMULInfo M,
   RegisterClass ScalarRegClass = ScalarReg;
   // The pattern fragment which produces the AVL operand, representing the
   // "natural" vector length for this type. For scalable vectors this is VLMax.
-  OutPatFrag AVL = VLMax;
+  OutPatFrag AVL = !if(Vec.isScalable, VLMax, !if(!lt(Vec.nElem, 32),
+                                                  OutPatFrag<(ops), (XLenVT Vec.nElem)>,
+                                                  OutPatFrag<(ops), (ADDI (XLenVT X0), (XLenVT Vec.nElem))>));
 
   string ScalarSuffix = !cond(!eq(Scal, XLenVT) : "X",
                               !eq(Scal, f16) : "FPR16",
@@ -278,6 +280,36 @@ class GroupVTypeInfo<ValueType Vec, ValueType VecM1, ValueType Mas, int Sew,
                      RegisterClass ScalarReg = GPR>
     : VTypeInfo<Vec, Mas, Sew, M, Scal, ScalarReg> {
   ValueType VectorM1 = VecM1;
+}
+
+multiclass FixedVTypeInfo<ValueType Vec, ValueType Mask, int Sew> {
+  foreach lmul = MxSet<Sew>.m in {
+  // if we only need 32 bits per vec reg, skip
+    defvar bitspervec = !div(!mul(Vec.Size, 8), lmul.octuple);
+    if !ge(bitspervec, 64) then
+      def "" # lmul.MX : VTypeInfo<Vec, Mask, Sew, lmul>;
+  }
+}
+
+defset list<VTypeInfo> FixedLengthVectors = {
+  defvar FixedLengthVectorVTs = !filter(vec, ValueTypes, !and(vec.isVector, !not(vec.isScalable), !eq(!shl(1, !logtwo(vec.nElem)), vec.nElem), !le(vec.nElem, 128)));
+  defvar SupportedFixedLengthVectorVTs = !filter(vec, FixedLengthVectorVTs,
+    !or(!eq(vec.ElementType, i8),
+        !eq(vec.ElementType, i16),
+        !eq(vec.ElementType, i32),
+        !eq(vec.ElementType, i64)));
+  foreach VT = SupportedFixedLengthVectorVTs in {
+    defm "" # VT.LLVMName : FixedVTypeInfo<VT, !cast<VTVec>("v"#VT.nElem#"i1"), VT.ElementType.Size>;
+  }
+  // defm V2I32   : FixedVTypeInfo<v2i32, v2i1, 32>;
+  // defm V4I32   : FixedVTypeInfo<v4i32, v4i1, 32>;
+  // defm V1I64   : FixedVTypeInfo<v1i64, v1i1, 64>;  
+  // defm V2I64   : FixedVTypeInfo<v2i64, v2i1, 64>;
+  // defm V3I64   : FixedVTypeInfo<v3i64, v3i1, 64>;
+  // defm V4I64   : FixedVTypeInfo<v4i64, v4i1, 64>;
+  // defm V8I64   : FixedVTypeInfo<v8i64, v8i1, 64>;
+  // defm V16I64  : FixedVTypeInfo<v16i64, v16i1, 64>;
+  // defm V32I64  : FixedVTypeInfo<v32i64, v32i1, 64>;        
 }
 
 defset list<VTypeInfo> AllVectors = {
@@ -371,6 +403,8 @@ defset list<VTypeInfo> AllVectors = {
   }
 }
 
+defvar AllScalableAndFixedIntegerVectors = !listconcat(AllIntegerVectors, FixedLengthVectors);
+
 // This functor is used to obtain the int vector type that has the same SEW and
 // multiplier as the input parameter type
 class GetIntVTypeInfo<VTypeInfo vti> {
@@ -438,6 +472,15 @@ defset list<VTypeInfoToWide> AllWidenableIntVectors = {
   def : VTypeInfoToWide<VI32M4,  VI64M8>;
 }
 
+defset list<VTypeInfoToWide> AllFixedWidenableIntVectors = {
+  foreach vti = !filter(vti, FixedLengthVectors, !and(!lt(vti.Vector.ElementType.Size, 64), !ne(vti.LMul, V_M8))) in {
+    defvar wide_vti = !cast<VTypeInfo>("v" # vti.Vector.nElem # "i" # !mul(vti.Vector.ElementType.Size, 2) # octuple_to_str<!mul(vti.LMul.octuple, 2)>.ret);
+    def : VTypeInfoToWide<vti, wide_vti>;
+  }
+}
+
+defvar AllScalableAndFixedWidenableIntVectors = !listconcat(AllWidenableIntVectors, AllFixedWidenableIntVectors);
+
 defset list<VTypeInfoToWide> AllWidenableFloatVectors = {
   def : VTypeInfoToWide<VF16MF4, VF32MF2>;
   def : VTypeInfoToWide<VF16MF2, VF32M1>;
@@ -469,6 +512,21 @@ defset list<VTypeInfoToFraction> AllFractionableVF2IntVectors = {
   def : VTypeInfoToFraction<VI64M8, VI32M4>;
 }
 
+multiclass FixedFractionableIntVectors<int vf> {
+  defvar min_sew = !mul(8, vf);
+  defvar min_lmul = !mul(1, vf);
+  foreach vti = !filter(vti, FixedLengthVectors, !and(!ge(vti.Vector.ElementType.Size, min_sew), !ge(vti.LMul.octuple, min_lmul))) in {
+    defvar narrow_vti = !cast<VTypeInfo>("v" # vti.Vector.nElem # "i" # !div(vti.Vector.ElementType.Size, vf) # octuple_to_str<!div(vti.LMul.octuple, vf)>.ret);
+    def : VTypeInfoToFraction<vti, narrow_vti>;
+  }
+}
+
+defset list<VTypeInfoToFraction> AllFixedFractionableVF2IntVectors = {
+  defm : FixedFractionableIntVectors<2>;
+}
+
+defvar AllFixedAndScalableFractionableVF2IntVectors = !listconcat(AllFractionableVF2IntVectors, AllFixedFractionableVF2IntVectors);
+
 defset list<VTypeInfoToFraction> AllFractionableVF4IntVectors = {
   def : VTypeInfoToFraction<VI32MF2, VI8MF8>;
   def : VTypeInfoToFraction<VI32M1, VI8MF4>;
@@ -481,12 +539,24 @@ defset list<VTypeInfoToFraction> AllFractionableVF4IntVectors = {
   def : VTypeInfoToFraction<VI64M8, VI16M2>;
 }
 
+defset list<VTypeInfoToFraction> AllFixedFractionableVF4IntVectors = {
+  defm : FixedFractionableIntVectors<4>;
+}
+
+defvar AllFixedAndScalableFractionableVF4IntVectors = !listconcat(AllFractionableVF4IntVectors, AllFixedFractionableVF4IntVectors);
+
 defset list<VTypeInfoToFraction> AllFractionableVF8IntVectors = {
   def : VTypeInfoToFraction<VI64M1, VI8MF8>;
   def : VTypeInfoToFraction<VI64M2, VI8MF4>;
   def : VTypeInfoToFraction<VI64M4, VI8MF2>;
   def : VTypeInfoToFraction<VI64M8, VI8M1>;
 }
+
+defset list<VTypeInfoToFraction> AllFixedFractionableVF8IntVectors = {
+  defm : FixedFractionableIntVectors<8>;
+}
+
+defvar AllFixedAndScalableFractionableVF8IntVectors = !listconcat(AllFractionableVF8IntVectors, AllFixedFractionableVF8IntVectors);
 
 defset list<VTypeInfoToWide> AllWidenableIntToFloatVectors = {
   def : VTypeInfoToWide<VI8MF8, VF16MF4>;
@@ -750,12 +820,18 @@ class VPseudo<Instruction instr, LMULInfo m, dag outs, dag ins, int sew = 0> :
 }
 
 class GetVTypePredicates<VTypeInfo vti> {
-  list<Predicate> Predicates = !cond(!eq(vti.Scalar, f16) : [HasVInstructionsF16],
+  defvar Zvls = !foreach(i, !range(6, 16), !shl(1, i));
+  defvar MinZvl = !head(!filter(zvl, Zvls, !ge(!div(!mul(zvl, vti.LMul.octuple), 8), vti.Vector.Size)));
+  defvar FixedMinLength =
+      !if(vti.Vector.isScalable, []<Predicate>, [!cast<Predicate>("HasZvl"#MinZvl#"b")]);
+  
+  defvar EltPredicate        = !cond(!eq(vti.Scalar, f16) : [HasVInstructionsF16],
                                      !eq(vti.Scalar, bf16) : [HasVInstructionsBF16Minimal],
                                      !eq(vti.Scalar, f32) : [HasVInstructionsAnyF],
                                      !eq(vti.Scalar, f64) : [HasVInstructionsF64],
                                      !eq(vti.SEW, 64) : [HasVInstructionsI64],
                                      true : [HasVInstructions]);
+  list<Predicate> Predicates = !listconcat(EltPredicate, FixedMinLength);
 }
 
 class VPseudoUSLoadNoMask<VReg RetClass,

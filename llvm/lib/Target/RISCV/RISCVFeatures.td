@@ -874,6 +874,12 @@ def HasVInstructionsBF16Minimal : Predicate<"Subtarget->hasVInstructionsBF16Mini
 def HasVInstructionsF16 : Predicate<"Subtarget->hasVInstructionsF16()">;
 def HasVInstructionsF64 : Predicate<"Subtarget->hasVInstructionsF64()">;
 
+
+foreach i = { 6-16 } in {
+  defvar I = !shl(1, i);
+  def HasZvl#I#b : Predicate<"Subtarget->getRealMinVLen() >= " # I # "">;
+}
+
 def HasVInstructionsFullMultiply : Predicate<"Subtarget->hasVInstructionsFullMultiply()">;
 
 // Hypervisor Extensions

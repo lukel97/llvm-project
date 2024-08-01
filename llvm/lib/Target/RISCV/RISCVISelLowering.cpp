@@ -1289,6 +1289,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
                 {ISD::CTLZ, ISD::CTLZ_ZERO_UNDEF, ISD::CTTZ_ZERO_UNDEF}, VT,
                 Custom);
         }
+
+	setOperationAction({ISD::LOAD, ISD::STORE, ISD::ADD, ISD::SUB, ISD::MUL, ISD::AND, ISD::OR, ISD::XOR, ISD::SHL, ISD::SRL, ISD::SRA, ISD::UMAX, ISD::SMAX, ISD::UMIN, ISD::SMIN, ISD::SIGN_EXTEND, ISD::ZERO_EXTEND }, VT, Legal);
       }
 
       for (MVT VT : MVT::fp_fixedlen_vector_valuetypes()) {
@@ -3714,6 +3716,7 @@ static SDValue lowerBuildVectorOfConstants(SDValue Op, SelectionDAG &DAG,
                                         : RISCVISD::VMV_V_X_VL;
     if (!VT.isFloatingPoint())
       Splat = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, Splat);
+    return DAG.getNode(Opc, DL, VT, DAG.getUNDEF(VT), Splat, VL);
     Splat =
         DAG.getNode(Opc, DL, ContainerVT, DAG.getUNDEF(ContainerVT), Splat, VL);
     return convertFromScalableVector(VT, Splat, DAG, Subtarget);
