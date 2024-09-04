@@ -175,6 +175,13 @@ bool RISCVInstrInfo::isReallyTriviallyReMaterializable(
          i.e. -riscv-vsetvl-after-rvv-regalloc=true */
       !MI.hasRegisterImplicitUseOperand(RISCV::VTYPE))
     return true;
+  if (RISCV::getRVVMCOpcode(MI.getOpcode()) == RISCV::VMV_V_I &&
+      MI.getOperand(1).isUndef() &&
+      /* After RISCVInsertVSETVLI most pseudos will have implicit uses on vl and
+         vtype.  Make sure we only rematerialize before RISCVInsertVSETVLI
+         i.e. -riscv-vsetvl-after-rvv-regalloc=true */
+      !MI.hasRegisterImplicitUseOperand(RISCV::VTYPE))
+    return true;
   return TargetInstrInfo::isReallyTriviallyReMaterializable(MI);
 }
 
