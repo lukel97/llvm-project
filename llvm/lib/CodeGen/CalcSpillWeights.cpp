@@ -339,6 +339,10 @@ float VirtRegAuxInfo::weightCalcHelper(LiveInterval &LI, SlotIndex *Start,
   if (isRematerializable(LI, LIS, VRM, *MF.getSubtarget().getInstrInfo()))
     TotalWeight *= 0.5F;
 
+  MCPhysReg PhysReg = MRI.getRegClass(LI.reg())->getRawAllocationOrder(MF).front();
+  unsigned NumUnits = llvm::range_size(TRI.regunits(PhysReg));
+  TotalWeight *= NumUnits;
+
   if (IsLocalSplitArtifact)
     return normalize(TotalWeight, Start->distance(*End), NumInstr);
   return normalize(TotalWeight, LI.getSize(), NumInstr);

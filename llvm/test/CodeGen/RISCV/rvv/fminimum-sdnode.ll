@@ -164,12 +164,6 @@ define <vscale x 16 x half> @vfmin_nxv16f16_vv(<vscale x 16 x half> %a, <vscale 
 ;
 ; ZVFHMIN-LABEL: vfmin_nxv16f16_vv:
 ; ZVFHMIN:       # %bb.0:
-; ZVFHMIN-NEXT:    addi sp, sp, -16
-; ZVFHMIN-NEXT:    .cfi_def_cfa_offset 16
-; ZVFHMIN-NEXT:    csrr a0, vlenb
-; ZVFHMIN-NEXT:    slli a0, a0, 3
-; ZVFHMIN-NEXT:    sub sp, sp, a0
-; ZVFHMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; ZVFHMIN-NEXT:    vsetvli a0, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v16, v12
 ; ZVFHMIN-NEXT:    vfwcvt.f.f.v v24, v8
@@ -177,18 +171,11 @@ define <vscale x 16 x half> @vfmin_nxv16f16_vv(<vscale x 16 x half> %a, <vscale 
 ; ZVFHMIN-NEXT:    vmfeq.vv v0, v24, v24
 ; ZVFHMIN-NEXT:    vmfeq.vv v7, v16, v16
 ; ZVFHMIN-NEXT:    vmerge.vvm v8, v24, v16, v0
-; ZVFHMIN-NEXT:    addi a0, sp, 16
-; ZVFHMIN-NEXT:    vs8r.v v8, (a0) # Unknown-size Folded Spill
 ; ZVFHMIN-NEXT:    vmv1r.v v0, v7
-; ZVFHMIN-NEXT:    vmerge.vvm v8, v16, v24, v0
-; ZVFHMIN-NEXT:    vl8r.v v16, (a0) # Unknown-size Folded Reload
-; ZVFHMIN-NEXT:    vfmin.vv v16, v8, v16
+; ZVFHMIN-NEXT:    vmerge.vvm v16, v16, v24, v0
+; ZVFHMIN-NEXT:    vfmin.vv v16, v16, v8
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e16, m4, ta, ma
 ; ZVFHMIN-NEXT:    vfncvt.f.f.w v8, v16
-; ZVFHMIN-NEXT:    csrr a0, vlenb
-; ZVFHMIN-NEXT:    slli a0, a0, 3
-; ZVFHMIN-NEXT:    add sp, sp, a0
-; ZVFHMIN-NEXT:    addi sp, sp, 16
 ; ZVFHMIN-NEXT:    ret
   %v = call <vscale x 16 x half> @llvm.minimum.nxv16f16(<vscale x 16 x half> %a, <vscale x 16 x half> %b)
   ret <vscale x 16 x half> %v
