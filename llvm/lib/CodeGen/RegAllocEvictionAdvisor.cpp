@@ -257,16 +257,18 @@ bool DefaultEvictionAdvisor::canEvictInterferenceBasedOnCost(
         return false;
       if (Urgent)
         continue;
+
+      if (EnableLocalReassign && canReassign(*Intf, PhysReg))
+        continue;
+
       // Apply the eviction policy for non-urgent evictions.
       if (!shouldEvict(VirtReg, IsHint, *Intf, BreaksHint))
         return false;
       // If !MaxCost.isMax(), then we're just looking for a cheap register.
       // Evicting another local live range in this case could lead to suboptimal
       // coloring.
-      if (!MaxCost.isMax() && IsLocal && LIS->intervalIsInOneMBB(*Intf) &&
-          (!EnableLocalReassign || !canReassign(*Intf, PhysReg))) {
+      if (!MaxCost.isMax() && IsLocal && LIS->intervalIsInOneMBB(*Intf))
         return false;
-      }
     }
   }
   MaxCost = Cost;
