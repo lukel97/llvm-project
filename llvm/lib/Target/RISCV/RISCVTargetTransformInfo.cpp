@@ -2116,6 +2116,7 @@ bool RISCVTTIImpl::shouldConsiderAddressTypePromotion(
 
 RISCVTTIImpl::TTI::MemCmpExpansionOptions
 RISCVTTIImpl::enableMemCmpExpansion(bool OptSize, bool IsZeroCmp) const {
+  return BaseT::enableMemCmpExpansion(OptSize, IsZeroCmp);
   TTI::MemCmpExpansionOptions Options;
   // FIXME: Vector haven't been tested.
   Options.AllowOverlappingLoads =
