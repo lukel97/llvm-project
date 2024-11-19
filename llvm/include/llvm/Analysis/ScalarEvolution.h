@@ -1651,6 +1651,8 @@ private:
   /// function as they are computed.
   DenseMap<const Loop *, BackedgeTakenInfo> PredicatedBackedgeTakenCounts;
 
+  DenseMap<const Loop *, LoopGuards> CachedLoopGuards;
+
   /// Loops whose backedge taken counts directly use this non-constant SCEV.
   DenseMap<const SCEV *, SmallPtrSet<PointerIntPair<const Loop *, 1, bool>, 4>>
       BECountUsers;
