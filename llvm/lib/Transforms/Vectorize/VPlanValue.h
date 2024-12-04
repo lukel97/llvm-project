@@ -355,6 +355,8 @@ public:
     VPWidenSelectSC,
     VPBlendSC,
     VPHistogramSC,
+    VPWidenIntOrFpInductionStartSC,
+    VPWidenIntOrFpInductionIncSC,
     // START: Phi-like recipes. Need to be kept together.
     VPWidenPHISC,
     VPPredInstPHISC,
@@ -365,6 +367,7 @@ public:
     VPEVLBasedIVPHISC,
     VPFirstOrderRecurrencePHISC,
     VPWidenIntOrFpInductionSC,
+    VPWidenIntOrFpInductionPHISC,
     VPWidenPointerInductionSC,
     VPScalarPHISC,
     VPReductionPHISC,
