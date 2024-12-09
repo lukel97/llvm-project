@@ -2839,7 +2839,7 @@ InstructionCost RISCVTargetLowering::getLMULCost(MVT VT) const {
 /// is generally quadratic in the number of vreg implied by LMUL.  Note that
 /// operand (index and possibly mask) are handled separately.
 InstructionCost RISCVTargetLowering::getVRGatherVVCost(MVT VT) const {
-  return getLMULCost(VT) * getLMULCost(VT);
+  return 2 * getLMULCost(VT) * getLMULCost(VT);
 }
 
 /// Return the cost of a vrgather.vi (or vx) instruction for the type VT.
