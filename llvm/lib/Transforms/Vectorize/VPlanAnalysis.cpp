@@ -245,15 +245,15 @@ Type *VPTypeAnalysis::inferScalarType(const VPValue *V) {
                 return inferScalarType(R->getStartValue());
               })
           .Case<VPWidenIntOrFpInductionRecipe, VPDerivedIVRecipe,
-                VPWidenIntOrFpInductionInitialRecipe,
-                VPWidenIntOrFpInductionBackedgeRecipe>(
+                VPStepVectorRecipe>(
               [](const auto *R) { return R->getScalarType(); })
           .Case<VPReductionRecipe, VPPredInstPHIRecipe, VPWidenPHIRecipe,
                 VPScalarIVStepsRecipe, VPWidenGEPRecipe, VPVectorPointerRecipe,
                 VPReverseVectorPointerRecipe, VPWidenCanonicalIVRecipe,
-                VPPartialReductionRecipe>([this](const VPRecipeBase *R) {
-            return inferScalarType(R->getOperand(0));
-          })
+                VPPartialReductionRecipe, VPSplatRecipe>(
+              [this](const VPRecipeBase *R) {
+                return inferScalarType(R->getOperand(0));
+              })
           .Case<VPBlendRecipe, VPInstruction, VPWidenRecipe, VPWidenEVLRecipe,
                 VPReplicateRecipe, VPWidenCallRecipe, VPWidenMemoryRecipe,
                 VPWidenSelectRecipe>(
