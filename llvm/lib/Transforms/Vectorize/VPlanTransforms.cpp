@@ -1939,14 +1939,11 @@ expandVPWidenIntOrFpInduction(VPWidenIntOrFpInductionRecipe *WidenIVR,
     Prev = WidenIVR->getLastUnrolledPartOperand();
     assert(Inc && Prev);
   } else {
-    // Multiply the vectorization factor by the step using integer or
-    // floating-point arithmetic as appropriate.
-    if (Ty->isFloatingPointTy())
-      VF = Builder.createScalarCast(Instruction::CastOps::UIToFP, VF, Ty);
-    else if (Ty != TypeInfo.inferScalarType(VF))
-      VF = Builder.createScalarCast(Instruction::CastOps::Trunc, VF, Ty);
-
-    Inc = Builder.createSplat(Builder.createNaryOp(MulOp, {Step, VF}, FMFs));
+    Inc =
+        Builder.createNaryOp(VPInstruction::WideIVStep,
+                             {VF, WidenIVR->getStepValue(),
+                              Plan->getOrAddLiveIn(Constant::getNullValue(Ty))},
+                             FMFs, WidenIVR->getDebugLoc());
     Prev = WidePHI;
   }
 
@@ -1984,8 +1981,14 @@ void VPlanTransforms::convertToConcreteRecipes(VPlan &Plan) {
     for (VPRecipeBase &R : make_early_inc_range(*VPBB)) {
       if (auto *WidenIVR = dyn_cast<VPWidenIntOrFpInductionRecipe>(&R)) {
         expandVPWidenIntOrFpInduction(WidenIVR, TypeInfo);
-        continue;
       }
+    }
+  }
+
+  for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
+           vp_depth_first_deep(Plan.getEntry()))) {
+
+    for (VPRecipeBase &R : make_early_inc_range(*VPBB)) {
       if (isa<VPCanonicalIVPHIRecipe, VPEVLBasedIVPHIRecipe>(&R)) {
         auto *PhiR = cast<VPHeaderPHIRecipe>(&R);
         StringRef Name =

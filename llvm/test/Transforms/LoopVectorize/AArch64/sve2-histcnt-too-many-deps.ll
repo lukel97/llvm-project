@@ -74,7 +74,7 @@ define void @many_deps(ptr noalias %buckets, ptr %array, ptr %indices, ptr %othe
 ; NORMAL_DEP_LIMIT-NEXT:    [[TMP6:%.*]] = shl i64 [[TMP5]], 2
 ; NORMAL_DEP_LIMIT-NEXT:    [[TMP7:%.*]] = call <vscale x 4 x i32> @llvm.stepvector.nxv4i32()
 ; NORMAL_DEP_LIMIT-NEXT:    [[TMP9:%.*]] = trunc i64 [[TMP6]] to i32
-; NORMAL_DEP_LIMIT-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <vscale x 4 x i32> poison, i32 [[TMP9]], i64 0
+; NORMAL_DEP_LIMIT-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <vscale x 4 x i32> undef, i32 [[TMP9]], i64 0
 ; NORMAL_DEP_LIMIT-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <vscale x 4 x i32> [[DOTSPLATINSERT]], <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer
 ; NORMAL_DEP_LIMIT-NEXT:    br label [[FOR_BODY:%.*]]
 ; NORMAL_DEP_LIMIT:       vector.body:
