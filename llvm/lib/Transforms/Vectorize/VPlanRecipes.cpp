@@ -73,7 +73,6 @@ bool VPRecipeBase::mayWriteToMemory() const {
   case VPBranchOnMaskSC:
   case VPScalarIVStepsSC:
   case VPPredInstPHISC:
-  case VPStepVectorSC:
     return false;
   case VPBlendSC:
   case VPReductionEVLSC:
@@ -122,7 +121,6 @@ bool VPRecipeBase::mayReadFromMemory() const {
   case VPScalarIVStepsSC:
   case VPWidenStoreEVLSC:
   case VPWidenStoreSC:
-  case VPStepVectorSC:
     return false;
   case VPBlendSC:
   case VPReductionEVLSC:
@@ -154,7 +152,6 @@ bool VPRecipeBase::mayHaveSideEffects() const {
   case VPPredInstPHISC:
   case VPScalarCastSC:
   case VPReverseVectorPointerSC:
-  case VPStepVectorSC:
     return false;
   case VPInstructionSC:
     return mayWriteToMemory();
@@ -715,6 +712,10 @@ Value *VPInstruction::generate(VPTransformState &State) {
         Builder.getInt64Ty(), Mask, true, "first.active.lane");
     return Builder.CreateExtractElement(Vec, Ctz, "early.exit.value");
   }
+  case VPInstruction::StepVector: {
+    Type *EltTy = State.get(getOperand(0), true)->getType();
+    return State.Builder.CreateStepVector(VectorType::get(EltTy, State.VF));
+  }
 
   default:
     llvm_unreachable("Unsupported opcode for instruction");
@@ -827,6 +828,7 @@ bool VPInstruction::opcodeMayReadOrWriteFromMemory() const {
   case VPInstruction::LogicalAnd:
   case VPInstruction::Not:
   case VPInstruction::PtrAdd:
+  case VPInstruction::StepVector:
     return false;
   default:
     return true;
@@ -854,6 +856,7 @@ bool VPInstruction::onlyFirstLaneUsed(const VPValue *Op) const {
   case VPInstruction::BranchOnCount:
   case VPInstruction::BranchOnCond:
   case VPInstruction::ResumePhi:
+  case VPInstruction::StepVector:
     return true;
   };
   llvm_unreachable("switch should return");
@@ -944,6 +947,9 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
     break;
   case VPInstruction::ExtractFirstActive:
     O << "extract-first-active";
+    break;
+  case VPInstruction::StepVector:
+    O << "step-vector";
     break;
   default:
     O << Instruction::getOpcodeName(getOpcode());
@@ -2339,7 +2345,7 @@ Value *VPScalarCastRecipe ::generate(VPTransformState &State) {
   case Instruction::ZExt:
   case Instruction::Trunc:
   case Instruction::UIToFP: {
-    // Note: SExt not used yet.
+    // Note: SExt/ZExt not used yet.
     Value *Op = State.get(getOperand(0), VPLane(0));
     return State.Builder.CreateCast(Instruction::CastOps(Opcode), Op, ResultTy);
   }
@@ -2360,20 +2366,6 @@ void VPScalarCastRecipe ::print(raw_ostream &O, const Twine &Indent,
   O << " = " << Instruction::getOpcodeName(Opcode) << " ";
   printOperands(O, SlotTracker);
   O << " to " << *ResultTy;
-}
-#endif
-
-void VPStepVectorRecipe::execute(VPTransformState &State) {
-  VectorType *Ty = VectorType::get(ScalarTy, State.VF);
-  State.set(this, State.Builder.CreateStepVector(Ty));
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPStepVectorRecipe::print(raw_ostream &O, const Twine &Indent,
-                               VPSlotTracker &SlotTracker) const {
-  O << Indent;
-  printAsOperand(O, SlotTracker);
-  O << " = STEP-VECTOR";
 }
 #endif
 
