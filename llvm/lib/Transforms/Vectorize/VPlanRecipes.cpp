@@ -715,9 +715,6 @@ Value *VPInstruction::generate(VPTransformState &State) {
         Builder.getInt64Ty(), Mask, true, "first.active.lane");
     return Builder.CreateExtractElement(Vec, Ctz, "early.exit.value");
   }
-  case VPInstruction::Splat:
-    return State.Builder.CreateVectorSplat(
-        State.VF, State.get(getOperand(0), true), Name);
 
   default:
     llvm_unreachable("Unsupported opcode for instruction");
@@ -830,7 +827,6 @@ bool VPInstruction::opcodeMayReadOrWriteFromMemory() const {
   case VPInstruction::LogicalAnd:
   case VPInstruction::Not:
   case VPInstruction::PtrAdd:
-  case VPInstruction::Splat:
     return false;
   default:
     return true;
@@ -858,7 +854,6 @@ bool VPInstruction::onlyFirstLaneUsed(const VPValue *Op) const {
   case VPInstruction::BranchOnCount:
   case VPInstruction::BranchOnCond:
   case VPInstruction::ResumePhi:
-  case VPInstruction::Splat:
     return true;
   };
   llvm_unreachable("switch should return");
@@ -949,9 +944,6 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
     break;
   case VPInstruction::ExtractFirstActive:
     O << "extract-first-active";
-    break;
-  case VPInstruction::Splat:
-    O << "splat";
     break;
   default:
     O << Instruction::getOpcodeName(getOpcode());
@@ -2342,8 +2334,6 @@ void VPReplicateRecipe::print(raw_ostream &O, const Twine &Indent,
 
 Value *VPScalarCastRecipe ::generate(VPTransformState &State) {
   State.setDebugLocFrom(getDebugLoc());
-  assert(vputils::onlyFirstLaneUsed(this) &&
-         "Codegen only implemented for first lane.");
   switch (Opcode) {
   case Instruction::SExt:
   case Instruction::ZExt:
