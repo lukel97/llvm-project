@@ -33,6 +33,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/DemandedBits.h"
@@ -12276,9 +12277,33 @@ InstructionCost BoUpSLP::getSpillCost() {
     BasicBlock::const_reverse_iterator
         InstIt = ++getLastInstructionInBundle(TE).getIterator().getReverse(),
         PrevInstIt = PrevInst->getIterator().getReverse();
+
+    // Track which blocks we've visited to avoid cycles
+    SmallPtrSet<const BasicBlock *, 4> Visited;
+    SmallVector<const BasicBlock *, 4> Worklist;
+    const BasicBlock *CurrentBlock = PrevInst->getParent();
+    const BasicBlock *TargetBlock = getLastInstructionInBundle(TE).getParent();
+
     while (InstIt != PrevInstIt) {
-      if (PrevInstIt == PrevInst->getParent()->rend()) {
-        PrevInstIt = getLastInstructionInBundle(TE).getParent()->rbegin();
+      if (PrevInstIt == CurrentBlock->rend()) {
+        // Finished current block - add all predecessors to worklist
+        Visited.insert(CurrentBlock);
+
+        // Find predecessors that can reach target, i.e., the top most bb
+        for (auto *Pred : predecessors(CurrentBlock)) {
+          if (!Visited.contains(Pred) && !llvm::is_contained(Worklist, Pred) &&
+              isPotentiallyReachable(TargetBlock, Pred, nullptr, DT)) {
+            Worklist.push_back(Pred);
+          }
+        }
+
+        if (Worklist.empty())
+          break;
+
+        // Move to next predecessor block
+        CurrentBlock = Worklist.front();
+        Worklist.erase(Worklist.begin());
+        PrevInstIt = CurrentBlock->rbegin();
         continue;
       }
 
