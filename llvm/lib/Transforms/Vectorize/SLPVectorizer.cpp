@@ -12272,7 +12272,6 @@ InstructionCost BoUpSLP::getSpillCost() {
     });
 
     // Now find the sequence of instructions between PrevInst and Inst.
-    unsigned NumCalls = 0;
     const Instruction *PrevInst = &getLastInstructionInBundle(Prev);
     BasicBlock::const_reverse_iterator
         InstIt = ++getLastInstructionInBundle(TE).getIterator().getReverse(),
@@ -12307,6 +12306,16 @@ InstructionCost BoUpSLP::getSpillCost() {
         continue;
       }
 
+      for (unsigned I : seq<unsigned>(Prev->getNumOperands())) {
+	const TreeEntry *Op = getVectorizedOperand(Prev, I);
+	if (!Op)
+          continue;
+        if (&*PrevInstIt == &getLastInstructionInBundle(Op)) {
+          getLastInstructionInBundle(Op).dump();
+          LiveEntries.erase(Op);
+        }
+      }
+
       auto NoCallIntrinsic = [this](const Instruction *I) {
         const auto *II = dyn_cast<IntrinsicInst>(I);
         if (!II)
@@ -12326,22 +12335,21 @@ InstructionCost BoUpSLP::getSpillCost() {
       // Vectorized calls, represented as vector intrinsics, do not impact spill
       // cost.
       if (const auto *CB = dyn_cast<CallBase>(&*PrevInstIt);
-          CB && !NoCallIntrinsic(CB) && !isVectorized(CB))
-        NumCalls++;
+          CB && !NoCallIntrinsic(CB) && !isVectorized(CB)) {
+        SmallVector<Type *, 4> EntriesTypes;
+        for (const TreeEntry *TE : LiveEntries) {
+          auto *ScalarTy = TE->getMainOp()->getType();
+          auto It = MinBWs.find(TE);
+          if (It != MinBWs.end())
+            ScalarTy =
+                IntegerType::get(ScalarTy->getContext(), It->second.first);
+          EntriesTypes.push_back(
+              getWidenedType(ScalarTy, TE->getVectorFactor()));
+        }
+        Cost += TTI->getCostOfKeepingLiveOverCall(EntriesTypes);
+      }
 
       ++PrevInstIt;
-    }
-
-    if (NumCalls) {
-      SmallVector<Type *, 4> EntriesTypes;
-      for (const TreeEntry *TE : LiveEntries) {
-        auto *ScalarTy = TE->getMainOp()->getType();
-        auto It = MinBWs.find(TE);
-        if (It != MinBWs.end())
-          ScalarTy = IntegerType::get(ScalarTy->getContext(), It->second.first);
-        EntriesTypes.push_back(getWidenedType(ScalarTy, TE->getVectorFactor()));
-      }
-      Cost += NumCalls * TTI->getCostOfKeepingLiveOverCall(EntriesTypes);
     }
 
     Prev = TE;
