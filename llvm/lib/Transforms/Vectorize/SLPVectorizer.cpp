@@ -33,7 +33,6 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/DemandedBits.h"
@@ -49,7 +48,6 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -12223,46 +12221,41 @@ InstructionCost BoUpSLP::getSpillCost() {
 
   const TreeEntry *Root = VectorizableTree.front().get();
   BasicBlock *RootBB = cast<Instruction>(Root->Scalars[0])->getParent();
-  
 
-  DenseSet<const BasicBlock *> ReachableFromLeaves;
+  // Compute what nodes are reachable from the leaves to the roots
+  df_iterator_default_set<const BasicBlock *> ReachableFromLeaves;
   for (auto &TE : VectorizableTree) {
-    if (!TE->isGather())
+    if (TE->isGather())
       continue;
     auto *BB = getLastInstructionInBundle(TE.get()).getParent();
-    for (const BasicBlock *X : depth_first(BB))
+    for (const BasicBlock *X : depth_first_ext(BB, ReachableFromLeaves))
       ReachableFromLeaves.insert(X);
   }
 
   DenseSet<const BasicBlock *> Reachable;
   for (const BasicBlock *X : inverse_depth_first(RootBB))
     Reachable.insert(X);
-
   set_intersect(Reachable, ReachableFromLeaves);
 
-  // dbgs() << "RootBB:\n";
-  // dbgs() << RootBB->getName() << "\n";
-
-  // dbgs() << "POSTORDER:\n";
-  // for (const BasicBlock *BB : post_order(RootBB->getParent()))
-  //   dbgs() << BB->getName() << "\n";
-  
-  // dbgs() << "POSTORDER REACHABLE:\n";
+  // Iterate the tree from the root, post order so that all uses appear before
+  // definitions.
+  // TODO: LiveEntries are shared across all paths, so this may overestimate.
   for (BasicBlock *BB : post_order(RootBB->getParent())) {
     if (!Reachable.contains(BB))
       continue;
 
-
     for (Instruction &I : reverse(*BB)) {
       for (const auto *TE : getTreeEntries(&I)) {
+        if (TE->isGather())
+          continue;
         LiveEntries.erase(TE);
         for (unsigned Idx : seq<unsigned>(TE->getNumOperands())) {
-	  const TreeEntry *Op = getVectorizedOperand(TE, Idx);
-	  if (!Op)
+          const TreeEntry *Op = getVectorizedOperand(TE, Idx);
+          if (!Op)
             continue;
-	  assert(!Op->isGather() && "Expected vectorized operand.");
-	  LiveEntries.insert(Op);
-	}
+          assert(!Op->isGather() && "Expected vectorized operand.");
+          LiveEntries.insert(Op);
+        }
       }
 
       auto NoCallIntrinsic = [this](const Instruction *I) {
@@ -12273,10 +12266,10 @@ InstructionCost BoUpSLP::getSpillCost() {
           return true;
         IntrinsicCostAttributes ICA(II->getIntrinsicID(), *II);
         InstructionCost IntrCost =
-          TTI->getIntrinsicInstrCost(ICA, TTI::TCK_RecipThroughput);
+            TTI->getIntrinsicInstrCost(ICA, TTI::TCK_RecipThroughput);
         InstructionCost CallCost =
-          TTI->getCallInstrCost(nullptr, II->getType(), ICA.getArgTypes(),
-                                TTI::TCK_RecipThroughput);
+            TTI->getCallInstrCost(nullptr, II->getType(), ICA.getArgTypes(),
+                                  TTI::TCK_RecipThroughput);
         return IntrCost < CallCost;
       };
 
@@ -12291,15 +12284,13 @@ InstructionCost BoUpSLP::getSpillCost() {
           auto It = MinBWs.find(TE);
           if (It != MinBWs.end())
             ScalarTy =
-              IntegerType::get(ScalarTy->getContext(), It->second.first);
+                IntegerType::get(ScalarTy->getContext(), It->second.first);
           EntriesTypes.push_back(
-				 getWidenedType(ScalarTy, TE->getVectorFactor()));
+              getWidenedType(ScalarTy, TE->getVectorFactor()));
         }
-        // dbgs() << "-------\nLIVE:\n";
-        // for (auto *TE : LiveEntries)
-        //   getLastInstructionInBundle(TE).dump();
-        // dbgs() << "OVER:\n";
-        // CB->dump();
+
+        LLVM_DEBUG(dbgs() << "SLP: " << LiveEntries.size()
+                          << " entries alive over call:" << I << "\n");
         Cost += TTI->getCostOfKeepingLiveOverCall(EntriesTypes);
       }
     }
