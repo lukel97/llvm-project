@@ -299,12 +299,6 @@ RISCVTargetMachine::createMachineScheduler(MachineSchedContext *C) const {
     DAG->addMutation(createStoreClusterDAGMutation(
         DAG->TII, DAG->TRI, /*ReorderWhileClustering=*/true));
   }
-
-  const RISCVSubtarget &ST = C->MF->getSubtarget<RISCVSubtarget>();
-  if (!DisableVectorMaskMutation && ST.hasVInstructions()) {
-    DAG = DAG ? DAG : createGenericSchedLive(C);
-    DAG->addMutation(createRISCVVectorMaskDAGMutation(DAG->TRI));
-  }
   return DAG;
 }
 
@@ -444,6 +438,7 @@ FunctionPass *RISCVPassConfig::createRVVRegAllocPass(bool Optimized) {
 }
 
 bool RISCVPassConfig::addRegAssignAndRewriteFast() {
+  addPass(createRISCVVMV0EliminationPass());
   addPass(createRVVRegAllocPass(false));
   addPass(createRISCVInsertVSETVLIPass());
   if (TM->getOptLevel() != CodeGenOptLevel::None &&
@@ -453,6 +448,7 @@ bool RISCVPassConfig::addRegAssignAndRewriteFast() {
 }
 
 bool RISCVPassConfig::addRegAssignAndRewriteOptimized() {
+  addPass(createRISCVVMV0EliminationPass());
   addPass(createRVVRegAllocPass(true));
   addPass(createVirtRegRewriter(false));
   addPass(createRISCVInsertVSETVLIPass());
@@ -615,8 +611,6 @@ void RISCVPassConfig::addPreRegAlloc() {
 
   if (TM->getOptLevel() != CodeGenOptLevel::None && EnableMachinePipeliner)
     addPass(&MachinePipelinerID);
-
-  addPass(createRISCVVMV0EliminationPass());
 }
 
 void RISCVPassConfig::addFastRegAlloc() {

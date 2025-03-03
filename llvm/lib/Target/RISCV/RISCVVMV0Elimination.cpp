@@ -34,6 +34,9 @@
 #ifndef NDEBUG
 #include "llvm/ADT/PostOrderIterator.h"
 #endif
+#include "llvm/CodeGen/LiveDebugVariables.h"
+#include "llvm/CodeGen/LiveIntervals.h"
+#include "llvm/CodeGen/LiveStacks.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
 using namespace llvm;
@@ -51,15 +54,14 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    MachineFunctionPass::getAnalysisUsage(AU);
-  }
 
-  MachineFunctionProperties getRequiredProperties() const override {
-    // TODO: We could move this closer to regalloc, out of SSA, which would
-    // allow scheduling past mask operands. We would need to preserve live
-    // intervals.
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::IsSSA);
+    AU.addUsedIfAvailable<LiveIntervalsWrapperPass>();
+    AU.addPreserved<LiveIntervalsWrapperPass>();
+    AU.addPreserved<SlotIndexesWrapperPass>();
+    AU.addPreserved<LiveDebugVariablesWrapperLegacy>();
+    AU.addPreserved<LiveStacksWrapperLegacy>();
+
+    MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
 
@@ -88,12 +90,14 @@ bool RISCVVMV0Elimination::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
   const TargetInstrInfo *TII = ST->getInstrInfo();
+  auto *LISWrapper = getAnalysisIfAvailable<LiveIntervalsWrapperPass>();
+  LiveIntervals *LIS = LISWrapper ? &LISWrapper->getLIS() : nullptr;
 
 #ifndef NDEBUG
   // Assert that we won't clobber any existing reads of v0 where we need to
   // insert copies.
-  const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
   ReversePostOrderTraversal<MachineBasicBlock *> RPOT(&*MF.begin());
   for (MachineBasicBlock *MBB : RPOT) {
     bool V0Clobbered = false;
@@ -127,23 +131,40 @@ bool RISCVVMV0Elimination::runOnMachineFunction(MachineFunction &MF) {
         if (isVMV0(MCOI)) {
           MachineOperand &MO = MI.getOperand(OpNo);
           Register Src = MO.getReg();
-          assert(MO.isUse() && MO.getSubReg() == RISCV::NoSubRegister &&
-                 Src.isVirtual() && "vmv0 use in unexpected form");
+          unsigned SubReg = MO.getSubReg();
+          assert(MO.isUse() && Src.isVirtual() &&
+                 "vmv0 use in unexpected form");
 
           // Peek through a single copy to match what isel does.
-          if (MachineInstr *SrcMI = MRI.getVRegDef(Src);
-              SrcMI->isCopy() && SrcMI->getOperand(1).getReg().isVirtual() &&
-              SrcMI->getOperand(1).getSubReg() == RISCV::NoSubRegister) {
+          if (MachineInstr *SrcMI = MRI.getUniqueVRegDef(Src);
+              SrcMI && SrcMI->isCopy() &&
+              SrcMI->getOperand(1).getReg().isVirtual()) {
             // Delete any dead copys to vmv0 to avoid allocating them.
             if (MRI.hasOneNonDBGUse(Src))
               DeadCopies.push_back(SrcMI);
             Src = SrcMI->getOperand(1).getReg();
+            SubReg = TRI->composeSubRegIndices(SrcMI->getOperand(1).getSubReg(),
+                                               SubReg);
           }
 
-          BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(RISCV::COPY), RISCV::V0)
-              .addReg(Src);
-
+          MachineInstr *Copy = BuildMI(MBB, MI, MI.getDebugLoc(),
+                                       TII->get(RISCV::COPY), RISCV::V0)
+                                   .addReg(Src, 0, SubReg);
           MO.setReg(RISCV::V0);
+          if (LIS) {
+            LIS->InsertMachineInstrInMaps(*Copy);
+            SlotIndex CopySI = LIS->getInstructionIndex(*Copy).getRegSlot();
+            SlotIndex MISI = LIS->getInstructionIndex(MI).getRegSlot();
+            assert(std::distance(TRI->regunits(RISCV::V0).begin(),
+                                 TRI->regunits(RISCV::V0).end()) == 1);
+            unsigned Unit = *TRI->regunits(RISCV::V0).begin();
+            if (LiveRange *LR = LIS->getCachedRegUnit(Unit)) {
+              VNInfo *VNI = LR->getNextValue(CopySI, LIS->getVNInfoAllocator());
+              LR->addSegment(LiveInterval::Segment(CopySI, MISI, VNI));
+            }
+            LIS->extendToIndices(LIS->getInterval(Src), CopySI);
+            LIS->shrinkToUses(&LIS->getInterval(Src));
+          }
           MadeChange = true;
           break;
         }
@@ -151,8 +172,11 @@ bool RISCVVMV0Elimination::runOnMachineFunction(MachineFunction &MF) {
     }
   }
 
-  for (MachineInstr *MI : DeadCopies)
+  for (MachineInstr *MI : DeadCopies) {
+    if (LIS)
+      LIS->RemoveMachineInstrFromMaps(*MI);
     MI->eraseFromParent();
+  }
 
   if (!MadeChange)
     return false;
