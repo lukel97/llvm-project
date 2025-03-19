@@ -65,7 +65,7 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
     // The cost will be compared against BlockFrequency where entry has the
     // value of 1 << 14. A value of 64 will choose to spill or split cold
     // path instead of using a callee-saved register.
-    return 64;
+    return 5;
   }
 
   const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
