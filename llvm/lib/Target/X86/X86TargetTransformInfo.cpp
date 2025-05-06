@@ -4876,8 +4876,8 @@ InstructionCost X86TTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,
         }
       }
 
-      // Assume movd/movq XMM -> GPR is relatively cheap on all targets.
-      if (ScalarType->isIntegerTy() && Opcode == Instruction::ExtractElement)
+      // Assume movd/movq XMM <-> GPR is relatively cheap on all targets.
+      if (ScalarType->isIntegerTy())
         return 1 + RegisterFileMoveCost;
     }
 
