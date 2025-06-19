@@ -595,7 +595,8 @@ public:
 class VPIRFlags {
   enum class OperationType : unsigned char {
     Cmp,
-    WrappingOp,
+    OverflowingBinOp,
+    Trunc,
     DisjointOp,
     PossiblyExactOp,
     GEPOp,
@@ -662,7 +663,7 @@ public:
       OpType = OperationType::DisjointOp;
       DisjointFlags.IsDisjoint = Op->isDisjoint();
     } else if (isa<OverflowingBinaryOperator, TruncInst>(&I)) {
-      OpType = OperationType::WrappingOp;
+      OpType = OperationType::OverflowingBinOp;
       WrapFlags = {I.hasNoUnsignedWrap(), I.hasNoSignedWrap()};
     } else if (auto *Op = dyn_cast<PossiblyExactOperator>(&I)) {
       OpType = OperationType::PossiblyExactOp;
@@ -685,8 +686,10 @@ public:
   VPIRFlags(CmpInst::Predicate Pred)
       : OpType(OperationType::Cmp), CmpPredicate(Pred) {}
 
-  VPIRFlags(WrapFlagsTy WrapFlags)
-      : OpType(OperationType::WrappingOp), WrapFlags(WrapFlags) {}
+  VPIRFlags(WrapFlagsTy WrapFlags, bool IsTrunc)
+      : OpType(IsTrunc ? OperationType::Trunc
+                       : OperationType::OverflowingBinOp),
+        WrapFlags(WrapFlags) {}
 
   VPIRFlags(FastMathFlags FMFs) : OpType(OperationType::FPMathOp), FMFs(FMFs) {}
 
@@ -710,7 +713,8 @@ public:
     // NOTE: This needs to be kept in-sync with
     // Instruction::dropPoisonGeneratingFlags.
     switch (OpType) {
-    case OperationType::WrappingOp:
+    case OperationType::OverflowingBinOp:
+    case OperationType::Trunc:
       WrapFlags.HasNUW = false;
       WrapFlags.HasNSW = false;
       break;
@@ -739,7 +743,8 @@ public:
   /// Apply the IR flags to \p I.
   void applyFlags(Instruction &I) const {
     switch (OpType) {
-    case OperationType::WrappingOp:
+    case OperationType::OverflowingBinOp:
+    case OperationType::Trunc:
       I.setHasNoUnsignedWrap(WrapFlags.HasNUW);
       I.setHasNoSignedWrap(WrapFlags.HasNSW);
       break;
@@ -799,13 +804,15 @@ public:
   }
 
   bool hasNoUnsignedWrap() const {
-    assert(OpType == OperationType::WrappingOp &&
+    assert((OpType == OperationType::OverflowingBinOp ||
+            OpType == OperationType::Trunc) &&
            "recipe doesn't have a NUW flag");
     return WrapFlags.HasNUW;
   }
 
   bool hasNoSignedWrap() const {
-    assert(OpType == OperationType::WrappingOp &&
+    assert((OpType == OperationType::OverflowingBinOp ||
+            OpType == OperationType::Trunc) &&
            "recipe doesn't have a NSW flag");
     return WrapFlags.HasNSW;
   }
@@ -1312,7 +1319,9 @@ protected:
 
   VPWidenRecipe(unsigned VPDefOpcode, unsigned Opcode,
                 ArrayRef<VPValue *> Operands, bool NUW, bool NSW, DebugLoc DL)
-      : VPRecipeWithIRFlags(VPDefOpcode, Operands, WrapFlagsTy(NUW, NSW), DL),
+      : VPRecipeWithIRFlags(
+            VPDefOpcode, Operands,
+            VPIRFlags(WrapFlagsTy(NUW, NSW), Opcode == Instruction::Trunc), DL),
         Opcode(Opcode) {}
 
 public:
@@ -2440,8 +2449,9 @@ protected:
   VPReductionRecipe(const unsigned char SC, const RecurKind RdxKind,
                     ArrayRef<VPValue *> Operands, VPValue *CondOp,
                     bool IsOrdered, WrapFlagsTy WrapFlags, DebugLoc DL)
-      : VPRecipeWithIRFlags(SC, Operands, WrapFlags, DL), RdxKind(RdxKind),
-        IsOrdered(IsOrdered), IsConditional(CondOp) {
+      : VPRecipeWithIRFlags(SC, Operands,
+                            VPIRFlags(WrapFlags, /*IsTrunc=*/false), DL),
+        RdxKind(RdxKind), IsOrdered(IsOrdered), IsConditional(CondOp) {
     if (CondOp)
       addOperand(CondOp);
   }

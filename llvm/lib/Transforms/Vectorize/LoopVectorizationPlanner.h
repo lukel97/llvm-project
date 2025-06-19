@@ -186,8 +186,10 @@ public:
                                      VPRecipeWithIRFlags::WrapFlagsTy WrapFlags,
                                      DebugLoc DL = DebugLoc::getUnknown(),
                                      const Twine &Name = "") {
-    return tryInsertInstruction(
-        new VPInstruction(Opcode, Operands, WrapFlags, DL, Name));
+    return tryInsertInstruction(new VPInstruction(
+        Opcode, Operands,
+        VPIRFlags(WrapFlags, /*IsTrunc=*/Opcode == Instruction::Trunc), DL,
+        Name));
   }
 
   VPValue *createNot(VPValue *Operand, DebugLoc DL = DebugLoc::getUnknown(),
