@@ -1,0 +1,12 @@
+name: checks test
+
+on:
+  pull_request:
+    branches:
+      - checks-test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
