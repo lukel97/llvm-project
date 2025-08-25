@@ -357,6 +357,10 @@ def simm12 : RISCVSImmLeafOp<12> {
 def simm12_no6 : ImmLeaf<XLenVT, [{
   return isInt<12>(Imm) && !isInt<6>(Imm) && isInt<12>(-Imm);}]>;
 
+def nzimm6_neg : ImmLeaf<XLenVT, [{
+  return isInt<6>(-Imm) && Imm != 0;}]>;
+
+
 class BareSImm13Lsb0MaybeSym : Operand<OtherVT> {
   let MCOperandPredicate = [{
     int64_t Imm;
@@ -1720,6 +1724,14 @@ class BrccCompressOpt<CondCode Cond, RVInstB Inst>
           (Inst (XLenVT (ADDI GPR:$lhs, (NegImm simm12:$Constant))),
                 (XLenVT X0), bb:$place)>;
 
+class BrccCompressOpt2<CondCode Cond, RVInstB Inst>
+    : Pat<(riscv_brcc GPR:$lhs, nzimm6_neg:$Constant, Cond, bb:$place),
+          (Inst (XLenVT (ADDI GPR:$lhs, (NegImm simm12:$Constant))),
+                (XLenVT X0), bb:$place)>;
+
+
+
+
 defm : BccPat<SETEQ, BEQ>;
 defm : BccPat<SETNE, BNE>;
 defm : BccPat<SETLT, BLT>;
@@ -1730,6 +1742,11 @@ defm : BccPat<SETUGE, BGEU>;
 let Predicates = [HasStdExtZca, OptForMinSize] in {
   def : BrccCompressOpt<SETEQ, BEQ>;
   def : BrccCompressOpt<SETNE, BNE>;
+}
+
+let Predicates = [HasStdExtC] in {
+  def : BrccCompressOpt2<SETEQ, BEQ>;
+  def : BrccCompressOpt2<SETNE, BNE>;
 }
 
 class LongBccPseudo : Pseudo<(outs),
