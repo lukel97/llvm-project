@@ -400,7 +400,7 @@ public:
     if (TM.getOptLevel() != CodeGenOptLevel::None)
       substitutePass(&PostRASchedulerID, &PostMachineSchedulerID);
     setEnableSinkAndFold(EnableSinkFold);
-    EnableLoopTermFold = true;
+    EnableLoopTermFold = false;
   }
 
   RISCVTargetMachine &getRISCVTargetMachine() const {
