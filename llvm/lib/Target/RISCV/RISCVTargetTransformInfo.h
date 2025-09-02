@@ -351,6 +351,11 @@ public:
     return TLI->isVScaleKnownToBeAPowerOfTwo();
   }
 
+  bool shouldMaximizeVectorBandwidth(
+      TargetTransformInfo::RegisterKind K) const override {
+    return ST->hasVInstructions();
+  }
+
   /// \returns How the target needs this vector-predicated operation to be
   /// transformed.
   TargetTransformInfo::VPLegalization
