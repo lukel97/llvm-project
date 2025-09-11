@@ -896,8 +896,8 @@ public:
                              InterleavedAccessInfo &IAI,
                              ProfileSummaryInfo *PSI, BlockFrequencyInfo *BFI)
       : ScalarEpilogueStatus(SEL), TheLoop(L), PSE(PSE), LI(LI), Legal(Legal),
-        TTI(TTI), TLI(TLI), DB(DB), AC(AC), ORE(ORE), TheFunction(F),
-        Hints(Hints), InterleaveInfo(IAI) {
+        TTI(TTI), TLI(TLI), DB(DB), AC(AC), ORE(ORE), BFI(BFI), TheFunction(F),
+        Hints(Hints), InterleaveInfo(IAI)  {
     if (TTI.supportsScalableVectors() || ForceTargetSupportsScalableVectors)
       initializeVScaleForTuning();
     CostKind = F->hasMinSize() ? TTI::TCK_CodeSize : TTI::TCK_RecipThroughput;
@@ -1244,6 +1244,8 @@ public:
   /// at runtime.  The result is independent of the predication mechanism.
   /// Superset of instructions that return true for isScalarWithPredication.
   bool isPredicatedInst(Instruction *I) const;
+
+  unsigned getPredBlockCostDivisor(TargetTransformInfo::TargetCostKind CostKind, const BasicBlock *BB) const;
 
   /// Return the costs for our two available strategies for lowering a
   /// div/rem operation which requires speculating at least one lane.
@@ -1706,6 +1708,8 @@ public:
 
   /// Interface to emit optimization remarks.
   OptimizationRemarkEmitter *ORE;
+
+  const BlockFrequencyInfo *BFI;
 
   const Function *TheFunction;
 
@@ -2857,6 +2861,15 @@ bool LoopVectorizationCostModel::isPredicatedInst(Instruction *I) const {
   }
 }
 
+unsigned LoopVectorizationCostModel::getPredBlockCostDivisor(
+    TargetTransformInfo::TargetCostKind CostKind, const BasicBlock *BB) const {
+  if (CostKind == TTI::TCK_CodeSize)
+    return 1;
+
+  return BFI->getBlockFreq(TheLoop->getHeader()).getFrequency() /
+         BFI->getBlockFreq(BB).getFrequency();
+}
+
 std::pair<InstructionCost, InstructionCost>
 LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
                                                     ElementCount VF) const {
@@ -2893,7 +2906,7 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
     // Scale the cost by the probability of executing the predicated blocks.
     // This assumes the predicated block for each vector lane is equally
     // likely.
-    ScalarizationCost = ScalarizationCost / getPredBlockCostDivisor(CostKind);
+    ScalarizationCost = ScalarizationCost / getPredBlockCostDivisor(CostKind, I->getParent());
   }
   InstructionCost SafeDivisorCost = 0;
 
@@ -5017,7 +5030,7 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
       }
 
     // Scale the total scalar cost by block probability.
-    ScalarCost /= getPredBlockCostDivisor(CostKind);
+    ScalarCost /= getPredBlockCostDivisor(CostKind, PredInst->getParent());
 
     // Compute the discount. A non-negative discount means the vector version
     // of the instruction costs more, and scalarizing would be beneficial.
@@ -5070,7 +5083,7 @@ InstructionCost LoopVectorizationCostModel::expectedCost(ElementCount VF) {
     // cost by the probability of executing it. blockNeedsPredication from
     // Legal is used so as to not include all blocks in tail folded loops.
     if (VF.isScalar() && Legal->blockNeedsPredication(BB))
-      BlockCost /= getPredBlockCostDivisor(CostKind);
+      BlockCost /= getPredBlockCostDivisor(CostKind, BB);
 
     Cost += BlockCost;
   }
@@ -5148,7 +5161,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   // conditional branches, but may not be executed for each vector lane. Scale
   // the cost by the probability of executing the predicated block.
   if (isPredicatedInst(I)) {
-    Cost /= getPredBlockCostDivisor(CostKind);
+    Cost /= getPredBlockCostDivisor(CostKind, I->getParent());
 
     // Add the cost of an i1 extract and a branch
     auto *VecI1Ty =
@@ -6694,6 +6707,10 @@ bool VPCostContext::skipCostComputation(Instruction *UI, bool IsVector) const {
   return CM.ValuesToIgnore.contains(UI) ||
          (IsVector && CM.VecValuesToIgnore.contains(UI)) ||
          SkipCostComputation.contains(UI);
+}
+
+unsigned VPCostContext::getPredBlockCostDivisor(TargetTransformInfo::TargetCostKind CostKind, const BasicBlock *BB) const {
+  return CM.getPredBlockCostDivisor(CostKind, BB);
 }
 
 InstructionCost
@@ -10248,7 +10265,7 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
 
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
-  BFI = nullptr;
+  BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   if (PSI && PSI->hasProfileSummary())
     BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   LoopVectorizeResult Result = runImpl(F);
