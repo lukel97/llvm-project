@@ -429,6 +429,11 @@ m_FirstActiveLane(const Op0_t &Op0) {
   return m_VPInstruction<VPInstruction::FirstActiveLane>(Op0);
 }
 
+inline VPInstruction_match<VPInstruction::VScale>
+m_VScale() {
+  return m_VPInstruction<VPInstruction::VScale>();
+}
+
 template <unsigned Opcode, typename Op0_t>
 inline AllRecipe_match<Opcode, Op0_t> m_Unary(const Op0_t &Op0) {
   return AllRecipe_match<Opcode, Op0_t>(Op0);
