@@ -1081,7 +1081,7 @@ bool MachineLICMImpl::IsLICMCandidate(MachineInstr &I, MachineLoop *CurLoop) {
   bool DontMoveAcrossStore = !HoistConstLoads || !AllowedToHoistLoads[CurLoop];
   if ((!I.isSafeToMove(DontMoveAcrossStore)) &&
       !(HoistConstStores && isInvariantStore(I, TRI, MRI))) {
-    LLVM_DEBUG(dbgs() << "LICM: Instruction not safe to move.\n");
+    LLVM_DEBUG(dbgs() << "LICM: Instruction not safe to move.\n" << I);
     return false;
   }
 
@@ -1093,7 +1093,7 @@ bool MachineLICMImpl::IsLICMCandidate(MachineInstr &I, MachineLoop *CurLoop) {
   // Stores and side effects are already checked by isSafeToMove.
   if (I.mayLoad() && !mayLoadFromGOTOrConstantPool(I) &&
       !IsGuaranteedToExecute(I.getParent(), CurLoop)) {
-    LLVM_DEBUG(dbgs() << "LICM: Load not guaranteed to execute.\n");
+    LLVM_DEBUG(dbgs() << "LICM: Load not guaranteed to execute.\n" << I);
     return false;
   }
 
@@ -1301,6 +1301,8 @@ bool MachineLICMImpl::IsProfitableToHoist(MachineInstr &MI,
       return true;
     }
   }
+
+  return true;
 
   // Estimate register pressure to determine whether to LICM the instruction.
   // In low register pressure situation, we can be more aggressive about
