@@ -109,7 +109,9 @@
 ; CHECK-NEXT:       Machine Natural Loop Construction
 ; CHECK-NEXT:       Machine Trace Metrics 
 ; CHECK-NEXT:       Lazy Machine Block Frequency Analysis 
-; CHECK-NEXT:       Machine InstCombiner 
+; CHECK-NEXT:       Machine InstCombiner
+; CHECK-NEXT:       Remove unreachable machine basic blocks
+; CHECK-NEXT:       Live Variable Analysis
 ; CHECK-NEXT:       Machine Block Frequency Analysis
 ; CHECK-NEXT:       Early Machine Loop Invariant Code Motion
 ; CHECK-NEXT:       MachineDominator Tree Construction

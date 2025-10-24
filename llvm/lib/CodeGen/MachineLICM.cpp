@@ -22,6 +22,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDomTreeUpdater.h"
@@ -133,6 +134,7 @@ namespace {
     MachineBlockFrequencyInfo *MBFI = nullptr; // Machine block frequncy info
     MachineLoopInfo *MLI = nullptr;            // Current MachineLoopInfo
     MachineDomTreeUpdater *MDTU = nullptr;     // Wraps current dominator tree
+    LiveVariables *LV = nullptr;
 
     // State that is updated as we process loops
     bool Changed = false;           // True if a loop is changed.
@@ -321,6 +323,11 @@ namespace {
     EarlyMachineLICM() : MachineLICMBase(ID, true) {
       initializeEarlyMachineLICMPass(*PassRegistry::getPassRegistry());
     }
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addRequired<LiveVariablesWrapperPass>();
+      return MachineLICMBase::getAnalysisUsage(AU);
+    }
   };
 
 } // end anonymous namespace
@@ -346,6 +353,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineBlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LiveVariablesWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
@@ -367,7 +375,9 @@ bool MachineLICMImpl::run(MachineFunction &MF) {
            ? &MFAM->getResult<FunctionAnalysisManagerMachineFunctionProxy>(MF)
                   .getManager()
                   .getResult<AAManager>(MF.getFunction())
-           : &LegacyPass->getAnalysis<AAResultsWrapperPass>().getAAResults();
+       : &LegacyPass->getAnalysis<AAResultsWrapperPass>().getAAResults();
+  if (PreRegAlloc)
+    LV = &LegacyPass->getAnalysis<LiveVariablesWrapperPass>().getLV();
   MachineDomTreeUpdater DTU(GET_RESULT(MachineDominatorTree, getDomTree, ),
                             MachineDomTreeUpdater::UpdateStrategy::Lazy);
   MDTU = &DTU;
@@ -904,7 +914,7 @@ void MachineLICMImpl::HoistOutOfLoop(MachineDomTreeNode *HeaderN,
 }
 
 static bool isOperandKill(const MachineOperand &MO, MachineRegisterInfo *MRI) {
-  return MO.isKill() || MRI->hasOneNonDBGUse(MO.getReg());
+  return MO.isKill() || MRI->hasOneNonDBGUser(MO.getReg());
 }
 
 /// Find all virtual register references that are liveout of the preheader to
@@ -931,13 +941,16 @@ void MachineLICMImpl::InitRegPressure(MachineBasicBlock *BB) {
 /// Update estimate of register pressure after the specified instruction.
 void MachineLICMImpl::UpdateRegPressure(const MachineInstr *MI,
                                         bool ConsiderUnseenAsDef) {
+  LLVM_DEBUG(dbgs() << "Updating reg pres. for " << *MI << "\n");
   auto Cost = calcRegisterCost(MI, /*ConsiderSeen=*/true, ConsiderUnseenAsDef);
   for (const auto &RPIdAndCost : Cost) {
     unsigned Class = RPIdAndCost.first;
+    LLVM_DEBUG(dbgs() << TRI->getRegPressureSetName(RPIdAndCost.first) << ": " << RegPressure[RPIdAndCost.first] << " -> ");
     if (static_cast<int>(RegPressure[Class]) < -RPIdAndCost.second)
       RegPressure[Class] = 0;
     else
       RegPressure[Class] += RPIdAndCost.second;
+    LLVM_DEBUG(dbgs() << RegPressure[RPIdAndCost.first] << "\n");
   }
 }
 
@@ -953,7 +966,7 @@ MachineLICMImpl::calcRegisterCost(const MachineInstr *MI, bool ConsiderSeen,
   SmallDenseMap<unsigned, int> Cost;
   if (MI->isImplicitDef())
     return Cost;
-  for (unsigned i = 0, e = MI->getDesc().getNumOperands(); i != e; ++i) {
+  for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
     const MachineOperand &MO = MI->getOperand(i);
     if (!MO.isReg() || MO.isImplicit())
       continue;
@@ -970,12 +983,24 @@ MachineLICMImpl::calcRegisterCost(const MachineInstr *MI, bool ConsiderSeen,
     if (MO.isDef())
       RCCost = W.RegWeight;
     else {
+      auto VarInfo = LV->getVarInfo(Reg);
       bool isKill = isOperandKill(MO, MRI);
-      if (isNew && !isKill && ConsiderUnseenAsDef)
+      if (is_contained(VarInfo.Kills, MI))
+        isKill = true;
+      if (MI->isPHI() &&
+          !VarInfo.AliveBlocks.test(MI->getParent()->getNumber()) &&
+          VarInfo.AliveBlocks.test(
+				   MI->getOperand(MO.getOperandNo() + 1).getMBB()->getNumber()))
+        isKill = true;
+      LLVM_DEBUG(dbgs() << MO << "\tisKill: " << isKill << "\tisNew: " << isNew << "\n");
+      if (isNew && !isKill && ConsiderUnseenAsDef) {
         // Haven't seen this, it must be a livein.
+        LLVM_DEBUG(dbgs() << MO << " must be a livein\n");
         RCCost = W.RegWeight;
-      else if (!isNew && isKill)
+      } else if (!isNew && isKill) {
+        LLVM_DEBUG(dbgs() << MO << " is kill\n");
         RCCost = -W.RegWeight;
+      }
     }
     if (RCCost == 0)
       continue;
@@ -1228,8 +1253,10 @@ bool MachineLICMImpl::CanCauseHighRegPressure(
       return true;
 
     for (const auto &RP : BackTrace)
-      if (static_cast<int>(RP[Class]) + RPIdAndCost.second >= Limit)
+      if (static_cast<int>(RP[Class]) + RPIdAndCost.second >= Limit) {
+        LLVM_DEBUG(dbgs() << "hit reg press. limit: " << TRI->getRegPressureSetName(Class) << " = " << static_cast<int>(RP[Class]) + RPIdAndCost.second << "\n");
         return true;
+      }
   }
 
   return false;

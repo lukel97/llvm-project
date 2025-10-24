@@ -138,6 +138,7 @@ bool RISCVVMV0Elimination::runOnMachineFunction(MachineFunction &MF) {
 
           BuildMI(MBB, MI, MI.getDebugLoc(), TII->get(RISCV::COPY), RISCV::V0)
               .addReg(Src);
+          MRI.clearKillFlags(Src);
 
           MO.setReg(RISCV::V0);
           MadeChange = true;
