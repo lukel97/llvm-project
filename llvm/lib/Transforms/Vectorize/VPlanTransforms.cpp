@@ -4182,8 +4182,8 @@ static std::optional<ElementCount> isConsecutiveInterleaveGroup(
     unsigned MinVal = VF.getKnownMinValue();
     unsigned GroupSize = GroupElementTy->getScalarSizeInBits() * MinVal;
     auto IG = InterleaveR->getInterleaveGroup();
-    if (IG->getFactor() == MinVal && IG->getNumMembers() == MinVal &&
-        GroupSize == GetVectorWidthForVF(VF))
+    if (IG->getFactor() == MinVal && IG->getNumMembers() == MinVal/* &&
+        GroupSize == GetVectorWidthForVF(VF)*/)
       return {VF};
   }
   return std::nullopt;
