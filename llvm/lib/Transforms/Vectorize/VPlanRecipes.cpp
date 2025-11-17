@@ -984,6 +984,13 @@ Value *VPInstruction::generate(VPTransformState &State) {
     }
     return Res;
   }
+  case VPInstruction::LastActiveLane: {
+    Value *Mask = State.get(getOperand(0));
+    Value *ZExt =
+        Builder.CreateZExt(Mask, toVectorTy(Builder.getInt64Ty(), State.VF));
+    return Builder.CreateSub(Builder.CreateAddReduce(ZExt),
+                             ConstantInt::get(Builder.getInt64Ty(), 1));
+  }
   case VPInstruction::FirstActiveLane: {
     if (getNumOperands() == 1) {
       Value *Mask = State.get(getOperand(0));

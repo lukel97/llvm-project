@@ -3470,34 +3470,6 @@ void VPlanTransforms::convertToConcreteRecipes(VPlan &Plan) {
         ToRemove.push_back(Expr);
       }
 
-      // Expand LastActiveLane into Not + FirstActiveLane + Sub.
-      auto *LastActiveL = dyn_cast<VPInstruction>(&R);
-      if (LastActiveL &&
-          LastActiveL->getOpcode() == VPInstruction::LastActiveLane) {
-        // Create Not(Mask) for all operands.
-        SmallVector<VPValue *, 2> NotMasks;
-        for (VPValue *Op : LastActiveL->operands()) {
-          VPValue *NotMask = Builder.createNot(Op, LastActiveL->getDebugLoc());
-          NotMasks.push_back(NotMask);
-        }
-
-        // Create FirstActiveLane on the inverted masks.
-        VPValue *FirstInactiveLane = Builder.createNaryOp(
-            VPInstruction::FirstActiveLane, NotMasks,
-            LastActiveL->getDebugLoc(), "first.inactive.lane");
-
-        // Subtract 1 to get the last active lane.
-        VPValue *One = Plan.getOrAddLiveIn(
-            ConstantInt::get(Type::getInt64Ty(Plan.getContext()), 1));
-        VPValue *LastLane = Builder.createNaryOp(
-            Instruction::Sub, {FirstInactiveLane, One},
-            LastActiveL->getDebugLoc(), "last.active.lane");
-
-        LastActiveL->replaceAllUsesWith(LastLane);
-        ToRemove.push_back(LastActiveL);
-        continue;
-      }
-
       VPValue *VectorStep;
       VPValue *ScalarStep;
       if (!match(&R, m_VPInstruction<VPInstruction::WideIVStep>(
