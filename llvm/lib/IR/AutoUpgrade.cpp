@@ -1291,7 +1291,6 @@ static bool upgradeIntrinsicFunction1(Function *F, Function *&NewFn,
               .StartsWith("extract.last.active.", Intrinsic::not_intrinsic)
               .StartsWith("extract.", Intrinsic::vector_extract)
               .StartsWith("insert.", Intrinsic::vector_insert)
-              .StartsWith("splice.", Intrinsic::vector_splice)
               .StartsWith("reverse.", Intrinsic::vector_reverse)
               .StartsWith("interleave2.", Intrinsic::vector_interleave2)
               .StartsWith("deinterleave2.", Intrinsic::vector_deinterleave2)
@@ -5390,8 +5389,43 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
   CI->eraseFromParent();
 }
 
+// FIXME: Hack, handle properly
+static bool upgradeSplice(Function *F) {
+  if (!(F->getName().starts_with("llvm.vector.splice") ||
+        F->getName().starts_with("llvm.experimental.vector.splice")) ||
+      F->getName().starts_with("llvm.vector.splice.up") ||
+      F->getName().starts_with("llvm.vector.splice.down") || F->arg_size() != 3)
+    return false;
+
+  rename(F);
+
+  for (User *U : make_early_inc_range(F->users())) {
+    auto *CI = cast<CallInst>(U);
+    IRBuilder<> Builder(CI);
+    int32_t Imm = cast<ConstantInt>(CI->getArgOperand(2))->getSExtValue();
+
+    Function *NewFn = Intrinsic::getOrInsertDeclaration(
+        F->getParent(),
+        Imm >= 0 ? Intrinsic::vector_splice_down : Intrinsic::vector_splice_up,
+        F->getReturnType());
+
+    auto *NewCI = Builder.CreateCall(
+        NewFn, {CI->getArgOperand(0), CI->getArgOperand(1),
+                ConstantInt::get(Builder.getInt32Ty(), std::abs(Imm))});
+    CI->replaceAllUsesWith(NewCI);
+    CI->eraseFromParent();
+  }
+
+  if (F->use_empty())
+    F->eraseFromParent();
+  return true;
+}
+
 void llvm::UpgradeCallsToIntrinsic(Function *F) {
   assert(F && "Illegal attempt to upgrade a non-existent intrinsic.");
+
+  if (upgradeSplice(F))
+    return;
 
   // Check if this function should be upgraded and get the replacement function
   // if there is one.

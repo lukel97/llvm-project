@@ -11889,15 +11889,19 @@ SDValue TargetLowering::expandFP_ROUND(SDNode *Node, SelectionDAG &DAG) const {
 
 SDValue TargetLowering::expandVectorSplice(SDNode *Node,
                                            SelectionDAG &DAG) const {
-  assert(Node->getOpcode() == ISD::VECTOR_SPLICE && "Unexpected opcode!");
-  assert(Node->getValueType(0).isScalableVector() &&
-         "Fixed length vector types expected to use SHUFFLE_VECTOR!");
+  assert((Node->getOpcode() == ISD::VECTOR_SPLICE_DOWN ||
+          Node->getOpcode() == ISD::VECTOR_SPLICE_UP) &&
+         "Unexpected opcode!");
 
   EVT VT = Node->getValueType(0);
   SDValue V1 = Node->getOperand(0);
   SDValue V2 = Node->getOperand(1);
-  int64_t Imm = cast<ConstantSDNode>(Node->getOperand(2))->getSExtValue();
+  SDValue Offset = Node->getOperand(2);
   SDLoc DL(Node);
+
+  assert(Node->getValueType(0).isScalableVector() ||
+         !isa<ConstantSDNode>(Offset) &&
+             "Fixed length vector types expected to use SHUFFLE_VECTOR!");
 
   // Expand through memory thusly:
   //  Alloca CONCAT_VECTORS_TYPES(V1, V2) Ptr
@@ -11923,34 +11927,30 @@ SDValue TargetLowering::expandVectorSplice(SDNode *Node,
   // Store the lo part of CONCAT_VECTORS(V1, V2)
   SDValue StoreV1 = DAG.getStore(DAG.getEntryNode(), DL, V1, StackPtr, PtrInfo);
   // Store the hi part of CONCAT_VECTORS(V1, V2)
-  SDValue OffsetToV2 = DAG.getVScale(
-      DL, PtrVT,
-      APInt(PtrVT.getFixedSizeInBits(), VT.getStoreSize().getKnownMinValue()));
+  SDValue OffsetToV2 = DAG.getTypeSize(DL, PtrVT, VT.getStoreSize());
   SDValue StackPtr2 = DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr, OffsetToV2);
   SDValue StoreV2 = DAG.getStore(StoreV1, DL, V2, StackPtr2, PtrInfo);
 
-  if (Imm >= 0) {
+  if (Node->getOpcode() == ISD::VECTOR_SPLICE_DOWN) {
     // Load back the required element. getVectorElementPointer takes care of
     // clamping the index if it's out-of-bounds.
-    StackPtr = getVectorElementPointer(DAG, StackPtr, VT, Node->getOperand(2));
+    StackPtr = getVectorElementPointer(DAG, StackPtr, VT, Offset);
     // Load the spliced result
     return DAG.getLoad(VT, DL, StoreV2, StackPtr,
                        MachinePointerInfo::getUnknownStack(MF));
   }
 
-  uint64_t TrailingElts = -Imm;
-
   // NOTE: TrailingElts must be clamped so as not to read outside of V1:V2.
-  TypeSize EltByteSize = VT.getVectorElementType().getStoreSize();
   SDValue TrailingBytes =
-      DAG.getConstant(TrailingElts * EltByteSize, DL, PtrVT);
-
-  if (TrailingElts > VT.getVectorMinNumElements()) {
-    SDValue VLBytes =
-        DAG.getVScale(DL, PtrVT,
-                      APInt(PtrVT.getFixedSizeInBits(),
-                            VT.getStoreSize().getKnownMinValue()));
-    TrailingBytes = DAG.getNode(ISD::UMIN, DL, PtrVT, TrailingBytes, VLBytes);
+      DAG.getNode(ISD::MUL, DL, PtrVT, Offset,
+                  DAG.getConstant(VT.getScalarStoreSize(), DL, PtrVT));
+  // TODO: instsimplify?
+  if (isa<ConstantSDNode>(Offset) &&
+      cast<ConstantSDNode>(Offset)->getZExtValue() >
+          VT.getVectorMinNumElements()) {
+    SDValue TotalBytes = DAG.getTypeSize(DL, PtrVT, VT.getStoreSize());
+    TrailingBytes =
+        DAG.getNode(ISD::UMIN, DL, PtrVT, TrailingBytes, TotalBytes);
   }
 
   // Calculate the start address of the spliced result.

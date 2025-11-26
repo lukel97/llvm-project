@@ -2102,13 +2102,26 @@ SDValue SelectionDAG::getVScale(const SDLoc &DL, EVT VT, APInt MulImm,
   return getNode(ISD::VSCALE, DL, VT, getConstant(MulImm, DL, VT));
 }
 
+template <typename LeafTy, typename ValueTy>
+static SDValue
+getFixedOrScalableQuantity(SelectionDAG &DAG, const SDLoc &DL, EVT VT,
+                           details::FixedOrScalableQuantity<LeafTy, ValueTy> X,
+                           bool ConstantFold) {
+  if (X.isScalable())
+    return DAG.getVScale(DL, VT,
+                         APInt(VT.getSizeInBits(), X.getKnownMinValue()));
+
+  return DAG.getConstant(X.getKnownMinValue(), DL, VT);
+}
+
 SDValue SelectionDAG::getElementCount(const SDLoc &DL, EVT VT, ElementCount EC,
                                       bool ConstantFold) {
-  if (EC.isScalable())
-    return getVScale(DL, VT,
-                     APInt(VT.getSizeInBits(), EC.getKnownMinValue()));
+  return getFixedOrScalableQuantity(*this, DL, VT, EC, ConstantFold);
+}
 
-  return getConstant(EC.getKnownMinValue(), DL, VT);
+SDValue SelectionDAG::getTypeSize(const SDLoc &DL, EVT VT, TypeSize EC,
+                                  bool ConstantFold) {
+  return getFixedOrScalableQuantity(*this, DL, VT, EC, ConstantFold);
 }
 
 SDValue SelectionDAG::getStepVector(const SDLoc &DL, EVT ResVT) {
@@ -8141,11 +8154,14 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     break;
   case ISD::VECTOR_SHUFFLE:
     llvm_unreachable("should use getVectorShuffle constructor!");
-  case ISD::VECTOR_SPLICE: {
-    if (cast<ConstantSDNode>(N3)->isZero())
+  case ISD::VECTOR_SPLICE_DOWN:
+    if (isNullConstant(N3))
       return N1;
     break;
-  }
+  case ISD::VECTOR_SPLICE_UP:
+    if (isNullConstant(N3))
+      return N2;
+    break;
   case ISD::INSERT_VECTOR_ELT: {
     assert(VT.isVector() && VT == N1.getValueType() &&
            "INSERT_VECTOR_ELT vector type mismatch");

@@ -6531,18 +6531,22 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 
     break;
   }
-  case Intrinsic::vector_splice: {
+  case Intrinsic::vector_splice_down:
+  case Intrinsic::vector_splice_up: {
     VectorType *VecTy = cast<VectorType>(Call.getType());
-    int64_t Idx = cast<ConstantInt>(Call.getArgOperand(2))->getSExtValue();
-    int64_t KnownMinNumElements = VecTy->getElementCount().getKnownMinValue();
+    auto *CIdx = dyn_cast<ConstantInt>(Call.getArgOperand(2));
+    if (!CIdx)
+      break;
+    const bool IsDown = ID == Intrinsic::vector_splice_down;
+    uint64_t Idx = CIdx->getZExtValue();
+    uint64_t KnownMinNumElements = VecTy->getElementCount().getKnownMinValue();
     if (Call.getParent() && Call.getParent()->getParent()) {
       AttributeList Attrs = Call.getParent()->getParent()->getAttributes();
       if (Attrs.hasFnAttr(Attribute::VScaleRange))
         KnownMinNumElements *= Attrs.getFnAttrs().getVScaleRangeMin();
     }
-    Check((Idx < 0 && std::abs(Idx) <= KnownMinNumElements) ||
-              (Idx >= 0 && Idx < KnownMinNumElements),
-          "The splice index exceeds the range [-VL, VL-1] where VL is the "
+    Check(IsDown ? Idx < KnownMinNumElements : Idx <= KnownMinNumElements,
+          "The splice index exceeds the range [0, VL) where VL is the "
           "known minimum number of elements in the vector. For scalable "
           "vectors the minimum number of elements is determined from "
           "vscale_range.",

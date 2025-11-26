@@ -8317,7 +8317,8 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::vector_reverse:
     visitVectorReverse(I);
     return;
-  case Intrinsic::vector_splice:
+  case Intrinsic::vector_splice_up:
+  case Intrinsic::vector_splice_down:
     visitVectorSplice(I);
     return;
   case Intrinsic::callbr_landingpad:
@@ -12847,26 +12848,32 @@ void SelectionDAGBuilder::visitVectorSplice(const CallInst &I) {
   SDLoc DL = getCurSDLoc();
   SDValue V1 = getValue(I.getOperand(0));
   SDValue V2 = getValue(I.getOperand(1));
-  int64_t Imm = cast<ConstantInt>(I.getOperand(2))->getSExtValue();
+  SDValue Offset = DAG.getZExtOrTrunc(getValue(I.getOperand(2)), getCurSDLoc(),
+                                      TLI.getVectorIdxTy(DAG.getDataLayout()));
+  const bool IsDown = I.getIntrinsicID() == Intrinsic::vector_splice_down;
 
-  // VECTOR_SHUFFLE doesn't support a scalable mask so use a dedicated node.
-  if (VT.isScalableVector()) {
-    setValue(
-        &I, DAG.getNode(ISD::VECTOR_SPLICE, DL, VT, V1, V2,
-                        DAG.getSignedConstant(
-                            Imm, DL, TLI.getVectorIdxTy(DAG.getDataLayout()))));
+  if (auto *COffset = dyn_cast<ConstantSDNode>(Offset);
+      COffset && VT.isFixedLengthVector()) {
+
+    unsigned NumElts = VT.getVectorNumElements();
+
+    uint64_t Idx =
+        (NumElts + COffset->getZExtValue() * (IsDown ? 1 : -1)) % NumElts;
+
+    // Use VECTOR_SHUFFLE to maintain original behaviour for fixed-length
+    // vectors.
+    SmallVector<int, 8> Mask;
+    for (unsigned i = 0; i < NumElts; ++i)
+      Mask.push_back(Idx + i);
+    setValue(&I, DAG.getVectorShuffle(VT, DL, V1, V2, Mask));
     return;
   }
 
-  unsigned NumElts = VT.getVectorNumElements();
-
-  uint64_t Idx = (NumElts + Imm) % NumElts;
-
-  // Use VECTOR_SHUFFLE to maintain original behaviour for fixed-length vectors.
-  SmallVector<int, 8> Mask;
-  for (unsigned i = 0; i < NumElts; ++i)
-    Mask.push_back(Idx + i);
-  setValue(&I, DAG.getVectorShuffle(VT, DL, V1, V2, Mask));
+  // Scalable vectors and non-constant offsets use a dedicated node.
+  setValue(&I,
+           DAG.getNode(IsDown ? ISD::VECTOR_SPLICE_DOWN : ISD::VECTOR_SPLICE_UP,
+                       DL, VT, V1, V2, Offset));
+  return;
 }
 
 // Consider the following MIR after SelectionDAG, which produces output in

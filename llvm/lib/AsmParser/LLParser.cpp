@@ -32,6 +32,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalIFunc.h"
 #include "llvm/IR/GlobalObject.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -341,9 +342,28 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
           return error(Info.second, "intrinsic can only be used as callee");
 
         SmallVector<Type *> OverloadTys;
-        if (IID != Intrinsic::not_intrinsic &&
-            Intrinsic::getIntrinsicSignature(IID, CB->getFunctionType(),
-                                             OverloadTys)) {
+        // FIXME: Hack, handle properly
+        if (StringRef(Name).starts_with("llvm.vector.splice") &&
+            !StringRef(Name).starts_with("llvm.vector.splice.up") &&
+            !StringRef(Name).starts_with("llvm.vector.splice.down")) {
+          auto *CI = cast<CallInst>(CB);
+          IRBuilder<> Builder(CI);
+          int32_t Imm = cast<ConstantInt>(CI->getArgOperand(2))->getSExtValue();
+
+          Function *NewFn = Intrinsic::getOrInsertDeclaration(
+              M,
+              Imm >= 0 ? Intrinsic::vector_splice_down
+                       : Intrinsic::vector_splice_up,
+              CB->getFunctionType()->getReturnType());
+          auto *NewCI = Builder.CreateCall(
+              NewFn, {CI->getArgOperand(0), CI->getArgOperand(1),
+                      ConstantInt::get(Builder.getInt32Ty(), std::abs(Imm))});
+          U.set(NewFn);
+          CI->replaceAllUsesWith(NewCI);
+          CI->eraseFromParent();
+        } else if (IID != Intrinsic::not_intrinsic &&
+                   Intrinsic::getIntrinsicSignature(IID, CB->getFunctionType(),
+                                                    OverloadTys)) {
           U.set(Intrinsic::getOrInsertDeclaration(M, IID, OverloadTys));
         } else {
           // Try to upgrade the intrinsic.
