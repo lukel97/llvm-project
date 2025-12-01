@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_LOOPVECTORIZATIONPLANNER_H
 
 #include "VPlan.h"
+#include "VPlanAnalysis.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/InstructionCost.h"
 
@@ -181,6 +182,15 @@ public:
         Opcode, Operands, ResultTy, Flags, {}, DL, Name));
   }
 
+  VPWidenIntrinsicRecipe *
+  createVPReverse(VPValue *Op, VPValue *EVL, Type *ScalarTy,
+                  DebugLoc DL = DebugLoc::getUnknown()) {
+    VPlan &Plan = *getInsertBlock()->getPlan();
+    return tryInsertInstruction(new VPWidenIntrinsicRecipe(
+        Intrinsic::experimental_vp_reverse, {Op, Plan.getTrue(), EVL}, ScalarTy,
+        {}, {}, DL));
+  }
+
   VPInstruction *createOverflowingOp(
       unsigned Opcode, ArrayRef<VPValue *> Operands,
       VPRecipeWithIRFlags::WrapFlagsTy WrapFlags = {false, false},
@@ -290,6 +300,15 @@ public:
                                             {VScale, RuntimeEC}, {true, false});
     }
     return RuntimeEC;
+  }
+
+  VPWidenIntrinsicRecipe *
+  createVPReverse(VPValue *Operand, VPValue *EVL, VPTypeAnalysis &TypeInfo,
+                  DebugLoc DL = DebugLoc::getUnknown()) {
+    VPlan &Plan = *getInsertBlock()->getPlan();
+    return tryInsertInstruction(new VPWidenIntrinsicRecipe(
+        Intrinsic::experimental_vp_reverse, {Operand, Plan.getTrue(), EVL},
+        TypeInfo.inferScalarType(Operand), {}, {}, DL));
   }
 
   /// Convert the input value \p Current to the corresponding value of an

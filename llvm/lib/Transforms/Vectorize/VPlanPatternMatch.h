@@ -364,6 +364,12 @@ m_Freeze(const Op0_t &Op0) {
   return m_VPInstruction<Instruction::Freeze>(Op0);
 }
 
+template <typename Op0_t>
+inline VPInstruction_match<VPInstruction::Reverse, Op0_t>
+m_Reverse(const Op0_t &Op0) {
+  return m_VPInstruction<VPInstruction::Reverse>(Op0);
+}
+
 inline VPInstruction_match<VPInstruction::BranchOnCond> m_BranchOnCond() {
   return m_VPInstruction<VPInstruction::BranchOnCond>();
 }
