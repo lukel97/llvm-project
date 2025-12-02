@@ -56,6 +56,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_LOOPVECTORIZE_H
 #define LLVM_TRANSFORMS_VECTORIZE_LOOPVECTORIZE_H
 
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -127,6 +128,24 @@ struct LoopVectorizeResult {
       : MadeAnyChange(MadeAnyChange), MadeCFGChange(MadeCFGChange) {}
 };
 
+/// A functor to lazily fetch BlockFrequencyInfo. This avoids computing it
+/// unless necessary, e.g. when the loop isn't legal to vectorize or when
+/// there is no predication.
+class GetBlockFrequencyInfo {
+  FunctionAnalysisManager &FAM;
+  Function &F;
+  BlockFrequencyInfo *BFI = nullptr;
+
+public:
+  GetBlockFrequencyInfo(FunctionAnalysisManager &FAM, Function &F)
+      : FAM(FAM), F(F) {}
+  BlockFrequencyInfo &operator()() {
+    if (!BFI)
+      BFI = &FAM.getResult<BlockFrequencyAnalysis>(F);
+    return *BFI;
+  }
+};
+
 /// The LoopVectorize Pass.
 struct LoopVectorizePass : public PassInfoMixin<LoopVectorizePass> {
 private:
@@ -145,7 +164,7 @@ public:
   LoopInfo *LI;
   TargetTransformInfo *TTI;
   DominatorTree *DT;
-  std::function<BlockFrequencyInfo &()> GetBFI;
+  std::optional<GetBlockFrequencyInfo> GetBFI;
   TargetLibraryInfo *TLI;
   DemandedBits *DB;
   AssumptionCache *AC;
