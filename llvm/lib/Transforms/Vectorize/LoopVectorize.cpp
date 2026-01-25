@@ -8323,8 +8323,18 @@ VPRecipeBuilder::tryToCreatePartialReduction(VPInstruction *Reduction,
        cast<VPReductionRecipe>(BinOpRecipe)->isPartialReduction()))
     std::swap(BinOp, Accumulator);
 
-  if (auto *RedPhiR = dyn_cast<VPReductionPHIRecipe>(Accumulator))
+  if (auto *RedPhiR = dyn_cast<VPReductionPHIRecipe>(Accumulator)) {
     RedPhiR->setVFScaleFactor(ScaleFactor);
+    // Don't output selects for partial reductions because they have an output
+    // with fewer lanes than the VF. So the operands of the select would have
+    // different numbers of lanes. Partial reductions mask the input instead.
+    if (CM.blockNeedsPredicationForAnyReason(
+            Reduction->getUnderlyingInstr()->getParent())) {
+      assert(isa<VPBlendRecipe>(RedPhiR->getBackedgeRecipe()));
+      RedPhiR->getBackedgeValue()->replaceAllUsesWith(
+          RedPhiR->getBackedgeRecipe().getOperand(0));
+    }
+  }
 
   assert(ScaleFactor ==
              vputils::getVFScaleFactor(Accumulator->getDefiningRecipe()) &&
@@ -8739,37 +8749,12 @@ void LoopVectorizationPlanner::addReductionResultComputation(
     const RecurrenceDescriptor &RdxDesc = Legal->getRecurrenceDescriptor(
         cast<PHINode>(PhiR->getUnderlyingInstr()));
     Type *PhiTy = TypeInfo.inferScalarType(PhiR);
-    // If tail is folded by masking, introduce selects between the phi
-    // and the users outside the vector region of each reduction, at the
-    // beginning of the dedicated latch block.
-    auto *OrigExitingVPV = PhiR->getBackedgeValue();
-    auto *NewExitingVPV = PhiR->getBackedgeValue();
-    // Don't output selects for partial reductions because they have an output
-    // with fewer lanes than the VF. So the operands of the select would have
-    // different numbers of lanes. Partial reductions mask the input instead.
-    auto *RR = dyn_cast<VPReductionRecipe>(OrigExitingVPV->getDefiningRecipe());
-    if (!PhiR->isInLoop() && CM.foldTailByMasking() &&
-        (!RR || !RR->isPartialReduction())) {
-      VPValue *Cond = RecipeBuilder.getBlockInMask(
-          cast<VPBasicBlock>(PhiR->getParent()->getSuccessors().front()));
-      std::optional<FastMathFlags> FMFs =
-          PhiTy->isFloatingPointTy()
-              ? std::make_optional(PhiR->getFastMathFlags())
-              : std::nullopt;
-      NewExitingVPV =
-          Builder.createSelect(Cond, OrigExitingVPV, PhiR, {}, "", FMFs);
-      OrigExitingVPV->replaceUsesWithIf(NewExitingVPV, [](VPUser &U, unsigned) {
-        return isa<VPInstruction>(&U) &&
-               (cast<VPInstruction>(&U)->getOpcode() ==
-                    VPInstruction::ComputeAnyOfResult ||
-                cast<VPInstruction>(&U)->getOpcode() ==
-                    VPInstruction::ComputeReductionResult ||
-                cast<VPInstruction>(&U)->getOpcode() ==
-                    VPInstruction::ComputeFindIVResult);
-      });
-      if (CM.usePredicatedReductionSelect())
-        PhiR->setOperand(1, NewExitingVPV);
-    }
+    auto *ExitingVPV = PhiR->getBackedgeValue();
+    // TODO: Remove CM.foldTailByMasking() check: we can do this for non-tail
+    // folded loops too
+    if (isa<VPBlendRecipe>(ExitingVPV) && CM.foldTailByMasking() &&
+        !CM.usePredicatedReductionSelect())
+      PhiR->setOperand(1, cast<VPBlendRecipe>(ExitingVPV)->getIncomingValue(0));
 
     // We want code in the middle block to appear to execute on the location of
     // the scalar loop's latch terminator because: (a) it is all compiler
@@ -8793,12 +8778,11 @@ void LoopVectorizationPlanner::addReductionResultComputation(
       VPValue *Sentinel = Plan->getOrAddLiveIn(RdxDesc.getSentinelValue());
       FinalReductionResult =
           Builder.createNaryOp(VPInstruction::ComputeFindIVResult,
-                               {PhiR, Start, Sentinel, NewExitingVPV}, ExitDL);
+                               {PhiR, Start, Sentinel, ExitingVPV}, ExitDL);
     } else if (RecurrenceDescriptor::isAnyOfRecurrenceKind(RecurrenceKind)) {
       VPValue *Start = PhiR->getStartValue();
-      FinalReductionResult =
-          Builder.createNaryOp(VPInstruction::ComputeAnyOfResult,
-                               {PhiR, Start, NewExitingVPV}, ExitDL);
+      FinalReductionResult = Builder.createNaryOp(
+          VPInstruction::ComputeAnyOfResult, {PhiR, Start, ExitingVPV}, ExitDL);
     } else {
       FastMathFlags FMFs =
           RecurrenceDescriptor::isFloatingPointRecurrenceKind(RecurrenceKind)
@@ -8806,9 +8790,8 @@ void LoopVectorizationPlanner::addReductionResultComputation(
               : FastMathFlags();
       VPIRFlags Flags(RecurrenceKind, PhiR->isOrdered(), PhiR->isInLoop(),
                       FMFs);
-      FinalReductionResult =
-          Builder.createNaryOp(VPInstruction::ComputeReductionResult,
-                               {NewExitingVPV}, Flags, ExitDL);
+      FinalReductionResult = Builder.createNaryOp(
+          VPInstruction::ComputeReductionResult, {ExitingVPV}, Flags, ExitDL);
     }
     // If the vector reduction can be performed in a smaller type, we truncate
     // then extend the loop exit value to enable InstCombine to evaluate the
@@ -8826,13 +8809,12 @@ void LoopVectorizationPlanner::addReductionResultComputation(
       {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(
-            NewExitingVPV->getDefiningRecipe()->getParent(),
-            std::next(NewExitingVPV->getDefiningRecipe()->getIterator()));
-        Trunc =
-            Builder.createWidenCast(Instruction::Trunc, NewExitingVPV, RdxTy);
+            ExitingVPV->getDefiningRecipe()->getParent(),
+            std::next(ExitingVPV->getDefiningRecipe()->getIterator()));
+        Trunc = Builder.createWidenCast(Instruction::Trunc, ExitingVPV, RdxTy);
         Extnd = Builder.createWidenCast(ExtendOpc, Trunc, PhiTy);
       }
-      if (PhiR->getOperand(1) == NewExitingVPV)
+      if (PhiR->getOperand(1) == ExitingVPV)
         PhiR->setOperand(1, Extnd->getVPSingleValue());
 
       // Update ComputeReductionResult with the truncated exiting value and
@@ -8844,11 +8826,11 @@ void LoopVectorizationPlanner::addReductionResultComputation(
 
     // Update all users outside the vector region. Also replace redundant
     // extracts.
-    for (auto *U : to_vector(OrigExitingVPV->users())) {
+    for (auto *U : to_vector(ExitingVPV->users())) {
       auto *Parent = cast<VPRecipeBase>(U)->getParent();
       if (FinalReductionResult == U || Parent->getParent())
         continue;
-      U->replaceUsesOfWith(OrigExitingVPV, FinalReductionResult);
+      U->replaceUsesOfWith(ExitingVPV, FinalReductionResult);
 
       // Look through ExtractLastPart.
       if (match(U, m_ExtractLastPart(m_VPValue())))

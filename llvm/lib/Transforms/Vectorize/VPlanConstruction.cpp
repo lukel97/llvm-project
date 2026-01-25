@@ -1007,10 +1007,19 @@ void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
         if (!VR || !VR->getRegion() || VR->getParent() == LatchSplit ||
             VR->getParent() == VPBB)
           continue;
-        // TODO: For reduction phis, use phi value instead of poison.
-        VPValue *Poison = Plan.getOrAddLiveIn(
-            PoisonValue::get(V->getUnderlyingValue()->getType()));
-        VPInstruction *Phi = Builder.createScalarPhi({V, Poison});
+        Type *Ty = V->getUnderlyingValue()->getType();
+        VPValue *Backedge = Plan.getOrAddLiveIn(PoisonValue::get(Ty));
+
+        auto *RedIt = find_if(V->users(), IsaPred<VPReductionPHIRecipe>);
+        auto *RdxPhi = RedIt != V->user_end()
+                           ? cast<VPReductionPHIRecipe>(*RedIt)
+                           : nullptr;
+        if (RdxPhi && !RdxPhi->isInLoop())
+          Backedge = RdxPhi->getVPSingleValue();
+
+        VPInstruction *Phi = Builder.createScalarPhi(
+            {V, Backedge},
+            Ty->isFloatTy() ? RdxPhi->getFastMathFlags() : VPIRFlags());
         V->replaceUsesWithIf(Phi,
                              [&Phi](VPUser &U, unsigned) { return &U != Phi; });
       }
@@ -1315,8 +1324,7 @@ bool VPlanTransforms::handleMaxMinNumReductions(VPlan &Plan) {
       auto *SelR = cast<VPSingleDefRecipe>(
           *find_if(BackedgeVal->users(),
                    [PhiR = RedPhiR](VPUser *U) { return U != PhiR; }));
-      assert(match(SelR, m_Select(m_VPValue(), m_VPValue(), m_VPValue())) &&
-             "SelR must be a select");
+      assert(isa<VPBlendRecipe>(SelR) && "SelR must be a blend");
       RdxResult = findUserOf<VPInstruction::ComputeReductionResult>(SelR);
       assert(RdxResult && "must find a ComputeReductionResult");
     }
