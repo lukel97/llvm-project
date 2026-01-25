@@ -691,7 +691,7 @@ void VPlanTransforms::createHeaderPhiRecipes(
         Phi, RdxDesc.getRecurrenceKind(), *Start, *BackedgeValue,
         getReductionStyle(InLoopReductions.contains(Phi), UseOrderedReductions,
                           ScaleFactor),
-        RdxDesc.hasUsesOutsideReductionChain());
+        RdxDesc.getFastMathFlags(), RdxDesc.hasUsesOutsideReductionChain());
   };
 
   for (VPRecipeBase &R : make_early_inc_range(HeaderVPBB->phis())) {

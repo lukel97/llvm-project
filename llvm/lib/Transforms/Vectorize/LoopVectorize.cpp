@@ -8754,7 +8754,7 @@ void LoopVectorizationPlanner::addReductionResultComputation(
           cast<VPBasicBlock>(PhiR->getParent()->getSuccessors().front()));
       std::optional<FastMathFlags> FMFs =
           PhiTy->isFloatingPointTy()
-              ? std::make_optional(RdxDesc.getFastMathFlags())
+              ? std::make_optional(PhiR->getFastMathFlags())
               : std::nullopt;
       NewExitingVPV =
           Builder.createSelect(Cond, OrigExitingVPV, PhiR, {}, "", FMFs);

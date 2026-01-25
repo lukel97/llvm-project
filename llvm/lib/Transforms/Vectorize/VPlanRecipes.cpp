@@ -2110,7 +2110,7 @@ bool VPIRFlags::flagsValidForOpcode(unsigned Opcode) const {
            Opcode == Instruction::FNeg || Opcode == Instruction::FDiv ||
            Opcode == Instruction::FRem || Opcode == Instruction::FPExt ||
            Opcode == Instruction::FPTrunc || Opcode == Instruction::Select ||
-           Opcode == VPInstruction::WideIVStep ||
+           Opcode == Instruction::PHI || Opcode == VPInstruction::WideIVStep ||
            Opcode == VPInstruction::ReductionStartVector;
   case OperationType::FCmp:
     return Opcode == Instruction::FCmp;
