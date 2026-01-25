@@ -274,9 +274,10 @@ public:
                           GEPNoWrapFlags::none(), {}, DL, Name));
   }
 
-  VPPhi *createScalarPhi(ArrayRef<VPValue *> IncomingValues, DebugLoc DL,
+  VPPhi *createScalarPhi(ArrayRef<VPValue *> IncomingValues,
+                         const VPIRFlags &Flags = {}, DebugLoc DL = {},
                          const Twine &Name = "") {
-    return tryInsertInstruction(new VPPhi(IncomingValues, DL, Name));
+    return tryInsertInstruction(new VPPhi(IncomingValues, Flags, DL, Name));
   }
 
   VPValue *createElementCount(Type *Ty, ElementCount EC) {

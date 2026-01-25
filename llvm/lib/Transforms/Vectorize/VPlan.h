@@ -978,7 +978,8 @@ struct VPRecipeWithIRFlags : public VPSingleDefRecipe, public VPIRFlags {
       : VPSingleDefRecipe(SC, Operands, DL), VPIRFlags(Flags) {}
 
   static inline bool classof(const VPRecipeBase *R) {
-    return R->getVPDefID() == VPRecipeBase::VPInstructionSC ||
+    return R->getVPDefID() == VPRecipeBase::VPBlendSC ||
+           R->getVPDefID() == VPRecipeBase::VPInstructionSC ||
            R->getVPDefID() == VPRecipeBase::VPWidenSC ||
            R->getVPDefID() == VPRecipeBase::VPWidenGEPSC ||
            R->getVPDefID() == VPRecipeBase::VPWidenCallSC ||
@@ -1439,8 +1440,9 @@ public:
 };
 
 struct LLVM_ABI_FOR_TEST VPPhi : public VPInstruction, public VPPhiAccessors {
-  VPPhi(ArrayRef<VPValue *> Operands, DebugLoc DL, const Twine &Name = "")
-      : VPInstruction(Instruction::PHI, Operands, {}, {}, DL, Name) {}
+  VPPhi(ArrayRef<VPValue *> Operands, const VPIRFlags &Flags, DebugLoc DL,
+        const Twine &Name = "")
+      : VPInstruction(Instruction::PHI, Operands, Flags, {}, DL, Name) {}
 
   static inline bool classof(const VPUser *U) {
     auto *VPI = dyn_cast<VPInstruction>(U);
@@ -1458,7 +1460,7 @@ struct LLVM_ABI_FOR_TEST VPPhi : public VPInstruction, public VPPhiAccessors {
   }
 
   VPPhi *clone() override {
-    auto *PhiR = new VPPhi(operands(), getDebugLoc(), getName());
+    auto *PhiR = new VPPhi(operands(), *this, getDebugLoc(), getName());
     PhiR->setUnderlyingValue(getUnderlyingValue());
     return PhiR;
   }
@@ -2555,18 +2557,20 @@ protected:
 
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
 /// instructions.
-class LLVM_ABI_FOR_TEST VPBlendRecipe : public VPSingleDefRecipe {
+class LLVM_ABI_FOR_TEST VPBlendRecipe : public VPRecipeWithIRFlags {
 public:
   /// The blend operation is a User of the incoming values and of their
   /// respective masks, ordered [I0, M0, I1, M1, I2, M2, ...].
-  VPBlendRecipe(PHINode *Phi, ArrayRef<VPValue *> Operands, DebugLoc DL)
-      : VPSingleDefRecipe(VPDef::VPBlendSC, Operands, Phi, DL) {
+  VPBlendRecipe(PHINode *Phi, ArrayRef<VPValue *> Operands,
+                const VPIRFlags &Flags, DebugLoc DL)
+      : VPRecipeWithIRFlags(VPDef::VPBlendSC, Operands, Flags, DL) {
     assert(Operands.size() >= 2 && "Expected at least two operands!");
+    setUnderlyingValue(Phi);
   }
 
   VPBlendRecipe *clone() override {
     return new VPBlendRecipe(cast_or_null<PHINode>(getUnderlyingValue()),
-                             operands(), getDebugLoc());
+                             operands(), *this, getDebugLoc());
   }
 
   VP_CLASSOF_IMPL(VPDef::VPBlendSC)

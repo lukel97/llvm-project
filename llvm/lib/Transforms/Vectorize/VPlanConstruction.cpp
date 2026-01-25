@@ -218,7 +218,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       // Phi node's operands may not have been visited at this point. We create
       // an empty VPInstruction that we will fix once the whole plain CFG has
       // been built.
-      NewR = VPIRBuilder.createScalarPhi({}, Phi->getDebugLoc(), "vec.phi");
+      NewR = VPIRBuilder.createScalarPhi({}, {}, Phi->getDebugLoc(), "vec.phi");
       NewR->setUnderlyingValue(Phi);
       if (isHeaderBB(Phi->getParent(), LI->getLoopFor(Phi->getParent()))) {
         // Header phis need to be fixed after the VPBB for the latch has been
@@ -563,8 +563,9 @@ static void addInitialSkeleton(VPlan &Plan, Type *InductionTy, DebugLoc IVDL,
   for (const auto &[PhiR, ScalarPhiR] : zip_equal(
            drop_begin(HeaderVPBB->phis()), Plan.getScalarHeader()->phis())) {
     auto *VectorPhiR = cast<VPPhi>(&PhiR);
-    auto *ResumePhiR = ScalarPHBuilder.createScalarPhi(
-        {VectorPhiR, VectorPhiR->getOperand(0)}, VectorPhiR->getDebugLoc());
+    auto *ResumePhiR =
+        ScalarPHBuilder.createScalarPhi({VectorPhiR, VectorPhiR->getOperand(0)},
+                                        *VectorPhiR, VectorPhiR->getDebugLoc());
     cast<VPIRPhi>(&ScalarPhiR)->addOperand(ResumePhiR);
   }
 }
@@ -1009,7 +1010,7 @@ void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
         // TODO: For reduction phis, use phi value instead of poison.
         VPValue *Poison = Plan.getOrAddLiveIn(
             PoisonValue::get(V->getUnderlyingValue()->getType()));
-        VPInstruction *Phi = Builder.createScalarPhi({V, Poison}, {});
+        VPInstruction *Phi = Builder.createScalarPhi({V, Poison});
         V->replaceUsesWithIf(Phi,
                              [&Phi](VPUser &U, unsigned) { return &U != Phi; });
       }

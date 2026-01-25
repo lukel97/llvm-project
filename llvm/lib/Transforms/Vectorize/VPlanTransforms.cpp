@@ -1756,9 +1756,12 @@ static void simplifyBlends(VPlan &Plan) {
       for (unsigned I = 0; I != Blend->getNumIncomingValues(); ++I) {
         if (I == StartIndex)
           continue;
-        Select =
-            Builder.createSelect(Blend->getMask(I), Blend->getIncomingValue(I),
-                                 Select, Blend->getDebugLoc(), "predphi");
+        Select = Builder.createSelect(
+            Blend->getMask(I), Blend->getIncomingValue(I), Select,
+            Blend->getDebugLoc(), "predphi",
+            Blend->hasFastMathFlags()
+                ? std::make_optional(Blend->getFastMathFlags())
+                : std::nullopt);
         Select->setUnderlyingValue(Blend->getUnderlyingValue());
       }
 
@@ -3053,7 +3056,7 @@ static void fixupVFUsersForEVL(VPlan &Plan, VPValue &EVL) {
 
     Builder.setInsertPoint(Header, Header->getFirstNonPhi());
     VPValue *PrevEVL = Builder.createScalarPhi(
-        {MaxEVL, &EVL}, DebugLoc::getUnknown(), "prev.evl");
+        {MaxEVL, &EVL}, {}, DebugLoc::getUnknown(), "prev.evl");
 
     for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
              vp_depth_first_deep(Plan.getVectorLoopRegion()->getEntry()))) {
@@ -3166,7 +3169,7 @@ void VPlanTransforms::addExplicitVectorLength(
   // Create the AVL (application vector length), starting from TC -> 0 in steps
   // of EVL.
   VPPhi *AVLPhi = Builder.createScalarPhi(
-      {Plan.getTripCount()}, DebugLoc::getCompilerGenerated(), "avl");
+      {Plan.getTripCount()}, {}, DebugLoc::getCompilerGenerated(), "avl");
   VPValue *AVL = AVLPhi;
 
   if (MaxSafeElements) {
@@ -3248,9 +3251,9 @@ void VPlanTransforms::canonicalizeEVLLoops(VPlan &Plan) {
   assert(FoundAVLNext && "Didn't find AVL backedge?");
 
   // Convert EVLPhi to concrete recipe.
-  auto *ScalarR =
-      VPBuilder(EVLPhi).createScalarPhi({EVLPhi->getStartValue(), EVLIncrement},
-                                        EVLPhi->getDebugLoc(), "evl.based.iv");
+  auto *ScalarR = VPBuilder(EVLPhi).createScalarPhi(
+      {EVLPhi->getStartValue(), EVLIncrement}, {}, EVLPhi->getDebugLoc(),
+      "evl.based.iv");
   EVLPhi->replaceAllUsesWith(ScalarR);
   EVLPhi->eraseFromParent();
 
@@ -3696,7 +3699,7 @@ static void expandVPWidenPointerInduction(VPWidenPointerInductionRecipe *R,
   DebugLoc DL = R->getDebugLoc();
 
   // Build a scalar pointer phi.
-  VPPhi *ScalarPtrPhi = Builder.createScalarPhi(Start, DL, "pointer.phi");
+  VPPhi *ScalarPtrPhi = Builder.createScalarPhi(Start, {}, DL, "pointer.phi");
 
   // Create actual address geps that use the pointer phi as base and a
   // vectorized version of the step value (<step*0, ..., step*N>) as offset.
