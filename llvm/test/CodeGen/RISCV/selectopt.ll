@@ -14,170 +14,90 @@
 ; This test has a select at the end of if.then, which is better transformed to a branch on OoO cores.
 
 define void @replace(ptr nocapture noundef %newst, ptr noundef %t, ptr noundef %h, i64 noundef %c, i64 noundef %rc, i64 noundef %ma, i64 noundef %n) {
-; NO-SELECT-OPT-LABEL: @replace(
-; NO-SELECT-OPT-NEXT:  entry:
-; NO-SELECT-OPT-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
-; NO-SELECT-OPT-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
-; NO-SELECT-OPT-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
-; NO-SELECT-OPT-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
-; NO-SELECT-OPT-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C6]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
-; NO-SELECT-OPT-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
-; NO-SELECT-OPT-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
-; NO-SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
-; NO-SELECT-OPT-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
-; NO-SELECT-OPT:       land.rhs:
-; NO-SELECT-OPT-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
-; NO-SELECT-OPT-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
-; NO-SELECT-OPT-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
-; NO-SELECT-OPT-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
-; NO-SELECT-OPT:       while.body:
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
-; NO-SELECT-OPT-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
-; NO-SELECT-OPT-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
-; NO-SELECT-OPT-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
-; NO-SELECT-OPT-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
-; NO-SELECT-OPT-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
-; NO-SELECT-OPT-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
-; NO-SELECT-OPT-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
-; NO-SELECT-OPT-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
-; NO-SELECT-OPT-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
-; NO-SELECT-OPT-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
-; NO-SELECT-OPT-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
-; NO-SELECT-OPT-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
-; NO-SELECT-OPT-NEXT:    [[TMP6:%.*]] = load i64, ptr [[C36]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP6]], ptr [[ORG_C45]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
-; NO-SELECT-OPT-NEXT:    [[TMP7:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
-; NO-SELECT-OPT-NEXT:    store i32 [[TMP7]], ptr [[ARRAYIDX26]], align 8
-; NO-SELECT-OPT-NEXT:    store ptr [[T]], ptr [[T24]], align 8
-; NO-SELECT-OPT-NEXT:    store ptr [[H]], ptr [[H30]], align 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C36]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
-; NO-SELECT-OPT-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
-; NO-SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
-; NO-SELECT-OPT-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
-; NO-SELECT-OPT-NEXT:    [[ADD:%.*]] = or i64 [[MUL]], 1
-; NO-SELECT-OPT-NEXT:    [[CMP77_NOT:%.*]] = icmp sgt i64 [[ADD]], [[MA]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP77_NOT]], label [[IF_END87]], label [[IF_THEN:%.*]]
-; NO-SELECT-OPT:       if.then:
-; NO-SELECT-OPT-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
-; NO-SELECT-OPT-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW81]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP9:%.*]] = load i64, ptr [[FLOW83]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP8]], [[TMP9]]
-; NO-SELECT-OPT-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[CMP84]], i64 [[ADD]], i64 [[MUL]]
-; NO-SELECT-OPT-NEXT:    br label [[IF_END87]]
-; NO-SELECT-OPT:       if.end87:
-; NO-SELECT-OPT-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[IF_THEN]] ]
-; NO-SELECT-OPT-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
-; NO-SELECT-OPT:       while.end:
-; NO-SELECT-OPT-NEXT:    ret void
-;
-; SELECT-OPT-LABEL: @replace(
-; SELECT-OPT-NEXT:  entry:
-; SELECT-OPT-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
-; SELECT-OPT-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
-; SELECT-OPT-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
-; SELECT-OPT-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
-; SELECT-OPT-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
-; SELECT-OPT-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C6]], align 8
-; SELECT-OPT-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
-; SELECT-OPT-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
-; SELECT-OPT-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
-; SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
-; SELECT-OPT-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
-; SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
-; SELECT-OPT-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
-; SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
-; SELECT-OPT-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
-; SELECT-OPT-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
-; SELECT-OPT-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
-; SELECT-OPT:       land.rhs:
-; SELECT-OPT-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
-; SELECT-OPT-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
-; SELECT-OPT-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
-; SELECT-OPT-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
-; SELECT-OPT-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
-; SELECT-OPT-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
-; SELECT-OPT-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
-; SELECT-OPT:       while.body:
-; SELECT-OPT-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
-; SELECT-OPT-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
-; SELECT-OPT-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
-; SELECT-OPT-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
-; SELECT-OPT-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
-; SELECT-OPT-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
-; SELECT-OPT-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
-; SELECT-OPT-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
-; SELECT-OPT-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
-; SELECT-OPT-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
-; SELECT-OPT-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
-; SELECT-OPT-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
-; SELECT-OPT-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
-; SELECT-OPT-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
-; SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
-; SELECT-OPT-NEXT:    [[TMP6:%.*]] = load i64, ptr [[C36]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
-; SELECT-OPT-NEXT:    store i64 [[TMP6]], ptr [[ORG_C45]], align 8
-; SELECT-OPT-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
-; SELECT-OPT-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
-; SELECT-OPT-NEXT:    [[TMP7:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
-; SELECT-OPT-NEXT:    store i32 [[TMP7]], ptr [[ARRAYIDX26]], align 8
-; SELECT-OPT-NEXT:    store ptr [[T]], ptr [[T24]], align 8
-; SELECT-OPT-NEXT:    store ptr [[H]], ptr [[H30]], align 8
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C36]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
-; SELECT-OPT-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
-; SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
-; SELECT-OPT-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
-; SELECT-OPT-NEXT:    [[ADD:%.*]] = or i64 [[MUL]], 1
-; SELECT-OPT-NEXT:    [[CMP77_NOT:%.*]] = icmp sgt i64 [[ADD]], [[MA]]
-; SELECT-OPT-NEXT:    br i1 [[CMP77_NOT]], label [[IF_END87]], label [[IF_THEN:%.*]]
-; SELECT-OPT:       if.then:
-; SELECT-OPT-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
-; SELECT-OPT-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
-; SELECT-OPT-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW81]], align 8
-; SELECT-OPT-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
-; SELECT-OPT-NEXT:    [[TMP9:%.*]] = load i64, ptr [[FLOW83]], align 8
-; SELECT-OPT-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP8]], [[TMP9]]
-; SELECT-OPT-NEXT:    [[CMP84_FROZEN:%.*]] = freeze i1 [[CMP84]]
-; SELECT-OPT-NEXT:    br i1 [[CMP84_FROZEN]], label [[SELECT_END:%.*]], label [[SELECT_FALSE:%.*]]
-; SELECT-OPT:       select.false:
-; SELECT-OPT-NEXT:    br label [[SELECT_END]]
-; SELECT-OPT:       select.end:
-; SELECT-OPT-NEXT:    [[SPEC_SELECT:%.*]] = phi i64 [ [[ADD]], [[IF_THEN]] ], [ [[MUL]], [[SELECT_FALSE]] ]
-; SELECT-OPT-NEXT:    br label [[IF_END87]]
-; SELECT-OPT:       if.end87:
-; SELECT-OPT-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[SELECT_END]] ]
-; SELECT-OPT-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
-; SELECT-OPT-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
-; SELECT-OPT:       while.end:
-; SELECT-OPT-NEXT:    ret void
+; CHECK-LABEL: @replace(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
+; CHECK-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
+; CHECK-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
+; CHECK-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
+; CHECK-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
+; CHECK-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
+; CHECK-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
+; CHECK-NEXT:    store i64 [[C]], ptr [[C6]], align 8
+; CHECK-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
+; CHECK-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
+; CHECK-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
+; CHECK-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
+; CHECK-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
+; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
+; CHECK-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
+; CHECK-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
+; CHECK-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
+; CHECK-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
+; CHECK-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
+; CHECK:       land.rhs:
+; CHECK-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
+; CHECK-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
+; CHECK-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
+; CHECK-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
+; CHECK-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
+; CHECK:       while.body:
+; CHECK-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
+; CHECK-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
+; CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
+; CHECK-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
+; CHECK-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
+; CHECK-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
+; CHECK-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
+; CHECK-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
+; CHECK-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
+; CHECK-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
+; CHECK-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
+; CHECK-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
+; CHECK-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
+; CHECK-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = load i64, ptr [[C36]], align 8
+; CHECK-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
+; CHECK-NEXT:    store i64 [[TMP6]], ptr [[ORG_C45]], align 8
+; CHECK-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
+; CHECK-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
+; CHECK-NEXT:    store i32 [[TMP7]], ptr [[ARRAYIDX26]], align 8
+; CHECK-NEXT:    store ptr [[T]], ptr [[T24]], align 8
+; CHECK-NEXT:    store ptr [[H]], ptr [[H30]], align 8
+; CHECK-NEXT:    store i64 [[C]], ptr [[C36]], align 8
+; CHECK-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
+; CHECK-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
+; CHECK-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
+; CHECK-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
+; CHECK-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
+; CHECK-NEXT:    [[ADD:%.*]] = or i64 [[MUL]], 1
+; CHECK-NEXT:    [[CMP77_NOT:%.*]] = icmp sgt i64 [[ADD]], [[MA]]
+; CHECK-NEXT:    br i1 [[CMP77_NOT]], label [[IF_END87]], label [[IF_THEN:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
+; CHECK-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
+; CHECK-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW81]], align 8
+; CHECK-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
+; CHECK-NEXT:    [[TMP9:%.*]] = load i64, ptr [[FLOW83]], align 8
+; CHECK-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP8]], [[TMP9]]
+; CHECK-NEXT:    [[CMP84_FROZEN:%.*]] = freeze i1 [[CMP84]]
+; CHECK-NEXT:    br i1 [[CMP84_FROZEN]], label [[SELECT_END:%.*]], label [[SELECT_FALSE:%.*]]
+; CHECK:       select.false:
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.end:
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = phi i64 [ [[ADD]], [[IF_THEN]] ], [ [[MUL]], [[SELECT_FALSE]] ]
+; CHECK-NEXT:    br label [[IF_END87]]
+; CHECK:       if.end87:
+; CHECK-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[SELECT_END]] ]
+; CHECK-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
+; CHECK-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
+; CHECK:       while.end:
+; CHECK-NEXT:    ret void
 ;
 entry:
   %t1 = getelementptr inbounds %struct.st, ptr %newst, i64 0, i32 2
@@ -265,169 +185,90 @@ while.end:                                        ; preds = %land.rhs, %if.end87
 }
 
 define void @replace_or(ptr nocapture noundef %newst, ptr noundef %t, ptr noundef %h, i64 noundef %c, i64 noundef %rc, i64 noundef %ma, i64 noundef %n) {
-; NO-SELECT-OPT-LABEL: @replace_or(
-; NO-SELECT-OPT-NEXT:  entry:
-; NO-SELECT-OPT-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
-; NO-SELECT-OPT-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
-; NO-SELECT-OPT-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
-; NO-SELECT-OPT-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
-; NO-SELECT-OPT-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C6]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
-; NO-SELECT-OPT-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
-; NO-SELECT-OPT-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
-; NO-SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
-; NO-SELECT-OPT-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
-; NO-SELECT-OPT:       land.rhs:
-; NO-SELECT-OPT-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
-; NO-SELECT-OPT-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
-; NO-SELECT-OPT-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
-; NO-SELECT-OPT-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
-; NO-SELECT-OPT:       while.body:
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
-; NO-SELECT-OPT-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
-; NO-SELECT-OPT-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
-; NO-SELECT-OPT-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
-; NO-SELECT-OPT-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
-; NO-SELECT-OPT-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
-; NO-SELECT-OPT-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
-; NO-SELECT-OPT-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
-; NO-SELECT-OPT-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
-; NO-SELECT-OPT-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
-; NO-SELECT-OPT-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
-; NO-SELECT-OPT-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
-; NO-SELECT-OPT-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[ORG_C45]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
-; NO-SELECT-OPT-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
-; NO-SELECT-OPT-NEXT:    [[TMP6:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
-; NO-SELECT-OPT-NEXT:    store i32 [[TMP6]], ptr [[ARRAYIDX26]], align 8
-; NO-SELECT-OPT-NEXT:    store ptr [[T]], ptr [[T24]], align 8
-; NO-SELECT-OPT-NEXT:    store ptr [[H]], ptr [[H30]], align 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C36]], align 8
-; NO-SELECT-OPT-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
-; NO-SELECT-OPT-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
-; NO-SELECT-OPT-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
-; NO-SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
-; NO-SELECT-OPT-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
-; NO-SELECT-OPT-NEXT:    [[CMP77_NOT_NOT:%.*]] = icmp slt i64 [[MUL]], [[MA]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP77_NOT_NOT]], label [[IF_THEN:%.*]], label [[IF_END87]]
-; NO-SELECT-OPT:       if.then:
-; NO-SELECT-OPT-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
-; NO-SELECT-OPT-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP7:%.*]] = load i64, ptr [[FLOW81]], align 8
-; NO-SELECT-OPT-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
-; NO-SELECT-OPT-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW83]], align 8
-; NO-SELECT-OPT-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP7]], [[TMP8]]
-; NO-SELECT-OPT-NEXT:    [[ADD:%.*]] = zext i1 [[CMP84]] to i64
-; NO-SELECT-OPT-NEXT:    [[SPEC_SELECT:%.*]] = or disjoint i64 [[MUL]], [[ADD]]
-; NO-SELECT-OPT-NEXT:    br label [[IF_END87]]
-; NO-SELECT-OPT:       if.end87:
-; NO-SELECT-OPT-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[IF_THEN]] ]
-; NO-SELECT-OPT-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
-; NO-SELECT-OPT:       while.end:
-; NO-SELECT-OPT-NEXT:    ret void
-;
-; SELECT-OPT-LABEL: @replace_or(
-; SELECT-OPT-NEXT:  entry:
-; SELECT-OPT-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
-; SELECT-OPT-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
-; SELECT-OPT-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
-; SELECT-OPT-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
-; SELECT-OPT-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
-; SELECT-OPT-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C6]], align 8
-; SELECT-OPT-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
-; SELECT-OPT-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
-; SELECT-OPT-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
-; SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
-; SELECT-OPT-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
-; SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
-; SELECT-OPT-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
-; SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
-; SELECT-OPT-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
-; SELECT-OPT-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
-; SELECT-OPT-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
-; SELECT-OPT:       land.rhs:
-; SELECT-OPT-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
-; SELECT-OPT-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
-; SELECT-OPT-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
-; SELECT-OPT-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
-; SELECT-OPT-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
-; SELECT-OPT-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
-; SELECT-OPT-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
-; SELECT-OPT:       while.body:
-; SELECT-OPT-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
-; SELECT-OPT-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
-; SELECT-OPT-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
-; SELECT-OPT-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
-; SELECT-OPT-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
-; SELECT-OPT-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
-; SELECT-OPT-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
-; SELECT-OPT-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
-; SELECT-OPT-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
-; SELECT-OPT-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
-; SELECT-OPT-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
-; SELECT-OPT-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
-; SELECT-OPT-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
-; SELECT-OPT-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
-; SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
-; SELECT-OPT-NEXT:    store i64 [[TMP5]], ptr [[ORG_C45]], align 8
-; SELECT-OPT-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
-; SELECT-OPT-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
-; SELECT-OPT-NEXT:    [[TMP6:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
-; SELECT-OPT-NEXT:    store i32 [[TMP6]], ptr [[ARRAYIDX26]], align 8
-; SELECT-OPT-NEXT:    store ptr [[T]], ptr [[T24]], align 8
-; SELECT-OPT-NEXT:    store ptr [[H]], ptr [[H30]], align 8
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[C36]], align 8
-; SELECT-OPT-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
-; SELECT-OPT-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
-; SELECT-OPT-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
-; SELECT-OPT-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
-; SELECT-OPT-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
-; SELECT-OPT-NEXT:    [[CMP77_NOT_NOT:%.*]] = icmp slt i64 [[MUL]], [[MA]]
-; SELECT-OPT-NEXT:    br i1 [[CMP77_NOT_NOT]], label [[IF_THEN:%.*]], label [[IF_END87]]
-; SELECT-OPT:       if.then:
-; SELECT-OPT-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
-; SELECT-OPT-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
-; SELECT-OPT-NEXT:    [[TMP7:%.*]] = load i64, ptr [[FLOW81]], align 8
-; SELECT-OPT-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
-; SELECT-OPT-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW83]], align 8
-; SELECT-OPT-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP7]], [[TMP8]]
-; SELECT-OPT-NEXT:    [[ADD:%.*]] = zext i1 [[CMP84]] to i64
-; SELECT-OPT-NEXT:    [[CMP84_FROZEN:%.*]] = freeze i1 [[CMP84]]
-; SELECT-OPT-NEXT:    br i1 [[CMP84_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
-; SELECT-OPT:       select.true.sink:
-; SELECT-OPT-NEXT:    [[TMP9:%.*]] = or disjoint i64 [[MUL]], 1
-; SELECT-OPT-NEXT:    br label [[SELECT_END]]
-; SELECT-OPT:       select.end:
-; SELECT-OPT-NEXT:    [[SPEC_SELECT:%.*]] = phi i64 [ [[TMP9]], [[SELECT_TRUE_SINK]] ], [ [[MUL]], [[IF_THEN]] ]
-; SELECT-OPT-NEXT:    br label [[IF_END87]]
-; SELECT-OPT:       if.end87:
-; SELECT-OPT-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[SELECT_END]] ]
-; SELECT-OPT-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
-; SELECT-OPT-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
-; SELECT-OPT:       while.end:
-; SELECT-OPT-NEXT:    ret void
+; CHECK-LABEL: @replace_or(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[T1:%.*]] = getelementptr inbounds [[STRUCT_ST:%.*]], ptr [[NEWST:%.*]], i64 0, i32 2
+; CHECK-NEXT:    store ptr [[T:%.*]], ptr [[T1]], align 8
+; CHECK-NEXT:    [[H3:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 3
+; CHECK-NEXT:    store ptr [[H:%.*]], ptr [[H3]], align 8
+; CHECK-NEXT:    [[ORG_C:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 8
+; CHECK-NEXT:    store i64 [[C:%.*]], ptr [[ORG_C]], align 8
+; CHECK-NEXT:    [[C6:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 1
+; CHECK-NEXT:    store i64 [[C]], ptr [[C6]], align 8
+; CHECK-NEXT:    [[FLOW:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 0, i32 7
+; CHECK-NEXT:    store i64 [[RC:%.*]], ptr [[FLOW]], align 8
+; CHECK-NEXT:    [[CONV:%.*]] = trunc i64 [[N:%.*]] to i32
+; CHECK-NEXT:    store i32 [[CONV]], ptr [[NEWST]], align 8
+; CHECK-NEXT:    [[FLOW10:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 1, i32 7
+; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[FLOW10]], align 8
+; CHECK-NEXT:    [[FLOW12:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 2, i32 7
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[FLOW12]], align 8
+; CHECK-NEXT:    [[CMP13:%.*]] = icmp sgt i64 [[TMP0]], [[TMP1]]
+; CHECK-NEXT:    [[CONV15:%.*]] = select i1 [[CMP13]], i64 2, i64 3
+; CHECK-NEXT:    [[CMP16_NOT149:%.*]] = icmp sgt i64 [[CONV15]], [[MA:%.*]]
+; CHECK-NEXT:    br i1 [[CMP16_NOT149]], label [[WHILE_END:%.*]], label [[LAND_RHS:%.*]]
+; CHECK:       land.rhs:
+; CHECK-NEXT:    [[CMP_0151:%.*]] = phi i64 [ [[CMP_1:%.*]], [[IF_END87:%.*]] ], [ [[CONV15]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[POS_0150:%.*]] = phi i64 [ [[CMP_0151]], [[IF_END87]] ], [ 1, [[ENTRY]] ]
+; CHECK-NEXT:    [[SUB:%.*]] = add nsw i64 [[CMP_0151]], -1
+; CHECK-NEXT:    [[FLOW19:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 7
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[FLOW19]], align 8
+; CHECK-NEXT:    [[CMP20:%.*]] = icmp sgt i64 [[TMP2]], [[RC]]
+; CHECK-NEXT:    br i1 [[CMP20]], label [[WHILE_BODY:%.*]], label [[WHILE_END]]
+; CHECK:       while.body:
+; CHECK-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]]
+; CHECK-NEXT:    [[T24:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 2
+; CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[T24]], align 8
+; CHECK-NEXT:    [[SUB25:%.*]] = add nsw i64 [[POS_0150]], -1
+; CHECK-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]]
+; CHECK-NEXT:    [[T27:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 2
+; CHECK-NEXT:    store ptr [[TMP3]], ptr [[T27]], align 8
+; CHECK-NEXT:    [[H30:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 3
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[H30]], align 8
+; CHECK-NEXT:    [[H33:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 3
+; CHECK-NEXT:    store ptr [[TMP4]], ptr [[H33]], align 8
+; CHECK-NEXT:    [[C36:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 1
+; CHECK-NEXT:    [[TMP5:%.*]] = load i64, ptr [[C36]], align 8
+; CHECK-NEXT:    [[C39:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 1
+; CHECK-NEXT:    store i64 [[TMP5]], ptr [[C39]], align 8
+; CHECK-NEXT:    [[ORG_C45:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 8
+; CHECK-NEXT:    store i64 [[TMP5]], ptr [[ORG_C45]], align 8
+; CHECK-NEXT:    [[FLOW51:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB25]], i32 7
+; CHECK-NEXT:    store i64 [[TMP2]], ptr [[FLOW51]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[ARRAYIDX18]], align 8
+; CHECK-NEXT:    store i32 [[TMP6]], ptr [[ARRAYIDX26]], align 8
+; CHECK-NEXT:    store ptr [[T]], ptr [[T24]], align 8
+; CHECK-NEXT:    store ptr [[H]], ptr [[H30]], align 8
+; CHECK-NEXT:    store i64 [[C]], ptr [[C36]], align 8
+; CHECK-NEXT:    [[ORG_C69:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB]], i32 8
+; CHECK-NEXT:    store i64 [[C]], ptr [[ORG_C69]], align 8
+; CHECK-NEXT:    store i64 [[RC]], ptr [[FLOW19]], align 8
+; CHECK-NEXT:    store i32 [[CONV]], ptr [[ARRAYIDX18]], align 8
+; CHECK-NEXT:    [[MUL:%.*]] = shl nsw i64 [[CMP_0151]], 1
+; CHECK-NEXT:    [[CMP77_NOT_NOT:%.*]] = icmp slt i64 [[MUL]], [[MA]]
+; CHECK-NEXT:    br i1 [[CMP77_NOT_NOT]], label [[IF_THEN:%.*]], label [[IF_END87]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[SUB79:%.*]] = add nsw i64 [[MUL]], -1
+; CHECK-NEXT:    [[FLOW81:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[SUB79]], i32 7
+; CHECK-NEXT:    [[TMP7:%.*]] = load i64, ptr [[FLOW81]], align 8
+; CHECK-NEXT:    [[FLOW83:%.*]] = getelementptr inbounds [[STRUCT_ST]], ptr [[NEWST]], i64 [[MUL]], i32 7
+; CHECK-NEXT:    [[TMP8:%.*]] = load i64, ptr [[FLOW83]], align 8
+; CHECK-NEXT:    [[CMP84:%.*]] = icmp slt i64 [[TMP7]], [[TMP8]]
+; CHECK-NEXT:    [[ADD:%.*]] = zext i1 [[CMP84]] to i64
+; CHECK-NEXT:    [[CMP84_FROZEN:%.*]] = freeze i1 [[CMP84]]
+; CHECK-NEXT:    br i1 [[CMP84_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
+; CHECK:       select.true.sink:
+; CHECK-NEXT:    [[TMP9:%.*]] = or disjoint i64 [[MUL]], 1
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.end:
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = phi i64 [ [[TMP9]], [[SELECT_TRUE_SINK]] ], [ [[MUL]], [[IF_THEN]] ]
+; CHECK-NEXT:    br label [[IF_END87]]
+; CHECK:       if.end87:
+; CHECK-NEXT:    [[CMP_1]] = phi i64 [ [[MUL]], [[WHILE_BODY]] ], [ [[SPEC_SELECT]], [[SELECT_END]] ]
+; CHECK-NEXT:    [[CMP16_NOT:%.*]] = icmp sgt i64 [[CMP_1]], [[MA]]
+; CHECK-NEXT:    br i1 [[CMP16_NOT]], label [[WHILE_END]], label [[LAND_RHS]]
+; CHECK:       while.end:
+; CHECK-NEXT:    ret void
 ;
 entry:
   %t1 = getelementptr inbounds %struct.st, ptr %newst, i64 0, i32 2
@@ -596,81 +437,46 @@ if.end:
 
 ; Similar to the last test, an artificial test with the or as the last instruction and a select in the same group.
 define i32 @or_samegroup(ptr nocapture noundef %x, i32 noundef %n, ptr nocapture noundef readonly %z) {
-; NO-SELECT-OPT-LABEL: @or_samegroup(
-; NO-SELECT-OPT-NEXT:  entry:
-; NO-SELECT-OPT-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
-; NO-SELECT-OPT:       for.body.preheader:
-; NO-SELECT-OPT-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
-; NO-SELECT-OPT-NEXT:    br label [[FOR_BODY:%.*]]
-; NO-SELECT-OPT:       for.cond.cleanup:
-; NO-SELECT-OPT-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
-; NO-SELECT-OPT-NEXT:    ret i32 [[Y_0_LCSSA]]
-; NO-SELECT-OPT:       for.body:
-; NO-SELECT-OPT-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
-; NO-SELECT-OPT-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
-; NO-SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; NO-SELECT-OPT-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
-; NO-SELECT-OPT-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
-; NO-SELECT-OPT-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
-; NO-SELECT-OPT:       if.then:
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
-; NO-SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
-; NO-SELECT-OPT-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
-; NO-SELECT-OPT-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
-; NO-SELECT-OPT-NEXT:    [[SEL:%.*]] = select i1 [[CMP5]], i32 [[ADD]], i32 1
-; NO-SELECT-OPT-NEXT:    [[OR:%.*]] = or i32 [[CONV]], [[SEL]]
-; NO-SELECT-OPT-NEXT:    br label [[IF_END]]
-; NO-SELECT-OPT:       if.end:
-; NO-SELECT-OPT-NEXT:    [[Y_1]] = phi i32 [ [[SEL]], [[IF_THEN]] ], [ 0, [[FOR_BODY]] ]
-; NO-SELECT-OPT-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
-; NO-SELECT-OPT-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; NO-SELECT-OPT-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; NO-SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
-;
-; SELECT-OPT-LABEL: @or_samegroup(
-; SELECT-OPT-NEXT:  entry:
-; SELECT-OPT-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
-; SELECT-OPT-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
-; SELECT-OPT:       for.body.preheader:
-; SELECT-OPT-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
-; SELECT-OPT-NEXT:    br label [[FOR_BODY:%.*]]
-; SELECT-OPT:       for.cond.cleanup:
-; SELECT-OPT-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
-; SELECT-OPT-NEXT:    ret i32 [[Y_0_LCSSA]]
-; SELECT-OPT:       for.body:
-; SELECT-OPT-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
-; SELECT-OPT-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
-; SELECT-OPT-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
-; SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; SELECT-OPT-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
-; SELECT-OPT-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
-; SELECT-OPT-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
-; SELECT-OPT:       if.then:
-; SELECT-OPT-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
-; SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
-; SELECT-OPT-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
-; SELECT-OPT-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
-; SELECT-OPT-NEXT:    [[CMP5_FROZEN:%.*]] = freeze i1 [[CMP5]]
-; SELECT-OPT-NEXT:    br i1 [[CMP5_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
-; SELECT-OPT:       select.true.sink:
-; SELECT-OPT-NEXT:    [[TMP2:%.*]] = or i32 1, [[ADD]]
-; SELECT-OPT-NEXT:    br label [[SELECT_END]]
-; SELECT-OPT:       select.end:
-; SELECT-OPT-NEXT:    [[SEL:%.*]] = phi i32 [ [[ADD]], [[SELECT_TRUE_SINK]] ], [ 1, [[IF_THEN]] ]
-; SELECT-OPT-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ 1, [[IF_THEN]] ]
-; SELECT-OPT-NEXT:    br label [[IF_END]]
-; SELECT-OPT:       if.end:
-; SELECT-OPT-NEXT:    [[Y_1]] = phi i32 [ [[SEL]], [[SELECT_END]] ], [ 0, [[FOR_BODY]] ]
-; SELECT-OPT-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
-; SELECT-OPT-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; SELECT-OPT-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
+; CHECK-LABEL: @or_samegroup(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
+; CHECK-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
+; CHECK:       for.body.preheader:
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
+; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK:       for.cond.cleanup:
+; CHECK-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
+; CHECK-NEXT:    ret i32 [[Y_0_LCSSA]]
+; CHECK:       for.body:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
+; CHECK-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
+; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
+; CHECK-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
+; CHECK-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
+; CHECK-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
+; CHECK-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
+; CHECK-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
+; CHECK-NEXT:    [[CMP5_FROZEN:%.*]] = freeze i1 [[CMP5]]
+; CHECK-NEXT:    br i1 [[CMP5_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
+; CHECK:       select.true.sink:
+; CHECK-NEXT:    [[TMP2:%.*]] = or i32 1, [[ADD]]
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.end:
+; CHECK-NEXT:    [[SEL:%.*]] = phi i32 [ [[ADD]], [[SELECT_TRUE_SINK]] ], [ 1, [[IF_THEN]] ]
+; CHECK-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ 1, [[IF_THEN]] ]
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    [[Y_1]] = phi i32 [ [[SEL]], [[SELECT_END]] ], [ 0, [[FOR_BODY]] ]
+; CHECK-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
+; CHECK-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
 ;
 entry:
   %cmp19 = icmp sgt i32 %n, 0
@@ -714,83 +520,47 @@ if.end:
 
 ; Same test again with a one use value group of values on the or
 define i32 @or_oneusevalues(ptr nocapture noundef %x, i32 noundef %n, ptr nocapture noundef readonly %z) {
-; NO-SELECT-OPT-LABEL: @or_oneusevalues(
-; NO-SELECT-OPT-NEXT:  entry:
-; NO-SELECT-OPT-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
-; NO-SELECT-OPT-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
-; NO-SELECT-OPT:       for.body.preheader:
-; NO-SELECT-OPT-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
-; NO-SELECT-OPT-NEXT:    br label [[FOR_BODY:%.*]]
-; NO-SELECT-OPT:       for.cond.cleanup:
-; NO-SELECT-OPT-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
-; NO-SELECT-OPT-NEXT:    ret i32 [[Y_0_LCSSA]]
-; NO-SELECT-OPT:       for.body:
-; NO-SELECT-OPT-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
-; NO-SELECT-OPT-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
-; NO-SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; NO-SELECT-OPT-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
-; NO-SELECT-OPT-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
-; NO-SELECT-OPT-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
-; NO-SELECT-OPT:       if.then:
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
-; NO-SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
-; NO-SELECT-OPT-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
-; NO-SELECT-OPT-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
-; NO-SELECT-OPT-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
-; NO-SELECT-OPT-NEXT:    [[ADD1:%.*]] = add i32 [[ADD]], 1
-; NO-SELECT-OPT-NEXT:    [[ADD2:%.*]] = or i32 [[ADD1]], 1
-; NO-SELECT-OPT-NEXT:    [[OR:%.*]] = or i32 [[CONV]], [[ADD2]]
-; NO-SELECT-OPT-NEXT:    br label [[IF_END]]
-; NO-SELECT-OPT:       if.end:
-; NO-SELECT-OPT-NEXT:    [[Y_1]] = phi i32 [ [[OR]], [[IF_THEN]] ], [ 0, [[FOR_BODY]] ]
-; NO-SELECT-OPT-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
-; NO-SELECT-OPT-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; NO-SELECT-OPT-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; NO-SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
-;
-; SELECT-OPT-LABEL: @or_oneusevalues(
-; SELECT-OPT-NEXT:  entry:
-; SELECT-OPT-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
-; SELECT-OPT-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
-; SELECT-OPT:       for.body.preheader:
-; SELECT-OPT-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
-; SELECT-OPT-NEXT:    br label [[FOR_BODY:%.*]]
-; SELECT-OPT:       for.cond.cleanup:
-; SELECT-OPT-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
-; SELECT-OPT-NEXT:    ret i32 [[Y_0_LCSSA]]
-; SELECT-OPT:       for.body:
-; SELECT-OPT-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
-; SELECT-OPT-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
-; SELECT-OPT-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
-; SELECT-OPT-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; SELECT-OPT-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
-; SELECT-OPT-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
-; SELECT-OPT-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
-; SELECT-OPT:       if.then:
-; SELECT-OPT-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
-; SELECT-OPT-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
-; SELECT-OPT-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
-; SELECT-OPT-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
-; SELECT-OPT-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
-; SELECT-OPT-NEXT:    [[ADD1:%.*]] = add i32 [[ADD]], 1
-; SELECT-OPT-NEXT:    [[ADD2:%.*]] = or i32 [[ADD1]], 1
-; SELECT-OPT-NEXT:    [[CMP5_FROZEN:%.*]] = freeze i1 [[CMP5]]
-; SELECT-OPT-NEXT:    br i1 [[CMP5_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
-; SELECT-OPT:       select.true.sink:
-; SELECT-OPT-NEXT:    [[TMP2:%.*]] = or i32 1, [[ADD2]]
-; SELECT-OPT-NEXT:    br label [[SELECT_END]]
-; SELECT-OPT:       select.end:
-; SELECT-OPT-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ [[ADD2]], [[IF_THEN]] ]
-; SELECT-OPT-NEXT:    br label [[IF_END]]
-; SELECT-OPT:       if.end:
-; SELECT-OPT-NEXT:    [[Y_1]] = phi i32 [ [[OR]], [[SELECT_END]] ], [ 0, [[FOR_BODY]] ]
-; SELECT-OPT-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
-; SELECT-OPT-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; SELECT-OPT-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
+; CHECK-LABEL: @or_oneusevalues(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[CMP19:%.*]] = icmp sgt i32 [[N:%.*]], 0
+; CHECK-NEXT:    br i1 [[CMP19]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
+; CHECK:       for.body.preheader:
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64
+; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK:       for.cond.cleanup:
+; CHECK-NEXT:    [[Y_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[Y_1:%.*]], [[IF_END:%.*]] ]
+; CHECK-NEXT:    ret i32 [[Y_0_LCSSA]]
+; CHECK:       for.body:
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[IF_END]] ]
+; CHECK-NEXT:    [[Y_020:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[Y_1]], [[IF_END]] ]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP0]], [[Y_020]]
+; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[ADD]], 0
+; CHECK-NEXT:    br i1 [[TOBOOL_NOT]], label [[IF_END]], label [[IF_THEN:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[Z:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX4]], align 4
+; CHECK-NEXT:    [[DIV:%.*]] = sdiv i32 [[Y_020]], [[TMP1]]
+; CHECK-NEXT:    [[DIV1:%.*]] = sdiv i32 [[DIV]], [[TMP1]]
+; CHECK-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[DIV1]], 0
+; CHECK-NEXT:    [[CONV:%.*]] = zext i1 [[CMP5]] to i32
+; CHECK-NEXT:    [[ADD1:%.*]] = add i32 [[ADD]], 1
+; CHECK-NEXT:    [[ADD2:%.*]] = or i32 [[ADD1]], 1
+; CHECK-NEXT:    [[CMP5_FROZEN:%.*]] = freeze i1 [[CMP5]]
+; CHECK-NEXT:    br i1 [[CMP5_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_END:%.*]]
+; CHECK:       select.true.sink:
+; CHECK-NEXT:    [[TMP2:%.*]] = or i32 1, [[ADD2]]
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.end:
+; CHECK-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ [[ADD2]], [[IF_THEN]] ]
+; CHECK-NEXT:    br label [[IF_END]]
+; CHECK:       if.end:
+; CHECK-NEXT:    [[Y_1]] = phi i32 [ [[OR]], [[SELECT_END]] ], [ 0, [[FOR_BODY]] ]
+; CHECK-NEXT:    store i32 [[Y_1]], ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; CHECK-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
+; CHECK-NEXT:    br i1 [[EXITCOND_NOT]], label [[FOR_COND_CLEANUP]], label [[FOR_BODY]]
 ;
 entry:
   %cmp19 = icmp sgt i32 %n, 0
@@ -836,84 +606,49 @@ if.end:
 declare i64 @payload(i64, ptr, ptr, i64)
 
 define void @outer_latch_heuristic(ptr %dst, ptr %src, i64 %p, i64 %dim) {
-; NO-SELECT-OPT-LABEL: @outer_latch_heuristic(
-; NO-SELECT-OPT-NEXT:  entry:
-; NO-SELECT-OPT-NEXT:    br label [[OUTER_LOOP:%.*]]
-; NO-SELECT-OPT:       outer.loop:
-; NO-SELECT-OPT-NEXT:    [[K_020_US:%.*]] = phi i64 [ [[INC7_US:%.*]], [[LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; NO-SELECT-OPT-NEXT:    [[J:%.*]] = phi i64 [ [[J_NEXT:%.*]], [[LATCH]] ], [ 0, [[ENTRY]] ]
-; NO-SELECT-OPT-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[LATCH]] ], [ 0, [[ENTRY]] ]
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC:%.*]], i64 [[I]]
-; NO-SELECT-OPT-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARRAYIDX_US]], align 8
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX1_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC]], i64 [[J]]
-; NO-SELECT-OPT-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[ARRAYIDX1_US]], align 8
-; NO-SELECT-OPT-NEXT:    br label [[INNER_LOOP:%.*]]
-; NO-SELECT-OPT:       inner.loop:
-; NO-SELECT-OPT-NEXT:    [[LSR_IV:%.*]] = phi i64 [ [[DIM:%.*]], [[OUTER_LOOP]] ], [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ]
-; NO-SELECT-OPT-NEXT:    [[DIFF_04_I_US:%.*]] = phi i64 [ [[CALL_I_US:%.*]], [[INNER_LOOP]] ], [ 0, [[OUTER_LOOP]] ]
-; NO-SELECT-OPT-NEXT:    [[CALL_I_US]] = tail call i64 @payload(i64 [[DIFF_04_I_US]], ptr [[TMP0]], ptr [[TMP1]], i64 [[P:%.*]])
-; NO-SELECT-OPT-NEXT:    [[LSR_IV_NEXT]] = add i64 [[LSR_IV]], -1
-; NO-SELECT-OPT-NEXT:    [[EXITCOND_NOT_I_US:%.*]] = icmp eq i64 [[LSR_IV_NEXT]], 0
-; NO-SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT_I_US]], label [[LATCH]], label [[INNER_LOOP]]
-; NO-SELECT-OPT:       latch:
-; NO-SELECT-OPT-NEXT:    [[CMP2_US:%.*]] = icmp sgt i64 [[CALL_I_US]], -1
-; NO-SELECT-OPT-NEXT:    [[DIFF_0_LCSSA_I_LOBIT_US:%.*]] = lshr i64 [[CALL_I_US]], 63
-; NO-SELECT-OPT-NEXT:    [[I_NEXT]] = add nsw i64 [[DIFF_0_LCSSA_I_LOBIT_US]], [[I]]
-; NO-SELECT-OPT-NEXT:    [[INC4_US:%.*]] = zext i1 [[CMP2_US]] to i64
-; NO-SELECT-OPT-NEXT:    [[J_NEXT]] = add nsw i64 [[J]], [[INC4_US]]
-; NO-SELECT-OPT-NEXT:    [[COND_IN_US:%.*]] = select i1 [[CMP2_US]], ptr [[ARRAYIDX1_US]], ptr [[ARRAYIDX_US]]
-; NO-SELECT-OPT-NEXT:    [[COND_US:%.*]] = load ptr, ptr [[COND_IN_US]], align 8
-; NO-SELECT-OPT-NEXT:    [[ARRAYIDX6_US:%.*]] = getelementptr inbounds ptr, ptr [[DST:%.*]], i64 [[K_020_US]]
-; NO-SELECT-OPT-NEXT:    store ptr [[COND_US]], ptr [[ARRAYIDX6_US]], align 8
-; NO-SELECT-OPT-NEXT:    [[INC7_US]] = add i64 [[K_020_US]], 1
-; NO-SELECT-OPT-NEXT:    [[EXITCOND23_NOT:%.*]] = icmp eq i64 [[K_020_US]], 1000
-; NO-SELECT-OPT-NEXT:    br i1 [[EXITCOND23_NOT]], label [[EXIT:%.*]], label [[OUTER_LOOP]]
-; NO-SELECT-OPT:       exit:
-; NO-SELECT-OPT-NEXT:    ret void
-;
-; SELECT-OPT-LABEL: @outer_latch_heuristic(
-; SELECT-OPT-NEXT:  entry:
-; SELECT-OPT-NEXT:    br label [[OUTER_LOOP:%.*]]
-; SELECT-OPT:       outer.loop:
-; SELECT-OPT-NEXT:    [[K_020_US:%.*]] = phi i64 [ [[INC7_US:%.*]], [[LATCH:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; SELECT-OPT-NEXT:    [[J:%.*]] = phi i64 [ [[J_NEXT:%.*]], [[LATCH]] ], [ 0, [[ENTRY]] ]
-; SELECT-OPT-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[LATCH]] ], [ 0, [[ENTRY]] ]
-; SELECT-OPT-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC:%.*]], i64 [[I]]
-; SELECT-OPT-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARRAYIDX_US]], align 8
-; SELECT-OPT-NEXT:    [[ARRAYIDX1_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC]], i64 [[J]]
-; SELECT-OPT-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[ARRAYIDX1_US]], align 8
-; SELECT-OPT-NEXT:    br label [[INNER_LOOP:%.*]]
-; SELECT-OPT:       inner.loop:
-; SELECT-OPT-NEXT:    [[LSR_IV:%.*]] = phi i64 [ [[DIM:%.*]], [[OUTER_LOOP]] ], [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ]
-; SELECT-OPT-NEXT:    [[DIFF_04_I_US:%.*]] = phi i64 [ [[CALL_I_US:%.*]], [[INNER_LOOP]] ], [ 0, [[OUTER_LOOP]] ]
-; SELECT-OPT-NEXT:    [[CALL_I_US]] = tail call i64 @payload(i64 [[DIFF_04_I_US]], ptr [[TMP0]], ptr [[TMP1]], i64 [[P:%.*]])
-; SELECT-OPT-NEXT:    [[LSR_IV_NEXT]] = add i64 [[LSR_IV]], -1
-; SELECT-OPT-NEXT:    [[EXITCOND_NOT_I_US:%.*]] = icmp eq i64 [[LSR_IV_NEXT]], 0
-; SELECT-OPT-NEXT:    br i1 [[EXITCOND_NOT_I_US]], label [[LATCH1:%.*]], label [[INNER_LOOP]]
-; SELECT-OPT:       latch:
-; SELECT-OPT-NEXT:    [[CMP2_US:%.*]] = icmp sgt i64 [[CALL_I_US]], -1
-; SELECT-OPT-NEXT:    [[DIFF_0_LCSSA_I_LOBIT_US:%.*]] = lshr i64 [[CALL_I_US]], 63
-; SELECT-OPT-NEXT:    [[CMP2_US_FROZEN:%.*]] = freeze i1 [[CMP2_US]]
-; SELECT-OPT-NEXT:    br i1 [[CMP2_US_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_FALSE_SINK:%.*]]
-; SELECT-OPT:       select.true.sink:
-; SELECT-OPT-NEXT:    [[TMP2:%.*]] = add nsw i64 [[J]], 1
-; SELECT-OPT-NEXT:    br label [[LATCH]]
-; SELECT-OPT:       select.false.sink:
-; SELECT-OPT-NEXT:    [[TMP3:%.*]] = add nsw i64 1, [[I]]
-; SELECT-OPT-NEXT:    br label [[LATCH]]
-; SELECT-OPT:       select.end:
-; SELECT-OPT-NEXT:    [[I_NEXT]] = phi i64 [ [[I]], [[SELECT_TRUE_SINK]] ], [ [[TMP3]], [[SELECT_FALSE_SINK]] ]
-; SELECT-OPT-NEXT:    [[J_NEXT]] = phi i64 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ [[J]], [[SELECT_FALSE_SINK]] ]
-; SELECT-OPT-NEXT:    [[COND_IN_US:%.*]] = phi ptr [ [[ARRAYIDX1_US]], [[SELECT_TRUE_SINK]] ], [ [[ARRAYIDX_US]], [[SELECT_FALSE_SINK]] ]
-; SELECT-OPT-NEXT:    [[INC4_US:%.*]] = zext i1 [[CMP2_US]] to i64
-; SELECT-OPT-NEXT:    [[COND_US:%.*]] = load ptr, ptr [[COND_IN_US]], align 8
-; SELECT-OPT-NEXT:    [[ARRAYIDX6_US:%.*]] = getelementptr inbounds ptr, ptr [[DST:%.*]], i64 [[K_020_US]]
-; SELECT-OPT-NEXT:    store ptr [[COND_US]], ptr [[ARRAYIDX6_US]], align 8
-; SELECT-OPT-NEXT:    [[INC7_US]] = add i64 [[K_020_US]], 1
-; SELECT-OPT-NEXT:    [[EXITCOND23_NOT:%.*]] = icmp eq i64 [[K_020_US]], 1000
-; SELECT-OPT-NEXT:    br i1 [[EXITCOND23_NOT]], label [[EXIT:%.*]], label [[OUTER_LOOP]]
-; SELECT-OPT:       exit:
-; SELECT-OPT-NEXT:    ret void
+; CHECK-LABEL: @outer_latch_heuristic(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[OUTER_LOOP:%.*]]
+; CHECK:       outer.loop:
+; CHECK-NEXT:    [[K_020_US:%.*]] = phi i64 [ [[INC7_US:%.*]], [[SELECT_END:%.*]] ], [ 0, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[J:%.*]] = phi i64 [ [[J_NEXT:%.*]], [[SELECT_END]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[SELECT_END]] ], [ 0, [[ENTRY]] ]
+; CHECK-NEXT:    [[ARRAYIDX_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC:%.*]], i64 [[I]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARRAYIDX_US]], align 8
+; CHECK-NEXT:    [[ARRAYIDX1_US:%.*]] = getelementptr inbounds ptr, ptr [[SRC]], i64 [[J]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[ARRAYIDX1_US]], align 8
+; CHECK-NEXT:    br label [[INNER_LOOP:%.*]]
+; CHECK:       inner.loop:
+; CHECK-NEXT:    [[LSR_IV:%.*]] = phi i64 [ [[DIM:%.*]], [[OUTER_LOOP]] ], [ [[LSR_IV_NEXT:%.*]], [[INNER_LOOP]] ]
+; CHECK-NEXT:    [[DIFF_04_I_US:%.*]] = phi i64 [ [[CALL_I_US:%.*]], [[INNER_LOOP]] ], [ 0, [[OUTER_LOOP]] ]
+; CHECK-NEXT:    [[CALL_I_US]] = tail call i64 @payload(i64 [[DIFF_04_I_US]], ptr [[TMP0]], ptr [[TMP1]], i64 [[P:%.*]])
+; CHECK-NEXT:    [[LSR_IV_NEXT]] = add i64 [[LSR_IV]], -1
+; CHECK-NEXT:    [[EXITCOND_NOT_I_US:%.*]] = icmp eq i64 [[LSR_IV_NEXT]], 0
+; CHECK-NEXT:    br i1 [[EXITCOND_NOT_I_US]], label [[LATCH:%.*]], label [[INNER_LOOP]]
+; CHECK:       latch:
+; CHECK-NEXT:    [[CMP2_US:%.*]] = icmp sgt i64 [[CALL_I_US]], -1
+; CHECK-NEXT:    [[DIFF_0_LCSSA_I_LOBIT_US:%.*]] = lshr i64 [[CALL_I_US]], 63
+; CHECK-NEXT:    [[CMP2_US_FROZEN:%.*]] = freeze i1 [[CMP2_US]]
+; CHECK-NEXT:    br i1 [[CMP2_US_FROZEN]], label [[SELECT_TRUE_SINK:%.*]], label [[SELECT_FALSE_SINK:%.*]]
+; CHECK:       select.true.sink:
+; CHECK-NEXT:    [[TMP2:%.*]] = add nsw i64 [[J]], 1
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.false.sink:
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i64 1, [[I]]
+; CHECK-NEXT:    br label [[SELECT_END]]
+; CHECK:       select.end:
+; CHECK-NEXT:    [[I_NEXT]] = phi i64 [ [[I]], [[SELECT_TRUE_SINK]] ], [ [[TMP3]], [[SELECT_FALSE_SINK]] ]
+; CHECK-NEXT:    [[J_NEXT]] = phi i64 [ [[TMP2]], [[SELECT_TRUE_SINK]] ], [ [[J]], [[SELECT_FALSE_SINK]] ]
+; CHECK-NEXT:    [[COND_IN_US:%.*]] = phi ptr [ [[ARRAYIDX1_US]], [[SELECT_TRUE_SINK]] ], [ [[ARRAYIDX_US]], [[SELECT_FALSE_SINK]] ]
+; CHECK-NEXT:    [[INC4_US:%.*]] = zext i1 [[CMP2_US]] to i64
+; CHECK-NEXT:    [[COND_US:%.*]] = load ptr, ptr [[COND_IN_US]], align 8
+; CHECK-NEXT:    [[ARRAYIDX6_US:%.*]] = getelementptr inbounds ptr, ptr [[DST:%.*]], i64 [[K_020_US]]
+; CHECK-NEXT:    store ptr [[COND_US]], ptr [[ARRAYIDX6_US]], align 8
+; CHECK-NEXT:    [[INC7_US]] = add i64 [[K_020_US]], 1
+; CHECK-NEXT:    [[EXITCOND23_NOT:%.*]] = icmp eq i64 [[K_020_US]], 1000
+; CHECK-NEXT:    br i1 [[EXITCOND23_NOT]], label [[EXIT:%.*]], label [[OUTER_LOOP]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
 ;
 entry:
   br label %outer.loop
@@ -954,5 +689,7 @@ exit:
   ret void
 }
 ;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
+; NO-SELECT-OPT: {{.*}}
+; SELECT-OPT: {{.*}}
 ; SELECT-OPT-EXPENSIVE: {{.*}}
 ; SELECT-OPT-NOT-EXPENSIVE: {{.*}}
