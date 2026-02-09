@@ -51,6 +51,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Statepoint.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
@@ -2117,8 +2118,9 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         return nullptr;
 
       Value *Cmp = Builder.CreateICmpEQ(X, ConstantInt::get(X->getType(), 0));
-      Value *NewSelect =
-          Builder.CreateSelect(Cmp, ConstantInt::get(X->getType(), 1), A);
+      Value *NewSelect = nullptr;
+      NewSelect = Builder.CreateSelectWithUnknownProfile(
+          Cmp, ConstantInt::get(X->getType(), 1), A, DEBUG_TYPE);
       return replaceInstUsesWith(*II, NewSelect);
     };
 
@@ -2868,12 +2870,24 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     }
 
     // m((fpext X), (fpext Y)) -> fpext (m(X, Y))
-    if (match(Arg0, m_OneUse(m_FPExt(m_Value(X)))) &&
-        match(Arg1, m_OneUse(m_FPExt(m_Value(Y)))) &&
+    if (match(Arg0, m_FPExt(m_Value(X))) && match(Arg1, m_FPExt(m_Value(Y))) &&
+        (Arg0->hasOneUse() || Arg1->hasOneUse()) &&
         X->getType() == Y->getType()) {
       Value *NewCall =
           Builder.CreateBinaryIntrinsic(IID, X, Y, II, II->getName());
       return new FPExtInst(NewCall, II->getType());
+    }
+
+    // m(fpext X, C) -> fpext m(X, TruncC) if C can be losslessly truncated.
+    Constant *C;
+    if (match(Arg0, m_OneUse(m_FPExt(m_Value(X)))) &&
+        match(Arg1, m_ImmConstant(C))) {
+      if (Constant *TruncC =
+              getLosslessInvCast(C, X->getType(), Instruction::FPExt, DL)) {
+        Value *NewCall =
+            Builder.CreateBinaryIntrinsic(IID, X, TruncC, II, II->getName());
+        return new FPExtInst(NewCall, II->getType());
+      }
     }
 
     // max X, -X --> fabs X
@@ -3685,8 +3699,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     // into
     // call void @llvm.assume(i1 true) [ "align"(i32* [[A]], i64  Constant + 1)]
     uint64_t AlignMask = 1;
-    if (EnableKnowledgeRetention &&
-        (match(IIOperand, m_Not(m_Trunc(m_Value(A)))) ||
+    if ((match(IIOperand, m_Not(m_Trunc(m_Value(A)))) ||
          match(IIOperand,
                m_SpecificICmp(ICmpInst::ICMP_EQ,
                               m_And(m_Value(A), m_ConstantInt(AlignMask)),
@@ -3700,7 +3713,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           /// TODO: we can generate a GEP instead of merging the alignment with
           /// the offset.
           RetainedKnowledge RK{Attribute::Alignment,
-                               (unsigned)MinAlign(Offset, AlignMask + 1), A};
+                               MinAlign(Offset, AlignMask + 1), A};
           if (auto *Replacement =
                   buildAssumeFromKnowledge(RK, Next, &AC, &DT)) {
 
