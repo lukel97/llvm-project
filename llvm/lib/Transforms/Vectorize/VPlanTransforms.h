@@ -145,6 +145,8 @@ struct VPlanTransforms {
       VPlan &Plan, const DenseSet<BasicBlock *> &BlocksNeedingPredication,
       ElementCount MinVF);
 
+  static void addTailIncomingValues(VPBasicBlock *LatchVPBB);
+
   /// Update \p Plan to account for all early exits.
   LLVM_ABI_FOR_TEST static void handleEarlyExits(VPlan &Plan,
                                                  bool HasUncountableExit);
@@ -478,6 +480,8 @@ struct VPlanTransforms {
   /// Any VPInstruction::ExtractLastLanes are also updated to extract from the
   /// last active lane of the header mask.
   static void foldTailByMasking(VPlan &Plan);
+
+  static void splitLatch(VPlan &Plan);
 
   /// Predicate and linearize the control-flow in the only loop region of
   /// \p Plan.
