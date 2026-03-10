@@ -3245,30 +3245,9 @@ void DAGTypeLegalizer::ExpandIntegerResult(SDNode *N, unsigned ResNo) {
     break;
 
   case ISD::CTTZ_ELTS:
-  case ISD::CTTZ_ELTS_ZERO_POISON: {
-    EVT VT = N->getSimpleValueType(0);
-    EVT HalfVT = VT.getHalfSizedIntegerVT(*DAG.getContext());
-
-    EVT OpVT = N->getOperand(0).getValueType();
-    ConstantRange CR(64, OpVT.getVectorMinNumElements());
-    const Function &Fn = DAG.getMachineFunction().getFunction();
-    if (OpVT.isScalableVector())
-      CR = CR.umul_sat(getVScaleRange(&Fn, 64));
-    if (N->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
-      CR = CR.subtract(APInt(64, 1));
-
-    // See if the half VT is large enough to fit the result into, or
-    // alternatively if there's no upper bound on vscale in which case the
-    // result is undefined.
-    if (!(CR.getUnsignedMax().getActiveBits() > HalfVT.getScalarSizeInBits() ||
-          CR.isUpperWrapped()))
-      break;
-
-    SDValue HalfOp =
-        DAG.getNode(N->getOpcode(), SDLoc(N), HalfVT, N->getOperand(0));
-    HalfOp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, HalfOp);
-    SplitInteger(HalfOp, Lo, Hi);
-  }
+  case ISD::CTTZ_ELTS_ZERO_POISON:
+    ExpandIntRes_CTTZ_ELTS(N, Lo, Hi);
+    break;
   }
 
   // If Lo/Hi is null, the sub-method took care of registering results etc.
@@ -5568,6 +5547,32 @@ void DAGTypeLegalizer::ExpandIntRes_READ_REGISTER(SDNode *N, SDValue &Lo,
   std::tie(LoVT, HiVT) = DAG.GetSplitDestVTs(N->getValueType(0));
   Lo = DAG.getPOISON(LoVT);
   Hi = DAG.getPOISON(HiVT);
+}
+
+void DAGTypeLegalizer::ExpandIntRes_CTTZ_ELTS(SDNode *N, SDValue &Lo,
+                                              SDValue &Hi) {
+  EVT VT = N->getSimpleValueType(0);
+  EVT HalfVT = VT.getHalfSizedIntegerVT(*DAG.getContext());
+
+  EVT OpVT = N->getOperand(0).getValueType();
+  ConstantRange CR(64, OpVT.getVectorMinNumElements());
+  const Function &Fn = DAG.getMachineFunction().getFunction();
+  if (OpVT.isScalableVector())
+    CR = CR.umul_sat(getVScaleRange(&Fn, 64));
+  if (N->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
+    CR = CR.subtract(APInt(64, 1));
+
+  // See if the half VT is large enough to fit the result into, or
+  // alternatively if there's no upper bound on vscale in which case the
+  // result is undefined.
+  if (!(CR.getUnsignedMax().getActiveBits() > HalfVT.getScalarSizeInBits() ||
+        CR.isUpperWrapped()))
+    report_fatal_error("Unable to promote cttz_elts");
+
+  SDValue HalfOp =
+      DAG.getNode(N->getOpcode(), SDLoc(N), HalfVT, N->getOperand(0));
+  HalfOp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, HalfOp);
+  SplitInteger(HalfOp, Lo, Hi);
 }
 
 //===----------------------------------------------------------------------===//
