@@ -987,6 +987,7 @@ private:
   SDValue SplitVecOp_FPOpDifferentTypes(SDNode *N);
   SDValue SplitVecOp_CMP(SDNode *N);
   SDValue SplitVecOp_FP_TO_XINT_SAT(SDNode *N);
+  SDValue SplitVecOp_CttzElts(SDNode *N);
   SDValue SplitVecOp_VP_CttzElements(SDNode *N);
   SDValue SplitVecOp_VECTOR_HISTOGRAM(SDNode *N);
   SDValue SplitVecOp_PARTIAL_REDUCE_MLA(SDNode *N);

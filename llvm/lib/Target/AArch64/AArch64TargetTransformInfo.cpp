@@ -1077,12 +1077,13 @@ AArch64TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     break;
   }
   case Intrinsic::experimental_cttz_elts: {
-    EVT ArgVT = getTLI()->getValueType(DL, ICA.getArgTypes()[0]);
-    if (!getTLI()->shouldExpandCttzElements(ArgVT)) {
+    Type *ArgTy = ICA.getArgTypes()[0];
+
+    if (ST->isSVEorStreamingSVEAvailable()) {
       // This will consist of a SVE brkb and a cntp instruction. These
       // typically have the same latency and half the throughput as a vector
       // add instruction.
-      return 4;
+      return getTypeLegalizationCost(ArgTy).first * 4;
     }
     break;
   }

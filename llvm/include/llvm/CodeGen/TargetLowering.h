@@ -492,13 +492,9 @@ public:
     return true;
   }
 
-  /// Return true if the @llvm.experimental.cttz.elts intrinsic should be
-  /// expanded using generic code in SelectionDAGBuilder.
-  virtual bool shouldExpandCttzElements(EVT VT) const { return true; }
-
   /// Return the minimum number of bits required to hold the maximum possible
   /// number of trailing zero vector elements.
-  unsigned getBitWidthForCttzElements(Type *RetTy, ElementCount EC,
+  unsigned getBitWidthForCttzElements(EVT RetVT, ElementCount EC,
                                       bool ZeroIsPoison,
                                       const ConstantRange *VScaleRange) const;
 
@@ -5819,6 +5815,8 @@ public:
   /// Expand a vector VECTOR_COMPRESS into a sequence of extract element, store
   /// temporarily, advance store position, before re-loading the final vector.
   SDValue expandVECTOR_COMPRESS(SDNode *Node, SelectionDAG &DAG) const;
+
+  SDValue expandCttzElts(SDNode *Node, SelectionDAG &DAG) const;
 
   /// Expands PARTIAL_REDUCE_S/UMLA nodes to a series of simpler operations,
   /// consisting of zext/sext, extract_subvector, mul and add operations.

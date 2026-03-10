@@ -553,8 +553,6 @@ public:
 
   bool shouldExpandGetActiveLaneMask(EVT VT, EVT OpVT) const override;
 
-  bool shouldExpandCttzElements(EVT VT) const override;
-
   bool shouldExpandVectorMatch(EVT VT, unsigned SearchSize) const override;
 
   /// If a change in streaming mode is required on entry to/return from a
