@@ -1577,8 +1577,10 @@ enum NodeType {
   /// Output: Output Chain
   EXPERIMENTAL_VECTOR_HISTOGRAM,
 
-  /// The `llvm.experimental.cttz.elts` intrinsic. Has a single i1 vector
-  /// operand.
+  /// Returns the number of number of trailing (least significant) zero elements
+  /// in a vector. Has a single i1 vector operand. The result is poison if the
+  /// return type isn't wide enough to hold the maximum number of elements in
+  /// the input vector.
   CTTZ_ELTS,
   CTTZ_ELTS_ZERO_POISON,
 
