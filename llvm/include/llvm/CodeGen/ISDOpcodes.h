@@ -1577,6 +1577,11 @@ enum NodeType {
   /// Output: Output Chain
   EXPERIMENTAL_VECTOR_HISTOGRAM,
 
+  /// The `llvm.experimental.cttz.elts` intrinsic. Has a single i1 vector
+  /// operand.
+  CTTZ_ELTS,
+  CTTZ_ELTS_ZERO_POISON,
+
   /// Finds the index of the last active mask element
   /// Operands: Mask
   VECTOR_FIND_LAST_ACTIVE,

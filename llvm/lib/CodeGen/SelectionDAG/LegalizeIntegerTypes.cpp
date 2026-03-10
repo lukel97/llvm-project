@@ -19,6 +19,7 @@
 
 #include "LegalizeTypes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/StackMaps.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -78,6 +79,8 @@ void DAGTypeLegalizer::PromoteIntegerResult(SDNode *N, unsigned ResNo) {
   case ISD::VP_CTTZ:
   case ISD::CTTZ_ZERO_UNDEF:
   case ISD::CTTZ:        Res = PromoteIntRes_CTTZ(N); break;
+  case ISD::CTTZ_ELTS_ZERO_POISON:
+  case ISD::CTTZ_ELTS:
   case ISD::VP_CTTZ_ELTS_ZERO_UNDEF:
   case ISD::VP_CTTZ_ELTS:
     Res = PromoteIntRes_VP_CttzElements(N);
@@ -3240,6 +3243,32 @@ void DAGTypeLegalizer::ExpandIntegerResult(SDNode *N, unsigned ResNo) {
   case ISD::READ_REGISTER:
     ExpandIntRes_READ_REGISTER(N, Lo, Hi);
     break;
+
+  case ISD::CTTZ_ELTS:
+  case ISD::CTTZ_ELTS_ZERO_POISON: {
+    EVT VT = N->getSimpleValueType(0);
+    EVT HalfVT = VT.getHalfSizedIntegerVT(*DAG.getContext());
+
+    EVT OpVT = N->getOperand(0).getValueType();
+    ConstantRange CR(64, OpVT.getVectorMinNumElements());
+    const Function &Fn = DAG.getMachineFunction().getFunction();
+    if (OpVT.isScalableVector())
+      CR = CR.umul_sat(getVScaleRange(&Fn, 64));
+    if (N->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
+      CR = CR.subtract(APInt(64, 1));
+
+    // See if the half VT is large enough to fit the result into, or
+    // alternatively if there's no upper bound on vscale in which case the
+    // result is undefined.
+    if (!(CR.getUnsignedMax().getActiveBits() > HalfVT.getScalarSizeInBits() ||
+          CR.isUpperWrapped()))
+      break;
+
+    SDValue HalfOp =
+        DAG.getNode(N->getOpcode(), SDLoc(N), HalfVT, N->getOperand(0));
+    HalfOp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, HalfOp);
+    SplitInteger(HalfOp, Lo, Hi);
+  }
   }
 
   // If Lo/Hi is null, the sub-method took care of registering results etc.
