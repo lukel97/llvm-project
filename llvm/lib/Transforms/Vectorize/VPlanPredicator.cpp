@@ -228,12 +228,6 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
           NonUnique[OtherInVPBB].insert(Ancestor);
   }
 
-  // Traverse upwards and find the edges where the path is no longer unique to
-  // that incoming edge.
-  SmallVector<VPBlockBase *> Worklist = {VPBB};
-  SmallPtrSet<VPBasicBlock *, 8> Visited;
-  MapVector<VPBasicBlock *, SmallSetVector<VPBasicBlock *, 8>> Edges;
-
   // Then for each incoming block, compute the disjunction of the incoming edges
   // to its "unique" subgraph.
   DenseMap<const VPBasicBlock *, VPValue *> Masks;
@@ -250,7 +244,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
     // Traverse the post dominator frontier and find the edges where the path is
     // no longer unique to that incoming edge.
     SmallVector<VPBlockBase *> Worklist = {InVPBB};
-    MapVector<VPBasicBlock *, SmallSetVector<VPBasicBlock *, 8>> Edges;
+    MapVector<VPBlockBase *, SmallSetVector<VPBlockBase *, 8>> Edges;
     while (!Worklist.empty()) {
       auto *X = cast<VPBasicBlock>(Worklist.pop_back_val());
       if (!NonUnique[InVPBB].contains(X)) {
@@ -258,23 +252,22 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
         continue;
       }
       // Find edges from non-unique to unique blocks and add them to the mask.
-      for (VPBlockBase *SuccBase : X->successors()) {
-        auto *Succ = cast<VPBasicBlock>(SuccBase);
+      for (VPBlockBase *Succ : X->successors())
         if (!NonUnique[InVPBB].contains(Succ))
           Edges[Succ].insert(X);
-      }
     }
 
     VPValue *Mask = nullptr;
-    for (auto [Dst, Preds] : Edges) {
+    for (auto [DstBase, Preds] : Edges) {
+      auto *Dst = cast<VPBasicBlock>(DstBase);
       // If the blend mask uses all the edges to Dst, reuse Dst's block-in mask.
       if (Preds.size() == Dst->getNumPredecessors()) {
         Mask = Mask ? Builder.createOr(Mask, getBlockInMask(Dst))
                     : getBlockInMask(Dst);
         continue;
       }
-      for (VPBasicBlock *Pred : Preds) {
-        VPValue *Edge = getEdgeMask(Pred, Dst);
+      for (VPBlockBase *Pred : Preds) {
+        VPValue *Edge = getEdgeMask(cast<VPBasicBlock>(Pred), Dst);
         Mask = Mask ? Builder.createOr(Mask, Edge) : Edge;
       }
     }
