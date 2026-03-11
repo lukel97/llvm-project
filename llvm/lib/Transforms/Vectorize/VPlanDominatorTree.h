@@ -75,7 +75,6 @@ class VPPostDominanceFrontier
 public:
   explicit VPPostDominanceFrontier(const DomTreeT &VPDT) { analyze(VPDT); }
 };
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLANDOMINATORTREE_H
