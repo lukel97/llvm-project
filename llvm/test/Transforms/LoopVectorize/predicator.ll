@@ -123,7 +123,7 @@ define void @optimized_mask(ptr %a) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp sle <4 x i64> [[VEC_IND]], splat (i64 6)
 ; CHECK-NEXT:    [[TMP5:%.*]] = select <4 x i1> [[TMP2]], <4 x i1> [[TMP4]], <4 x i1> zeroinitializer
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <4 x i64> [[VEC_IND]], splat (i64 5)
-; CHECK-NEXT:    [[TMP7:%.*]] = or <4 x i1> [[TMP5]], [[TMP1]]
+; CHECK-NEXT:    [[TMP7:%.*]] = or <4 x i1> [[TMP1]], [[TMP5]]
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <4 x i1> [[TMP7]], <4 x i64> [[TMP6]], <4 x i64> [[TMP3]]
 ; CHECK-NEXT:    store <4 x i64> [[PREDPHI]], ptr [[TMP0]], align 4
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4

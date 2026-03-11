@@ -14,6 +14,7 @@
 #include "VPRecipeBuilder.h"
 #include "VPlan.h"
 #include "VPlanCFG.h"
+#include "VPlanDominatorTree.h"
 #include "VPlanPatternMatch.h"
 #include "VPlanTransforms.h"
 #include "VPlanUtils.h"
@@ -26,6 +27,8 @@ namespace {
 class VPPredicator {
   /// Builder to construct recipes to compute masks.
   VPBuilder Builder;
+
+  VPPostDominanceFrontier VPPDF;
 
   /// When we if-convert we need to create edge masks. We have to cache values
   /// so that we don't end up with exponential recursion/IR.
@@ -63,6 +66,7 @@ class VPPredicator {
   }
 
 public:
+  VPPredicator(VPlan &Plan) : VPPDF(VPPostDominatorTree(Plan)) {}
   /// Returns the *entry* mask for \p VPBB.
   VPValue *getBlockInMask(const VPBasicBlock *VPBB) const {
     return BlockMaskCache.lookup(VPBB);
@@ -215,19 +219,20 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
   // First compute the set of ancestors which are reachable from multiple
   // incoming blocks. This is where we can no longer determine the unique
   // incoming edge.
-  SmallPtrSet<VPBlockBase *, 8> NonUnique;
-  DenseMap<VPBlockBase *, unsigned> Freq;
+  DenseMap<VPBlockBase *, SmallPtrSet<VPBlockBase *, 8>> NonUnique;
   for (VPBlockBase *InVPBB : VPBB->predecessors()) {
-    for (VPBlockBase *VPBB : vp_inverse_depth_first_shallow(InVPBB)) {
-      Freq[VPBB]++;
-      if (Freq[VPBB] > 1)
-        NonUnique.insert(VPBB);
-    }
+    NonUnique[InVPBB].insert(VPBB);
+    for (VPBlockBase *Ancestor : vp_inverse_depth_first_shallow(InVPBB))
+      for (VPBlockBase *OtherInVPBB : VPBB->predecessors())
+        if (OtherInVPBB != InVPBB)
+          NonUnique[OtherInVPBB].insert(Ancestor);
   }
 
-  auto IsNonUnique = [&NonUnique](VPBlockBase *VPBB) {
-    return NonUnique.contains(VPBB);
-  };
+  // Traverse upwards and find the edges where the path is no longer unique to
+  // that incoming edge.
+  SmallVector<VPBlockBase *> Worklist = {VPBB};
+  SmallPtrSet<VPBasicBlock *, 8> Visited;
+  MapVector<VPBasicBlock *, SmallSetVector<VPBasicBlock *, 8>> Edges;
 
   // Then for each incoming block, compute the disjunction of the incoming edges
   // to its "unique" subgraph.
@@ -237,37 +242,40 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
 
     // If the incoming block isn't unique, we need to use the incoming edge
     // mask.
-    if (NonUnique.contains(InVPBB)) {
+    if (NonUnique[InVPBB].contains(InVPBB)) {
       Masks[InVPBB] = getEdgeMask(InVPBB, VPBB);
       continue;
     }
 
-    // Traverse upwards and find the edges where the path is no longer unique to
-    // that incoming edge.
-    VPValue *Mask = nullptr;
-    SmallVector<VPBasicBlock *> Worklist = {InVPBB};
-    SmallPtrSet<VPBasicBlock *, 8> Visited;
+    // Traverse the post dominator frontier and find the edges where the path is
+    // no longer unique to that incoming edge.
+    SmallVector<VPBlockBase *> Worklist = {InVPBB};
+    MapVector<VPBasicBlock *, SmallSetVector<VPBasicBlock *, 8>> Edges;
     while (!Worklist.empty()) {
-      VPBasicBlock *Unique = Worklist.pop_back_val();
-      if (!Visited.insert(Unique).second)
-        continue;
-
-      // If all predecessors aren't unique, just use the block mask.
-      if (all_of(Unique->predecessors(), IsNonUnique)) {
-        Mask = Mask ? Builder.createOr(Mask, getBlockInMask(Unique))
-                    : getBlockInMask(Unique);
+      auto *X = cast<VPBasicBlock>(Worklist.pop_back_val());
+      if (!NonUnique[InVPBB].contains(X)) {
+        append_range(Worklist, VPPDF.find(X)->second);
         continue;
       }
+      // Find edges from non-unique to unique paths: add it to the blend mask.
+      for (VPBlockBase *SuccBase : X->successors()) {
+        auto *Succ = cast<VPBasicBlock>(SuccBase);
+        if (!NonUnique[InVPBB].contains(Succ))
+          Edges[Succ].insert(X);
+      }
+    }
 
-      for (VPBlockBase *PredBase : Unique->predecessors()) {
-        auto *Pred = cast<VPBasicBlock>(PredBase);
-        if (NonUnique.contains(Pred)) {
-          // We've reached a non-unique node. Stop and add that edge mask.
-          VPValue *Edge = getEdgeMask(Pred, Unique);
-          Mask = Mask ? Builder.createOr(Mask, Edge) : Edge;
-        } else {
-          Worklist.push_back(Pred);
-        }
+    VPValue *Mask = nullptr;
+    for (auto [Dst, Preds] : Edges) {
+      // If the blend mask contains all predecessors, reuse the block-in mask.
+      if (Preds.size() == Dst->getNumPredecessors()) {
+        Mask = Mask ? Builder.createOr(Mask, getBlockInMask(Dst))
+                    : getBlockInMask(Dst);
+        continue;
+      }
+      for (VPBasicBlock *Pred : Preds) {
+        VPValue *Edge = getEdgeMask(Pred, Dst);
+        Mask = Mask ? Builder.createOr(Mask, Edge) : Edge;
       }
     }
     Masks[InVPBB] = Mask;
@@ -323,7 +331,7 @@ void VPlanTransforms::introduceMasksAndLinearize(VPlan &Plan) {
   VPBasicBlock *Header = LoopRegion->getEntryBasicBlock();
   ReversePostOrderTraversal<VPBlockShallowTraversalWrapper<VPBlockBase *>> RPOT(
       Header);
-  VPPredicator Predicator;
+  VPPredicator Predicator(Plan);
   for (VPBlockBase *VPB : RPOT) {
     // Non-outer regions with VPBBs only are supported at the moment.
     auto *VPBB = cast<VPBasicBlock>(VPB);
