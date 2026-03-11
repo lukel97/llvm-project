@@ -80,7 +80,7 @@ public:
   /// Compute the predicate of \p VPBB.
   void createBlockInMask(VPBasicBlock *VPBB);
 
-  /// Compute the masks for a VPBlendRecipe in \p VPBB from the minumum number
+  /// Compute the masks for a VPBlendRecipe in \p VPBB from the minimum number
   /// of edge masks required.
   DenseMap<const VPBasicBlock *, VPValue *>
   computeBlendMasks(VPBasicBlock *VPBB);
@@ -257,7 +257,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
         append_range(Worklist, VPPDF.find(X)->second);
         continue;
       }
-      // Find edges from non-unique to unique paths: add it to the blend mask.
+      // Find edges from non-unique to unique blocks and add them to the mask.
       for (VPBlockBase *SuccBase : X->successors()) {
         auto *Succ = cast<VPBasicBlock>(SuccBase);
         if (!NonUnique[InVPBB].contains(Succ))
@@ -267,7 +267,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
 
     VPValue *Mask = nullptr;
     for (auto [Dst, Preds] : Edges) {
-      // If the blend mask contains all predecessors, reuse the block-in mask.
+      // If the blend mask uses all the edges to Dst, reuse Dst's block-in mask.
       if (Preds.size() == Dst->getNumPredecessors()) {
         Mask = Mask ? Builder.createOr(Mask, getBlockInMask(Dst))
                     : getBlockInMask(Dst);
