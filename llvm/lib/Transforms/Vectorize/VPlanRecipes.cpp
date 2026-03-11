@@ -2248,9 +2248,6 @@ void VPIRFlags::printFlags(raw_ostream &O) const {
     case RecurKind::AnyOf:
       O << "any-of";
       break;
-    case RecurKind::FindIV:
-      O << "find-iv";
-      break;
     case RecurKind::FindLast:
       O << "find-last";
       break;
