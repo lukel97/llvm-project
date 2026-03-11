@@ -5569,28 +5569,16 @@ void DAGTypeLegalizer::ExpandIntRes_READ_REGISTER(SDNode *N, SDValue &Lo,
 
 void DAGTypeLegalizer::ExpandIntRes_CTTZ_ELTS(SDNode *N, SDValue &Lo,
                                               SDValue &Hi) {
+  // Assume that the maximum number of vector elements fits in getVectorIdxTy
+  // and expand to that.
   EVT VT = N->getSimpleValueType(0);
-  EVT HalfVT = VT.getHalfSizedIntegerVT(*DAG.getContext());
+  EVT IdxVT = TLI.getVectorIdxTy(DAG.getDataLayout());
+  assert(IdxVT.bitsLT(VT) &&
+         "VectorIdxTy should be smaller than type to be expanded?");
 
-  EVT OpVT = N->getOperand(0).getValueType();
-  ConstantRange CR(64, OpVT.getVectorMinNumElements());
-  const Function &Fn = DAG.getMachineFunction().getFunction();
-  if (OpVT.isScalableVector())
-    CR = CR.umul_sat(getVScaleRange(&Fn, 64));
-  if (N->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
-    CR = CR.subtract(APInt(64, 1));
-
-  // See if the half VT is large enough to fit the result into, or
-  // alternatively if there's no upper bound on vscale in which case the
-  // result is undefined.
-  if (!(CR.getUnsignedMax().getActiveBits() > HalfVT.getScalarSizeInBits() ||
-        CR.isUpperWrapped()))
-    report_fatal_error("Unable to expand cttz_elts");
-
-  SDValue HalfOp =
-      DAG.getNode(N->getOpcode(), SDLoc(N), HalfVT, N->getOperand(0));
-  HalfOp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, HalfOp);
-  SplitInteger(HalfOp, Lo, Hi);
+  SDValue Res = DAG.getNode(N->getOpcode(), SDLoc(N), IdxVT, N->getOperand(0));
+  Res = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, Res);
+  SplitInteger(Res, Lo, Hi);
 }
 
 //===----------------------------------------------------------------------===//
