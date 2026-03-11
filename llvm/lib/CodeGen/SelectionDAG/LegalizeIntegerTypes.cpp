@@ -5567,7 +5567,7 @@ void DAGTypeLegalizer::ExpandIntRes_CTTZ_ELTS(SDNode *N, SDValue &Lo,
   // result is undefined.
   if (!(CR.getUnsignedMax().getActiveBits() > HalfVT.getScalarSizeInBits() ||
         CR.isUpperWrapped()))
-    report_fatal_error("Unable to promote cttz_elts");
+    report_fatal_error("Unable to expand cttz_elts");
 
   SDValue HalfOp =
       DAG.getNode(N->getOpcode(), SDLoc(N), HalfVT, N->getOperand(0));

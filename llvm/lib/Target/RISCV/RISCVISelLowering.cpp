@@ -7884,6 +7884,9 @@ RISCVTargetLowering::lowerXAndesBfHCvtBFloat16Store(SDValue Op,
       ST->getMemOperand());
 }
 
+static SDValue lowerCttzElts(SDValue Op, SelectionDAG &DAG,
+                             const RISCVSubtarget &Subtarget);
+
 SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                             SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
@@ -9195,7 +9198,7 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     return lowerPARTIAL_REDUCE_MLA(Op, DAG);
   case ISD::CTTZ_ELTS:
   case ISD::CTTZ_ELTS_ZERO_POISON:
-    return lowerCTTZ_ELTS(Op, DAG);
+    return lowerCttzElts(Op, DAG, Subtarget);
   }
 }
 
@@ -11525,18 +11528,18 @@ static SDValue lowerGetVectorLength(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::TRUNCATE, DL, N->getValueType(0), Res);
 }
 
-SDValue RISCVTargetLowering::lowerCTTZ_ELTS(SDValue Op,
-                                            SelectionDAG &DAG) const {
+static SDValue lowerCttzElts(SDValue Op, SelectionDAG &DAG,
+                             const RISCVSubtarget &Subtarget) {
   SDValue Op0 = Op->getOperand(0);
   MVT OpVT = Op0.getSimpleValueType();
   MVT ContainerVT = OpVT;
   if (OpVT.isFixedLengthVector()) {
-    ContainerVT = getContainerForFixedLengthVector(OpVT);
-    Op0 = convertToScalableVector(ContainerVT, Op0, DAG, getSubtarget());
+    ContainerVT = getContainerForFixedLengthVector(DAG, OpVT, Subtarget);
+    Op0 = convertToScalableVector(ContainerVT, Op0, DAG, Subtarget);
   }
   MVT XLenVT = Subtarget.getXLenVT();
   SDLoc DL(Op);
-  auto [Mask, VL] = getDefaultVLOps(OpVT, ContainerVT, DL, DAG, getSubtarget());
+  auto [Mask, VL] = getDefaultVLOps(OpVT, ContainerVT, DL, DAG, Subtarget);
   SDValue Res = DAG.getNode(RISCVISD::VFIRST_VL, DL, XLenVT, Op0, Mask, VL);
   if (Op->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
     return Res;
