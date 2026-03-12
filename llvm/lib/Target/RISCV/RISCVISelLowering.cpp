@@ -11530,7 +11530,7 @@ static SDValue lowerGetVectorLength(SDNode *N, SelectionDAG &DAG,
 
 static SDValue lowerCttzElts(SDValue Op, SelectionDAG &DAG,
                              const RISCVSubtarget &Subtarget) {
-  SDValue Op0 = Op->getOperand(0);
+  SDValue Op0 = Op.getOperand(0);
   MVT OpVT = Op0.getSimpleValueType();
   MVT ContainerVT = OpVT;
   if (OpVT.isFixedLengthVector()) {
@@ -11541,7 +11541,7 @@ static SDValue lowerCttzElts(SDValue Op, SelectionDAG &DAG,
   SDLoc DL(Op);
   auto [Mask, VL] = getDefaultVLOps(OpVT, ContainerVT, DL, DAG, Subtarget);
   SDValue Res = DAG.getNode(RISCVISD::VFIRST_VL, DL, XLenVT, Op0, Mask, VL);
-  if (Op->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
+  if (Op.getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON)
     return Res;
 
   // Convert -1 to VL.
