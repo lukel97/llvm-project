@@ -232,9 +232,34 @@ void VPPredicator::createSwitchEdgeMasks(const VPInstruction *SI) {
   setEdgeMask(Src, DefaultDst, DefaultMask);
 }
 
+// Compute the blend masks required for each incoming block for a phi. Do this
+// by traversing the iterated post-dominance frontier for each incoming block
+// until we find an edge that can lead to multiple incoming blocks. The final
+// blend mask is then the disjunction of these edges.
+//
+// In the example below:
+//        a
+//       / \
+//      b   c
+//     / |  |
+//    d  |  |
+//   /|  |  /
+//  / e   f
+// …   \ /
+//     phi
+//
+// For the incoming block e, PDF(e) = {d}. We skip d because it can only reach
+// e. PDF(d) = {b}, and since b can reach both e and f, we stop and add the edge
+// b->d.
+//
+// For the incoming block f, PDF(f) = {b,a}. We visit b which reaches both e and
+// f, so stop and add b->f. a also reaches both e and f so we stop and and add
+// a->c.
+//
+// The final edge masks are e := b->d, f := b->f v a->c
 DenseMap<const VPBasicBlock *, VPValue *>
 VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
-  // For each incoming block compute the set of ancestors which can reach it.
+  // For each ancestor of VPBB compute the set of incoming blocks it can reach.
   DenseMap<VPBlockBase *, SmallPtrSet<VPBlockBase *, 8>> Reachable;
   for (VPBlockBase *Pred : VPBB->predecessors())
     for (VPBlockBase *Ancestor : vp_inverse_depth_first_shallow(Pred))
@@ -253,8 +278,8 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
       continue;
     }
 
-    // Traverse the post dominator frontier and find the edges where the path is
-    // no longer reaches to a unique incoming edge.
+    // Traverse the post dominator frontier and find the edges where the path
+    // can now reach multiple incoming edges.
     // TODO: If two incoming edges have the same incoming value, consdier them
     // equal.
     SmallVector<VPBlockBase *> Worklist = {InVPBB};
