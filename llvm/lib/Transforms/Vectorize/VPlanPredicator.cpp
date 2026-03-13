@@ -234,17 +234,11 @@ void VPPredicator::createSwitchEdgeMasks(const VPInstruction *SI) {
 
 DenseMap<const VPBasicBlock *, VPValue *>
 VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
-  // First compute the set of ancestors which are reachable from multiple
-  // incoming blocks. This is where we can no longer determine the unique
-  // incoming edge.
-  DenseMap<VPBlockBase *, SmallPtrSet<VPBlockBase *, 8>> NonUnique;
-  for (VPBlockBase *InVPBB : VPBB->predecessors()) {
-    NonUnique[InVPBB].insert(VPBB);
-    for (VPBlockBase *Ancestor : vp_inverse_depth_first_shallow(InVPBB))
-      for (VPBlockBase *OtherInVPBB : VPBB->predecessors())
-        if (OtherInVPBB != InVPBB)
-          NonUnique[OtherInVPBB].insert(Ancestor);
-  }
+  // For each incoming block compute the set of ancestors which can reach it.
+  DenseMap<VPBlockBase *, SmallPtrSet<VPBlockBase *, 8>> Reachable;
+  for (VPBlockBase *Pred : VPBB->predecessors())
+    for (VPBlockBase *Ancestor : vp_inverse_depth_first_shallow(Pred))
+      Reachable[Ancestor].insert(Pred);
 
   // Then for each incoming block, compute the disjunction of the incoming edges
   // to its "unique" subgraph.
@@ -254,24 +248,27 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
 
     // If the incoming block isn't unique, we need to use the incoming edge
     // mask.
-    if (NonUnique[InVPBB].contains(InVPBB)) {
+    if (Reachable[InVPBB].size() > 1) {
       Masks[InVPBB] = createEdgeMask(InVPBB, VPBB);
       continue;
     }
 
     // Traverse the post dominator frontier and find the edges where the path is
-    // no longer unique to that incoming edge.
+    // no longer reaches to a unique incoming edge.
+    // TODO: If two incoming edges have the same incoming value, consdier them
+    // equal.
     SmallVector<VPBlockBase *> Worklist = {InVPBB};
     MapVector<VPBlockBase *, SmallSetVector<VPBlockBase *, 8>> Edges;
     while (!Worklist.empty()) {
       auto *X = cast<VPBasicBlock>(Worklist.pop_back_val());
-      if (!NonUnique[InVPBB].contains(X)) {
+      if (Reachable[X].size() == 1) {
+        assert(Reachable[X].contains(InVPBB));
         append_range(Worklist, VPPDF.find(X)->second);
         continue;
       }
-      // Find edges from non-unique to unique blocks and add them to the mask.
+      // Find edges that lead to a unique incoming block and add to the mask.
       for (VPBlockBase *Succ : X->successors())
-        if (!NonUnique[InVPBB].contains(Succ))
+        if (Reachable[Succ].size() == 1 && Reachable[Succ].contains(InVPBB))
           Edges[Succ].insert(X);
     }
 
