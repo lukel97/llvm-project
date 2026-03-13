@@ -25,6 +25,10 @@ using namespace VPlanPatternMatch;
 #define DEBUG_TYPE "vplan"
 
 VPTypeAnalysis::VPTypeAnalysis(const VPlan &Plan) : Ctx(Plan.getContext()) {
+  const DataLayout &DL =
+      Plan.getScalarHeader()->getIRBasicBlock()->getDataLayout();
+  IndexTy = DL.getIndexType(PointerType::get(Plan.getContext(), 0));
+
   if (auto LoopRegion = Plan.getVectorLoopRegion()) {
     if (const auto *CanIV = dyn_cast<VPCanonicalIVPHIRecipe>(
             &LoopRegion->getEntryBasicBlock()->front())) {
@@ -122,7 +126,7 @@ Type *VPTypeAnalysis::inferScalarTypeForRecipe(const VPInstruction *R) {
     return inferScalarType(R->getOperand(1));
   case VPInstruction::FirstActiveLane:
   case VPInstruction::LastActiveLane:
-    return Type::getIntNTy(Ctx, 64);
+    return IndexTy;
   case VPInstruction::LogicalAnd:
   case VPInstruction::LogicalOr:
     assert(inferScalarType(R->getOperand(0))->isIntegerTy(1) &&

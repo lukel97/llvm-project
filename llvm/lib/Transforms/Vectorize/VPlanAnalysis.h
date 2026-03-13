@@ -45,6 +45,7 @@ class VPTypeAnalysis {
   /// any underlying IR value (like the vector trip count or the backedge-taken
   /// count).
   Type *CanonicalIVTy;
+  Type *IndexTy;
   LLVMContext &Ctx;
 
   Type *inferScalarTypeForRecipe(const VPBlendRecipe *R);
