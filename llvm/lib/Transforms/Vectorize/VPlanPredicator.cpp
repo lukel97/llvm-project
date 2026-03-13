@@ -28,6 +28,13 @@ class VPPredicator {
   /// Builder to construct recipes to compute masks.
   VPBuilder Builder;
 
+  /// Dominator tree for the VPlan.
+  VPDominatorTree VPDT;
+
+  /// Post-dominator tree for the VPlan.
+  VPPostDominatorTree VPPDT;
+
+  /// Post-dominator frontier for the VPlan.
   VPPostDominanceFrontier VPPDF;
 
   /// When we if-convert we need to create edge masks. We have to cache values
@@ -66,7 +73,8 @@ class VPPredicator {
   }
 
 public:
-  VPPredicator(VPlan &Plan) : VPPDF(VPPostDominatorTree(Plan)) {}
+  VPPredicator(VPlan &Plan) : VPDT(Plan), VPPDT(Plan), VPPDF(VPPDT) {}
+
   /// Returns the *entry* mask for \p VPBB.
   VPValue *getBlockInMask(const VPBasicBlock *VPBB) const {
     return BlockMaskCache.lookup(VPBB);
@@ -135,6 +143,16 @@ VPValue *VPPredicator::createEdgeMask(const VPBasicBlock *Src,
 void VPPredicator::createBlockInMask(VPBasicBlock *VPBB) {
   // Start inserting after the block's phis, which be replaced by blends later.
   Builder.setInsertPoint(VPBB, VPBB->getFirstNonPhi());
+
+  // Reuse the mask of the immediate dominator if the VPBB post-dominates the
+  // immediate dominator.
+  auto *IDom = VPDT.getNode(VPBB)->getIDom();
+  assert(IDom && "Block in loop must have immediate dominator");
+  auto *IDomBB = cast<VPBasicBlock>(IDom->getBlock());
+  if (VPPDT.properlyDominates(VPBB, IDomBB)) {
+    setBlockInMask(VPBB, getBlockInMask(IDomBB));
+    return;
+  }
   // All-one mask is modelled as no-mask following the convention for masked
   // load/store/gather/scatter. Initialize BlockMask to no-mask.
   VPValue *BlockMask = nullptr;
@@ -237,7 +255,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
     // If the incoming block isn't unique, we need to use the incoming edge
     // mask.
     if (NonUnique[InVPBB].contains(InVPBB)) {
-      Masks[InVPBB] = getEdgeMask(InVPBB, VPBB);
+      Masks[InVPBB] = createEdgeMask(InVPBB, VPBB);
       continue;
     }
 
@@ -267,7 +285,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
         continue;
       }
       for (VPBlockBase *Pred : Preds) {
-        VPValue *Edge = getEdgeMask(cast<VPBasicBlock>(Pred), Dst);
+        VPValue *Edge = createEdgeMask(cast<VPBasicBlock>(Pred), Dst);
         Mask = Mask ? Builder.createOr(Mask, Edge) : Edge;
       }
     }
