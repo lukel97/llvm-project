@@ -249,7 +249,7 @@ struct GraphTraits<VPBlockShallowTraversalWrapper<const VPBlockBase *>> {
 template <>
 struct GraphTraits<Inverse<VPBlockShallowTraversalWrapper<VPBlockBase *>>> {
   using NodeRef = VPBlockBase *;
-  using ChildIteratorType = SmallVectorImpl<VPBlockBase *>::const_iterator;
+  using ChildIteratorType = VPBlockBase **;
 
   static NodeRef
   getEntryNode(Inverse<VPBlockShallowTraversalWrapper<VPBlockBase *>> N) {
@@ -257,11 +257,11 @@ struct GraphTraits<Inverse<VPBlockShallowTraversalWrapper<VPBlockBase *>>> {
   }
 
   static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getPredecessors().begin();
+    return N->predecessors().begin();
   }
 
   static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getPredecessors().end();
+    return N->predecessors().end();
   }
 };
 
