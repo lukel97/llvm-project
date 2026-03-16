@@ -25,8 +25,7 @@ using namespace VPlanPatternMatch;
 #define DEBUG_TYPE "vplan"
 
 VPTypeAnalysis::VPTypeAnalysis(const VPlan &Plan)
-    : Ctx(Plan.getContext()),
-      DL(Plan.getScalarHeader()->getIRBasicBlock()->getDataLayout()) {
+    : Ctx(Plan.getContext()), DL(Plan.getDataLayout()) {
   if (auto LoopRegion = Plan.getVectorLoopRegion()) {
     if (const auto *CanIV = dyn_cast<VPCanonicalIVPHIRecipe>(
             &LoopRegion->getEntryBasicBlock()->front())) {
