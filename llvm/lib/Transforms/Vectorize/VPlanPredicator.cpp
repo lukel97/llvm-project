@@ -234,29 +234,29 @@ void VPPredicator::createSwitchEdgeMasks(const VPInstruction *SI) {
 
 // Compute the blend masks required for each incoming block for a phi. Do this
 // by traversing the iterated post-dominance frontier for each incoming block
-// until we find an edge that can lead to multiple incoming blocks. The final
-// blend mask is then the disjunction of these edges.
+// until we find the "frontier" of the subgraph that uniquely leads to that
+// incoming block. The final blend mask is then the disjunction of edges from
+// the frontier into the subgraph that uniquely leads to the incoming block.
 //
 // In the example below:
 //        a
 //       / \
 //      b   c
 //     / |  |
-//    d  |  |
-//   /|  |  /
-//  / e   f
-// …   \ /
+//    d  e  |
+//   /| / \ /
+//  / f    g
+// …   \  /
 //     phi
 //
-// For the incoming block e, PDF(e) = {d}. We skip d because it can only reach
-// e. PDF(d) = {b}, and since b can reach both e and f, we stop and add the edge
-// b->d.
+// For the incoming block f, we iterate the post-dominance frontier until we get
+// the frontier of blocks that no longer only lead to f, {b,e}. For b we add the
+// edge b->d because d uniquely leads to f. For e we add the edge f because e->f
+// uniquely leads to f.
 //
-// For the incoming block f, PDF(f) = {b,a}. We visit b which reaches both e and
-// f, so stop and add b->f. a also reaches both e and f so we stop and and add
-// a->c.
+// For the incoming block g, the "frontier" is {e,a}. We add e->g and a->c.
 //
-// The final edge masks are e := b->d, f := b->f v a->c
+// The final edge masks are f := b->d v e->f, f := e->g v a->c.
 DenseMap<const VPBasicBlock *, VPValue *>
 VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
   // For each ancestor of VPBB compute the set of incoming blocks it can reach.
@@ -291,7 +291,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
         append_range(Worklist, VPPDF.find(X)->second);
         continue;
       }
-      // Find edges that lead to a unique incoming block and add to the mask.
+      // Find edges that uniquely lead to InVPBB add them to the mask.
       for (VPBlockBase *Succ : X->successors())
         if (Reachable[Succ].size() == 1 && Reachable[Succ].contains(InVPBB))
           Edges[Succ].insert(X);
