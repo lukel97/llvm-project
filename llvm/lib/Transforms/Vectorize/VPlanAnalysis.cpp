@@ -123,7 +123,9 @@ Type *VPTypeAnalysis::inferScalarTypeForRecipe(const VPInstruction *R) {
     return inferScalarType(R->getOperand(1));
   case VPInstruction::FirstActiveLane:
   case VPInstruction::LastActiveLane:
-    return DL.getIndexType(PointerType::get(Ctx, 0));
+    // Assume that the maximum possible number of elements in a vector fits
+    // within the index type for the default address space.
+    return DL.getIndexType(Ctx, 0);
   case VPInstruction::LogicalAnd:
   case VPInstruction::LogicalOr:
     assert(inferScalarType(R->getOperand(0))->isIntegerTy(1) &&
