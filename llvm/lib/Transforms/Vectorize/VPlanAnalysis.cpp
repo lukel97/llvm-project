@@ -122,12 +122,8 @@ Type *VPTypeAnalysis::inferScalarTypeForRecipe(const VPInstruction *R) {
   case VPInstruction::ExtractLane:
     return inferScalarType(R->getOperand(1));
   case VPInstruction::FirstActiveLane:
-  case VPInstruction::LastActiveLane: {
-    Type *Ty = DL.getLargestLegalIntType(Ctx);
-    if (!Ty)
-      Ty = Type::getIntNTy(Ctx, 64);
-    return Ty;
-  }
+  case VPInstruction::LastActiveLane:
+    return DL.getIndexType(PointerType::get(Ctx, 0));
   case VPInstruction::LogicalAnd:
   case VPInstruction::LogicalOr:
     assert(inferScalarType(R->getOperand(0))->isIntegerTy(1) &&
