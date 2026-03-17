@@ -15,6 +15,7 @@ add_orc_rt_unittest(CoreTests
   AllocActionTest.cpp
   BitmaskEnumTest.cpp
   CallableTraitsHelperTest.cpp
+  ControllerInterfaceTest.cpp
   EndianTest.cpp
   ErrorCAPITest.cpp
   ErrorTest.cpp
@@ -22,6 +23,7 @@ add_orc_rt_unittest(CoreTests
   ExecutorAddressTest.cpp
   IntervalMapTest.cpp
   IntervalSetTest.cpp
+  LockedAccessTest.cpp
   MathTest.cpp
   MemoryFlagsTest.cpp
   QueueingTaskDispatcherTest.cpp
