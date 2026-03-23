@@ -12596,9 +12596,10 @@ SDValue TargetLowering::expandCttzElts(SDNode *Node, SelectionDAG &DAG) const {
   SDValue StepVL = DAG.getNode(ISD::SUB, DL, NewVT, SplatVL, StepVec);
   SDValue Ext = DAG.getSExtOrTrunc(Op, DL, NewVT);
   SDValue And = DAG.getNode(ISD::AND, DL, NewVT, StepVL, Ext);
-  SDValue Max = DAG.getNode(ISD::VECREDUCE_UMAX, DL, NewEltVT, And);
-  SDValue Sub = DAG.getNode(ISD::SUB, DL, NewEltVT,
-                            DAG.getZExtOrTrunc(VL, DL, NewEltVT), Max);
+  SDValue Max =
+      DAG.getNode(ISD::VECREDUCE_UMAX, DL, NewVT.getVectorElementType(), And);
+  SDValue Sub = DAG.getNode(ISD::SUB, DL, NewEltVT, VL,
+                            DAG.getZExtOrTrunc(Max, DL, NewEltVT));
 
   return DAG.getZExtOrTrunc(Sub, DL, VT);
 }

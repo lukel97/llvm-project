@@ -8324,7 +8324,6 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     return;
   }
   case Intrinsic::experimental_cttz_elts: {
-    auto DL = getCurSDLoc();
     SDValue Op = getValue(I.getOperand(0));
     EVT RetTy = TLI.getValueType(DAG.getDataLayout(), I.getType());
     bool ZeroIsPoison =

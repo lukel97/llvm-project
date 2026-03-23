@@ -4841,7 +4841,7 @@ SDValue DAGTypeLegalizer::SplitVecOp_CttzElts(SDNode *N) {
   GetSplitVector(VecOp, Lo, Hi);
 
   // if CTTZ_ELTS(Lo) != VL => CTTZ_ELTS(Lo).
-  // else => VL + (CTTZ_ELTS(Hi) or CTTZ_ELTS_ZERO_UNDEF(Hi)).
+  // else => VL + (CTTZ_ELTS(Hi) or CTTZ_ELTS_ZERO_POISON(Hi)).
   SDValue ResLo = DAG.getNode(ISD::CTTZ_ELTS, DL, ResVT, Lo);
   SDValue VL =
       DAG.getElementCount(DL, ResVT, Lo.getValueType().getVectorElementCount());
