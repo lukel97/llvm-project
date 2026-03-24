@@ -5820,6 +5820,8 @@ public:
   /// temporarily, advance store position, before re-loading the final vector.
   SDValue expandVECTOR_COMPRESS(SDNode *Node, SelectionDAG &DAG) const;
 
+  /// Expand a CTTZ_ELTS or CTTZ_ELTS_ZERO_POISON by calculating (VL - i) for
+  /// each active lane, getting the maximum and subtracting it from VL.
   SDValue expandCttzElts(SDNode *Node, SelectionDAG &DAG) const;
 
   /// Expands PARTIAL_REDUCE_S/UMLA nodes to a series of simpler operations,
