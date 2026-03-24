@@ -14,12 +14,11 @@ define i8 @ctz_v8i1(<8 x i1> %a) {
 ; CHECK-NEXT:   .byte 1
 ; CHECK-LABEL: ctz_v8i1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    shl v0.8b, v0.8b, #7
 ; CHECK-NEXT:    adrp x8, .LCPI0_0
+; CHECK-NEXT:    cmeq v0.8b, v0.8b, #0
 ; CHECK-NEXT:    mov w9, #8 // =0x8
 ; CHECK-NEXT:    ldr d1, [x8, :lo12:.LCPI0_0]
-; CHECK-NEXT:    cmlt v0.8b, v0.8b, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
+; CHECK-NEXT:    bic v0.8b, v1.8b, v0.8b
 ; CHECK-NEXT:    umaxv b0, v0.8b
 ; CHECK-NEXT:    fmov w8, s0
 ; CHECK-NEXT:    sub w0, w9, w8
@@ -48,12 +47,11 @@ define i32 @ctz_v16i1(<16 x i1> %a) {
 ; CHECK-NEXT:   .byte 1
 ; CHECK-LABEL: ctz_v16i1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    shl v0.16b, v0.16b, #7
 ; CHECK-NEXT:    adrp x8, .LCPI1_0
+; CHECK-NEXT:    cmeq v0.16b, v0.16b, #0
 ; CHECK-NEXT:    mov w9, #16 // =0x10
 ; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI1_0]
-; CHECK-NEXT:    cmlt v0.16b, v0.16b, #0
-; CHECK-NEXT:    and v0.16b, v0.16b, v1.16b
+; CHECK-NEXT:    bic v0.16b, v1.16b, v0.16b
 ; CHECK-NEXT:    umaxv b0, v0.16b
 ; CHECK-NEXT:    fmov w8, s0
 ; CHECK-NEXT:    sub w0, w9, w8
@@ -96,12 +94,11 @@ define i7 @ctz_i7_v8i1(<8 x i1> %a) {
 ; CHECK-NEXT:   .byte 1
 ; CHECK-LABEL: ctz_i7_v8i1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    shl v0.8b, v0.8b, #7
 ; CHECK-NEXT:    adrp x8, .LCPI3_0
+; CHECK-NEXT:    cmeq v0.8b, v0.8b, #0
 ; CHECK-NEXT:    mov w9, #8 // =0x8
 ; CHECK-NEXT:    ldr d1, [x8, :lo12:.LCPI3_0]
-; CHECK-NEXT:    cmlt v0.8b, v0.8b, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
+; CHECK-NEXT:    bic v0.8b, v1.8b, v0.8b
 ; CHECK-NEXT:    umaxv b0, v0.8b
 ; CHECK-NEXT:    fmov w8, s0
 ; CHECK-NEXT:    sub w0, w9, w8
@@ -124,12 +121,11 @@ define i8 @ctz_v8i1_poison(<8 x i1> %a) {
 ; CHECK-NEXT:   .byte 1
 ; CHECK-LABEL: ctz_v8i1_poison:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    shl v0.8b, v0.8b, #7
 ; CHECK-NEXT:    adrp x8, .LCPI4_0
+; CHECK-NEXT:    cmeq v0.8b, v0.8b, #0
 ; CHECK-NEXT:    mov w9, #8 // =0x8
 ; CHECK-NEXT:    ldr d1, [x8, :lo12:.LCPI4_0]
-; CHECK-NEXT:    cmlt v0.8b, v0.8b, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
+; CHECK-NEXT:    bic v0.8b, v1.8b, v0.8b
 ; CHECK-NEXT:    umaxv b0, v0.8b
 ; CHECK-NEXT:    fmov w8, s0
 ; CHECK-NEXT:    sub w0, w9, w8

@@ -2135,11 +2135,6 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     }
   }
 
-  // Set to custom so we can expand cttz.elts during type legalization for NEON
-  for (auto VT : {MVT::v16i1, MVT::v8i1, MVT::v4i1, MVT::v2i1})
-    setOperationAction({ISD::CTTZ_ELTS, ISD::CTTZ_ELTS_ZERO_POISON}, VT,
-                       Custom);
-
   if (Subtarget->hasMOPS() && Subtarget->hasMTE()) {
     // Only required for llvm.aarch64.mops.memset.tag
     setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i8, Custom);
@@ -8485,9 +8480,6 @@ SDValue AArch64TargetLowering::LowerOperation(SDValue Op,
     SDValue CttzOp = Op.getOperand(0);
     EVT VT = CttzOp.getValueType();
     assert(VT.getVectorElementType() == MVT::i1 && "Expected MVT::i1");
-
-    if (!Subtarget->isSVEorStreamingSVEAvailable())
-      return expandCttzElts(Op.getNode(), DAG);
 
     if (VT.isFixedLengthVector()) {
       // We can use SVE instructions to lower this intrinsic by first creating
