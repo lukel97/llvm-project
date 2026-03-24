@@ -10090,22 +10090,24 @@ SDValue TargetLowering::expandVPCTTZElements(SDNode *N,
   return DAG.getNode(ISD::VP_REDUCE_UMIN, DL, ResVT, ExtEVL, Select, Mask, EVL);
 }
 
-SDValue TargetLowering::expandVectorFindLastActive(SDNode *N,
-                                                   SelectionDAG &DAG) const {
-  SDLoc DL(N);
-  SDValue Mask = N->getOperand(0);
+/// Returns a step vector that's guaranteed to fit the number of elements in \p
+/// Mask, as well as a type-legalized version of \p Mask.
+static std::pair<SDValue, SDValue> getLegalStepVector(SDValue Mask,
+                                                      bool ZeroIsPoison,
+                                                      SDLoc DL,
+                                                      SelectionDAG &DAG) {
   EVT MaskVT = Mask.getValueType();
   EVT BoolVT = MaskVT.getScalarType();
 
   // Find a suitable type for a stepvector.
+  // If zero is poison, we can assume the upper limit of the result is VF-1.
   ConstantRange VScaleRange(1, /*isFullSet=*/true); // Fixed length default.
   if (MaskVT.isScalableVector())
     VScaleRange = getVScaleRange(&DAG.getMachineFunction().getFunction(), 64);
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   uint64_t EltWidth = TLI.getBitWidthForCttzElements(
-      EVT(getVectorIdxTy(DAG.getDataLayout())).getTypeForEVT(*DAG.getContext()),
-      MaskVT.getVectorElementCount(),
-      /*ZeroIsPoison=*/true, &VScaleRange);
+      EVT(TLI.getVectorIdxTy(DAG.getDataLayout())),
+      MaskVT.getVectorElementCount(), ZeroIsPoison, &VScaleRange);
   // If the step vector element type is smaller than the mask element type,
   // use the mask type directly to avoid widening issues.
   EltWidth = std::max(EltWidth, BoolVT.getFixedSizeInBits());
@@ -10121,7 +10123,6 @@ SDValue TargetLowering::expandVectorFindLastActive(SDNode *N,
   SDValue StepVec;
   if (TypeAction == TargetLowering::TypePromoteInteger) {
     StepVecVT = TLI.getTypeToTransformTo(*DAG.getContext(), StepVecVT);
-    StepVT = StepVecVT.getVectorElementType();
     StepVec = DAG.getStepVector(DL, StepVecVT);
   } else if (TypeAction == TargetLowering::TypeWidenVector) {
     // For widening, the element count changes. Create a step vector with only
@@ -10138,12 +10139,20 @@ SDValue TargetLowering::expandVectorFindLastActive(SDNode *N,
     EVT WideMaskVT = EVT::getVectorVT(*DAG.getContext(), BoolVT, WideNumElts);
     SDValue ZeroMask = DAG.getConstant(0, DL, WideMaskVT);
     Mask = DAG.getInsertSubvector(DL, ZeroMask, Mask, 0);
-
-    StepVecVT = WideVecVT;
-    StepVT = WideVecVT.getVectorElementType();
   } else {
     StepVec = DAG.getStepVector(DL, StepVecVT);
   }
+
+  return {Mask, StepVec};
+}
+
+SDValue TargetLowering::expandVectorFindLastActive(SDNode *N,
+                                                   SelectionDAG &DAG) const {
+  SDLoc DL(N);
+  auto [Mask, StepVec] =
+      getLegalStepVector(N->getOperand(0), /*ZeroIsPoison=*/true, DL, DAG);
+  EVT StepVecVT = StepVec.getValueType();
+  EVT StepVT = StepVec.getValueType().getVectorElementType();
 
   // Zero out lanes with inactive elements, then find the highest remaining
   // value from the stepvector.
@@ -12564,6 +12573,34 @@ SDValue TargetLowering::expandVECTOR_COMPRESS(SDNode *Node,
   }
 
   return DAG.getLoad(VecVT, DL, Chain, StackPtr, PtrInfo);
+}
+
+SDValue TargetLowering::expandCttzElts(SDNode *Node, SelectionDAG &DAG) const {
+  SDLoc DL(Node);
+  EVT VT = Node->getValueType(0);
+
+  bool ZeroIsPoison = Node->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON;
+  auto [Mask, StepVec] =
+      getLegalStepVector(Node->getOperand(0), ZeroIsPoison, DL, DAG);
+  EVT StepVecVT = StepVec.getValueType();
+  EVT StepVT = StepVecVT.getVectorElementType();
+
+  // Promote the scalar result type early to avoid redundant zexts.
+  if (getTypeAction(StepVT.getSimpleVT()) == TypePromoteInteger)
+    StepVT = getTypeToTransformTo(*DAG.getContext(), StepVT);
+
+  SDValue VL =
+      DAG.getElementCount(DL, StepVT, StepVecVT.getVectorElementCount());
+  SDValue SplatVL = DAG.getSplat(StepVecVT, DL, VL);
+  StepVec = DAG.getNode(ISD::SUB, DL, StepVecVT, SplatVL, StepVec);
+  SDValue Zeroes = DAG.getConstant(0, DL, StepVecVT);
+  SDValue Select = DAG.getSelect(DL, StepVecVT, Mask, StepVec, Zeroes);
+  SDValue Max = DAG.getNode(ISD::VECREDUCE_UMAX, DL,
+                            StepVecVT.getVectorElementType(), Select);
+  SDValue Sub = DAG.getNode(ISD::SUB, DL, StepVT, VL,
+                            DAG.getZExtOrTrunc(Max, DL, StepVT));
+
+  return DAG.getZExtOrTrunc(Sub, DL, VT);
 }
 
 SDValue TargetLowering::expandPartialReduceMLA(SDNode *N,
