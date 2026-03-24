@@ -2115,17 +2115,15 @@ public:
       return Cost;
     }
     case Intrinsic::experimental_cttz_elts: {
-      EVT RetType = getTLI()->getValueType(DL, ICA.getReturnType(), true);
       EVT ArgType = getTLI()->getValueType(DL, ICA.getArgTypes()[0], true);
 
       // If we're not expanding the intrinsic then we assume this is cheap
       // to implement.
-      auto LT = getTypeLegalizationCost(ICA.getArgTypes()[0]);
-      if (getTLI()->isOperationLegalOrCustom(ISD::CTTZ_ELTS, LT.second))
-        return LT.first;
+      if (!getTLI()->shouldExpandCttzElements(ArgType))
+        return getTypeLegalizationCost(RetTy).first;
 
       // TODO: The costs below reflect the expansion code in
-      // TargetLowering, but we may want to sacrifice some accuracy in
+      // SelectionDAGBuilder, but we may want to sacrifice some accuracy in
       // favour of compile time.
 
       // Find the smallest "sensible" element type to use for the expansion.
@@ -2135,7 +2133,8 @@ public:
         VScaleRange = getVScaleRange(I->getCaller(), 64);
 
       unsigned EltWidth = getTLI()->getBitWidthForCttzElements(
-          RetType, ArgType.getVectorElementCount(), ZeroIsPoison, &VScaleRange);
+          getTLI()->getValueType(DL, RetTy), ArgType.getVectorElementCount(),
+          ZeroIsPoison, &VScaleRange);
       Type *NewEltTy = IntegerType::getIntNTy(RetTy->getContext(), EltWidth);
 
       // Create the new vector type & get the vector length

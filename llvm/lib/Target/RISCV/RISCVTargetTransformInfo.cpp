@@ -1656,11 +1656,11 @@ RISCVTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   }
   case Intrinsic::experimental_cttz_elts: {
     Type *ArgTy = ICA.getArgTypes()[0];
-    auto LT = getTypeLegalizationCost(ArgTy);
-    if (!LT.second.isVector())
+    EVT ArgType = TLI->getValueType(DL, ArgTy, true);
+    if (getTLI()->shouldExpandCttzElements(ArgType))
       break;
-    InstructionCost Cost = LT.first * getRISCVInstructionCost(
-                                          RISCV::VFIRST_M, LT.second, CostKind);
+    InstructionCost Cost = getRISCVInstructionCost(
+        RISCV::VFIRST_M, getTypeLegalizationCost(ArgTy).second, CostKind);
 
     // If zero_is_poison is false, then we will generate additional
     // cmp + select instructions to convert -1 to EVL.
@@ -1733,7 +1733,7 @@ RISCVTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     // Find a suitable type for a stepvector.
     ConstantRange VScaleRange(APInt(64, 1), APInt::getZero(64));
     unsigned EltWidth = getTLI()->getBitWidthForCttzElements(
-        MaskLT.second, MaskTy->getElementCount(),
+        MaskLT.second.getScalarType(), MaskTy->getElementCount(),
         /*ZeroIsPoison=*/true, &VScaleRange);
     EltWidth = std::max(EltWidth, MaskTy->getScalarSizeInBits());
     Type *StepTy = Type::getIntNTy(MaskTy->getContext(), EltWidth);

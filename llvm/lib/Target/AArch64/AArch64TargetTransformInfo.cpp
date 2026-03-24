@@ -1077,25 +1077,12 @@ AArch64TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     break;
   }
   case Intrinsic::experimental_cttz_elts: {
-    Type *ArgTy = ICA.getArgTypes()[0];
-
-    auto LT = getTypeLegalizationCost(ArgTy);
-    // We always try to lower via an i1 vector first, so check if CTTZ_ELTS is
-    // legal or custom for it. The type may be illegal so we can't use
-    // isOperationLegalOrCustom.
-    LT.second = MVT::getVectorVT(MVT::i1, LT.second.getVectorElementCount());
-    TargetLowering::LegalizeAction OpAction =
-        TLI->getOperationAction(ISD::CTTZ_ELTS, LT.second);
-    if (OpAction == TargetLowering::Legal ||
-        OpAction == TargetLowering::Custom) {
+    EVT ArgVT = getTLI()->getValueType(DL, ICA.getArgTypes()[0]);
+    if (!getTLI()->shouldExpandCttzElements(ArgVT)) {
       // This will consist of a SVE brkb and a cntp instruction. These
       // typically have the same latency and half the throughput as a vector
       // add instruction.
-      InstructionCost Cost = LT.first * 4;
-      // Type splitting requires a cmp and csel.
-      if (LT.first > 1)
-        Cost += (LT.first - 1) * 2;
-      return Cost;
+      return 4;
     }
     break;
   }
