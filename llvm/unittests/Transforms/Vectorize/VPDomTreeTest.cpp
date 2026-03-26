@@ -283,6 +283,19 @@ TEST_F(VPPartialDominatorTreeTest, PartialDominanceNoRegionsTest) {
   checkPartialDomChildren(VPDT, VPBB3, {});
   checkPartialDomChildren(VPDT, VPBB4, {Plan.getScalarHeader()});
   checkPartialDomChildren(VPDT, Plan.getScalarHeader(), {});
+
+  // Build a second partial tree rooted at VPBB3.
+  // VPBB3 -> VPBB4 -> ScalarHeader; VPBB0, VPBB1, and VPBB2 are not reachable.
+  VPPartialDominatorTree VPDT3(VPBB3);
+
+  EXPECT_EQ(VPDT3.getNode(VPBB0), nullptr);
+  EXPECT_EQ(VPDT3.getNode(VPBB1), nullptr);
+  EXPECT_EQ(VPDT3.getNode(VPBB2), nullptr);
+
+  EXPECT_TRUE(VPDT3.dominates(VPBB3, VPBB4));
+  EXPECT_TRUE(VPDT3.dominates(VPBB3, Plan.getScalarHeader()));
+  EXPECT_TRUE(VPDT3.dominates(VPBB4, Plan.getScalarHeader()));
+  EXPECT_FALSE(VPDT3.dominates(VPBB4, VPBB3));
 }
 
 TEST_F(VPPartialDominatorTreeTest, PartialDominanceInsideRegionTest) {
