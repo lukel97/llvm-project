@@ -41,7 +41,7 @@
 
 namespace llvm {
 
-template <typename NodeT, bool IsPostDom>
+template <typename, bool, typename>
 class DominatorTreeBase;
 
 namespace DomTreeBuilder {
@@ -52,10 +52,10 @@ struct SemiNCAInfo;
 /// Base class for the actual dominator tree node.
 template <class NodeT> class DomTreeNodeBase {
   friend class PostDominatorTree;
-  friend class DominatorTreeBase<NodeT, false>;
-  friend class DominatorTreeBase<NodeT, true>;
-  friend struct DomTreeBuilder::SemiNCAInfo<DominatorTreeBase<NodeT, false>>;
-  friend struct DomTreeBuilder::SemiNCAInfo<DominatorTreeBase<NodeT, true>>;
+  template <class NT, bool IsPD, class Trait>
+  friend class DominatorTreeBase;
+  template <class DomTreeT>
+  friend struct DomTreeBuilder::SemiNCAInfo;
 
   NodeT *TheBB;
   DomTreeNodeBase *IDom;
@@ -232,15 +232,20 @@ template <typename NodeT> struct DomTreeNodeTraits {
 ///
 /// This class is a generic template over graph nodes. It is instantiated for
 /// various graphs in the LLVM IR or in the code generator.
-template <typename NodeT, bool IsPostDom>
+///
+/// An optional NodeTrait template parameter allows customizing the traits used
+/// for the dominator tree, e.g. to use a custom entry node or parent type.
+/// This enables non-pointer NodeT types where NodePtr from NodeTrait is a
+/// pointer type different from NodeT*.
+template <typename NodeT, bool IsPostDom,
+          typename NodeTrait = DomTreeNodeTraits<NodeT>>
 class DominatorTreeBase {
  public:
-  static_assert(std::is_pointer_v<typename GraphTraits<NodeT *>::NodeRef>,
-                "Currently DominatorTreeBase supports only pointer nodes");
-  using NodeTrait = DomTreeNodeTraits<NodeT>;
   using NodeType = typename NodeTrait::NodeType;
   using NodePtr = typename NodeTrait::NodePtr;
   using ParentPtr = typename NodeTrait::ParentPtr;
+  static_assert(std::is_pointer_v<NodePtr>,
+                "DominatorTreeBase requires NodePtr to be a pointer type");
   static_assert(std::is_pointer_v<ParentPtr>,
                 "Currently NodeT's parent must be a pointer type");
   using ParentType = std::remove_pointer_t<ParentPtr>;
@@ -398,7 +403,8 @@ public:
   /// may (but is not required to) be null for a forward (backwards)
   /// statically unreachable block.
   DomTreeNodeBase<NodeT> *getNode(const NodeT *BB) const {
-    assert((!BB || Parent == NodeTrait::getParent(const_cast<NodeT *>(BB))) &&
+    assert((!BB || !NodeTrait::getParent(const_cast<NodeT *>(BB)) ||
+            Parent == NodeTrait::getParent(const_cast<NodeT *>(BB))) &&
            "cannot get DomTreeNode of block with different parent");
     if (auto Idx = getNodeIndex(BB); Idx && *Idx < DomTreeNodes.size())
       return DomTreeNodes[*Idx].get();
@@ -517,16 +523,16 @@ public:
   /// must have tree nodes.
   NodeT *findNearestCommonDominator(NodeT *A, NodeT *B) const {
     assert(A && B && "Pointers are not valid");
-    assert(NodeTrait::getParent(A) == NodeTrait::getParent(B) &&
+    assert((!NodeTrait::getParent(A) || !NodeTrait::getParent(B) ||
+            NodeTrait::getParent(A) == NodeTrait::getParent(B)) &&
            "Two blocks are not in same function");
 
     // If either A or B is a entry block then it is nearest common dominator
     // (for forward-dominators).
     if (!isPostDominator()) {
-      NodeT &Entry =
-          *DomTreeNodeTraits<NodeT>::getEntryNode(NodeTrait::getParent(A));
-      if (A == &Entry || B == &Entry)
-        return &Entry;
+      NodeT *Entry = NodeTrait::getEntryNode(Parent);
+      if (A == Entry || B == Entry)
+        return Entry;
     }
 
     DomTreeNodeBase<NodeT> *NodeA = getNode(A);
@@ -651,8 +657,8 @@ public:
   void insertEdge(NodeT *From, NodeT *To) {
     assert(From);
     assert(To);
-    assert(NodeTrait::getParent(From) == Parent);
-    assert(NodeTrait::getParent(To) == Parent);
+    assert(!NodeTrait::getParent(From) || NodeTrait::getParent(From) == Parent);
+    assert(!NodeTrait::getParent(To) || NodeTrait::getParent(To) == Parent);
     DomTreeBuilder::InsertEdge(*this, From, To);
   }
 
@@ -669,8 +675,8 @@ public:
   void deleteEdge(NodeT *From, NodeT *To) {
     assert(From);
     assert(To);
-    assert(NodeTrait::getParent(From) == Parent);
-    assert(NodeTrait::getParent(To) == Parent);
+    assert(!NodeTrait::getParent(From) || NodeTrait::getParent(From) == Parent);
+    assert(!NodeTrait::getParent(To) || NodeTrait::getParent(To) == Parent);
     DomTreeBuilder::DeleteEdge(*this, From, To);
   }
 
@@ -1023,16 +1029,16 @@ using PostDomTreeBase = DominatorTreeBase<T, true>;
 
 // These two functions are declared out of line as a workaround for building
 // with old (< r147295) versions of clang because of pr11642.
-template <typename NodeT, bool IsPostDom>
-bool DominatorTreeBase<NodeT, IsPostDom>::dominates(const NodeT *A,
-                                                    const NodeT *B) const {
+template <typename NodeT, bool IsPostDom, typename NodeTrait>
+bool DominatorTreeBase<NodeT, IsPostDom, NodeTrait>::dominates(
+    const NodeT *A, const NodeT *B) const {
   if (A == B)
     return true;
 
   return dominates(getNode(A), getNode(B));
 }
-template <typename NodeT, bool IsPostDom>
-bool DominatorTreeBase<NodeT, IsPostDom>::properlyDominates(
+template <typename NodeT, bool IsPostDom, typename NodeTrait>
+bool DominatorTreeBase<NodeT, IsPostDom, NodeTrait>::properlyDominates(
     const NodeT *A, const NodeT *B) const {
   if (A == B)
     return false;
