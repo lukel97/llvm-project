@@ -121,6 +121,11 @@ namespace mlir {
 class MLIRContextImpl {
 public:
   //===--------------------------------------------------------------------===//
+  // Remark
+  //===--------------------------------------------------------------------===//
+  std::unique_ptr<remark::detail::RemarkEngine> remarkEngine;
+
+  //===--------------------------------------------------------------------===//
   // Debugging
   //===--------------------------------------------------------------------===//
 
@@ -133,11 +138,6 @@ public:
   // Diagnostics
   //===--------------------------------------------------------------------===//
   DiagnosticEngine diagEngine;
-
-  //===--------------------------------------------------------------------===//
-  // Remark
-  //===--------------------------------------------------------------------===//
-  std::unique_ptr<remark::detail::RemarkEngine> remarkEngine;
 
   //===--------------------------------------------------------------------===//
   // Options
@@ -357,7 +357,10 @@ MLIRContext::MLIRContext(const DialectRegistry &registry, Threading setting)
   impl->affineUniquer.registerParametricStorageType<IntegerSetStorage>();
 }
 
-MLIRContext::~MLIRContext() = default;
+MLIRContext::~MLIRContext() {
+  // finalize remark engine before destroying anything else.
+  impl->remarkEngine.reset();
+}
 
 /// Copy the specified array of elements into memory managed by the provided
 /// bump pointer allocator.  This assumes the elements are all PODs.
@@ -706,20 +709,21 @@ ArrayRef<RegisteredOperationName> MLIRContext::getRegisteredOperations() {
 /// Return information for registered operations by dialect.
 ArrayRef<RegisteredOperationName>
 MLIRContext::getRegisteredOperationsByDialect(StringRef dialectName) {
-  auto lowerBound = llvm::lower_bound(
-      impl->sortedRegisteredOperations, dialectName, [](auto &lhs, auto &rhs) {
-        return lhs.getDialect().getNamespace().compare(rhs);
-      });
+  auto *lowerBound =
+      llvm::lower_bound(impl->sortedRegisteredOperations, dialectName,
+                        [](const RegisteredOperationName &lhs, StringRef rhs) {
+                          return lhs.getDialect().getNamespace() < rhs;
+                        });
 
   if (lowerBound == impl->sortedRegisteredOperations.end() ||
       lowerBound->getDialect().getNamespace() != dialectName)
     return ArrayRef<RegisteredOperationName>();
 
-  auto upperBound =
-      std::upper_bound(lowerBound, impl->sortedRegisteredOperations.end(),
-                       dialectName, [](auto &lhs, auto &rhs) {
-                         return lhs.compare(rhs.getDialect().getNamespace());
-                       });
+  auto *upperBound = std::upper_bound(
+      lowerBound, impl->sortedRegisteredOperations.end(), dialectName,
+      [](StringRef lhs, const RegisteredOperationName &rhs) {
+        return lhs < rhs.getDialect().getNamespace();
+      });
 
   size_t count = std::distance(lowerBound, upperBound);
   return ArrayRef(&*lowerBound, count);
@@ -995,8 +999,8 @@ void RegisteredOperationName::insert(
   ctxImpl.sortedRegisteredOperations.insert(
       llvm::upper_bound(ctxImpl.sortedRegisteredOperations, value,
                         [](auto &lhs, auto &rhs) {
-                          return lhs.getIdentifier().compare(
-                              rhs.getIdentifier());
+                          return lhs.getIdentifier().strref() <
+                                 rhs.getIdentifier().strref();
                         }),
       value);
 }
@@ -1201,7 +1205,7 @@ AffineMap AffineMap::getImpl(unsigned dimCount, unsigned symbolCount,
 /// present in result expressions is less than `dimCount` and the highest index
 /// of symbolic identifier present in result expressions is less than
 /// `symbolCount`.
-LLVM_ATTRIBUTE_UNUSED static bool
+[[maybe_unused]] static bool
 willBeValidAffineMap(unsigned dimCount, unsigned symbolCount,
                      ArrayRef<AffineExpr> results) {
   int64_t maxDimPosition = -1;

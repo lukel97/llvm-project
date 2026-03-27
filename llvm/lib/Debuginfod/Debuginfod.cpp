@@ -27,7 +27,6 @@
 #include "llvm/BinaryFormat/Magic.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
-#include "llvm/Debuginfod/HTTPClient.h"
 #include "llvm/Object/BuildID.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Support/CachePruning.h"
@@ -35,6 +34,7 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/HTTP/HTTPClient.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ThreadPool.h"
@@ -567,10 +567,10 @@ Expected<std::string> DebuginfodCollection::findDebugBinaryPath(BuildIDRef ID) {
   return getCachedOrDownloadDebuginfo(ID);
 }
 
-Error DebuginfodServer::init(DebuginfodLog &Log,
-                             DebuginfodCollection &Collection) {
-
-  Error Err =
+DebuginfodServer::DebuginfodServer(DebuginfodLog &Log,
+                                   DebuginfodCollection &Collection)
+    : Log(Log), Collection(Collection) {
+  cantFail(
       Server.get(R"(/buildid/(.*)/debuginfo)", [&](HTTPServerRequest Request) {
         Log.push("GET " + Request.UrlPath);
         std::string IDString;
@@ -587,11 +587,8 @@ Error DebuginfodServer::init(DebuginfodLog &Log,
           return;
         }
         streamFile(Request, *PathOrErr);
-      });
-  if (Err)
-    return Err;
-
-  Err =
+      }));
+  cantFail(
       Server.get(R"(/buildid/(.*)/executable)", [&](HTTPServerRequest Request) {
         Log.push("GET " + Request.UrlPath);
         std::string IDString;
@@ -608,18 +605,7 @@ Error DebuginfodServer::init(DebuginfodLog &Log,
           return;
         }
         streamFile(Request, *PathOrErr);
-      });
-  if (Err)
-    return Err;
-  return Error::success();
-}
-
-Expected<DebuginfodServer>
-DebuginfodServer::create(DebuginfodLog &Log, DebuginfodCollection &Collection) {
-  DebuginfodServer Serverd;
-  if (llvm::Error Err = Serverd.init(Log, Collection))
-    return std::move(Err);
-  return std::move(Serverd);
+      }));
 }
 
 } // namespace llvm

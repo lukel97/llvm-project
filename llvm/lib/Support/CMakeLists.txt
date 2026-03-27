@@ -42,6 +42,9 @@ if( WIN32 )
   # advapi32 required for CryptAcquireContextW in lib/Support/Windows/Path.inc.
   # ntdll required for RtlGetLastNtStatus in lib/Support/ErrorHandling.cpp.
   set(system_libs ${system_libs} psapi shell32 ole32 uuid advapi32 ws2_32 ntdll)
+  if( HAVE_WINDOWS_ICU )
+    list(APPEND system_libs icu)
+  endif()
 elseif( CMAKE_HOST_UNIX )
   if( HAVE_LIBRT )
     set(system_libs ${system_libs} rt)
@@ -135,6 +138,7 @@ if (UNIX AND "${CMAKE_SYSTEM_NAME}" MATCHES "AIX")
 endif()
 
 add_subdirectory(BLAKE3)
+add_subdirectory(HTTP)
 
 add_llvm_component_library(LLVMSupport
   ABIBreak.cpp
@@ -148,6 +152,7 @@ add_llvm_component_library(LLVMSupport
   AArch64BuildAttributes.cpp
   ARMAttributeParser.cpp
   ARMWinEH.cpp
+  AllocToken.cpp
   Allocator.cpp
   AutoConvert.cpp
   Base64.cpp
@@ -200,12 +205,14 @@ add_llvm_component_library(LLVMSupport
   FormatVariadic.cpp
   GlobPattern.cpp
   GraphWriter.cpp
+  Hash.cpp
   HexagonAttributeParser.cpp
   HexagonAttributes.cpp
   InitLLVM.cpp
   InstructionCost.cpp
   IntEqClasses.cpp
   IntervalMap.cpp
+  Jobserver.cpp
   JSON.cpp
   KnownBits.cpp
   KnownFPClass.cpp
@@ -232,6 +239,7 @@ add_llvm_component_library(LLVMSupport
   PluginLoader.cpp
   PrettyStackTrace.cpp
   RandomNumberGenerator.cpp
+  IntegerInclusiveInterval.cpp
   Regex.cpp
   RewriteBuffer.cpp
   RewriteRope.cpp
@@ -265,13 +273,17 @@ add_llvm_component_library(LLVMSupport
   ToolOutputFile.cpp
   TrieRawHashMap.cpp
   Twine.cpp
-  TypeSize.cpp
   Unicode.cpp
   UnicodeCaseFold.cpp
   UnicodeNameToCodepoint.cpp
   UnicodeNameToCodepointGenerated.cpp
   VersionTuple.cpp
   VirtualFileSystem.cpp
+  VirtualOutputBackend.cpp
+  VirtualOutputBackends.cpp
+  VirtualOutputConfig.cpp
+  VirtualOutputError.cpp
+  VirtualOutputFile.cpp
   WithColor.cpp
   YAMLParser.cpp
   YAMLTraits.cpp
@@ -304,6 +316,7 @@ add_llvm_component_library(LLVMSupport
   Threading.cpp
   Valgrind.cpp
   Watchdog.cpp
+  zOSLibFunctions.cpp
 
   ADDITIONAL_HEADER_DIRS
   Unix
@@ -311,6 +324,9 @@ add_llvm_component_library(LLVMSupport
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/ADT
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Support
   ${Backtrace_INCLUDE_DIRS}
+
+  PRECOMPILE_HEADERS
+  [["llvm/Support/pch.h"]]
 
   LINK_LIBS
   ${system_libs} ${imported_libs} ${delayload_flags}
@@ -320,7 +336,7 @@ add_llvm_component_library(LLVMSupport
   )
 
 # Link ICU library if it is an external library.
-if(ICU_FOUND)
+if(ICU_FOUND AND NOT HAVE_WINDOWS_ICU)
   target_link_libraries(LLVMSupport
   PRIVATE
   ${ICU_LIBRARIES}
@@ -386,3 +402,6 @@ target_include_directories(LLVMSupport
   PRIVATE
   ${LLVM_THIRD_PARTY_DIR}/siphash/include
 )
+
+# SupportLSP depends on Support and therefore must be included afterwards.
+add_subdirectory(LSP)

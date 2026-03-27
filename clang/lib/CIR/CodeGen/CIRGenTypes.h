@@ -175,7 +175,8 @@ public:
 
   const CIRGenFunctionInfo &arrangeCXXConstructorCall(
       const CallArgList &args, const clang::CXXConstructorDecl *d,
-      clang::CXXCtorType ctorKind, bool passProtoArgs = true);
+      clang::CXXCtorType ctorKind, unsigned extraPrefixArgs,
+      unsigned extraSuffixArgs, bool passProtoArgs = true);
 
   const CIRGenFunctionInfo &
   arrangeCXXMethodCall(const CallArgList &args,
@@ -196,14 +197,16 @@ public:
                                                     const FunctionType *fnType);
 
   const CIRGenFunctionInfo &
-  arrangeCIRFunctionInfo(CanQualType returnType,
+  arrangeCIRFunctionInfo(CanQualType returnType, bool isInstanceMethod,
                          llvm::ArrayRef<CanQualType> argTypes,
-                         RequiredArgs required);
+                         FunctionType::ExtInfo info, RequiredArgs required);
 
   const CIRGenFunctionInfo &
   arrangeFreeFunctionType(CanQual<FunctionProtoType> fpt);
   const CIRGenFunctionInfo &
   arrangeFreeFunctionType(CanQual<FunctionNoProtoType> fnpt);
+
+  unsigned getTargetAddressSpace(QualType ty) const;
 };
 
 } // namespace clang::CIRGen

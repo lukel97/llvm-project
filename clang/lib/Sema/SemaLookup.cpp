@@ -193,7 +193,7 @@ namespace {
       list.push_back(UnqualUsingEntry(UD->getNominatedNamespace(), Common));
     }
 
-    void done() { llvm::sort(list, UnqualUsingEntry::Comparator()); }
+    void done() { llvm::stable_sort(list, UnqualUsingEntry::Comparator()); }
 
     typedef ListTy::const_iterator const_iterator;
 
@@ -2727,9 +2727,7 @@ bool Sema::LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
     IsDependent = !DC && ObjectType->isDependentType();
     assert(((!DC && ObjectType->isDependentType()) ||
             !ObjectType->isIncompleteType() || !ObjectType->getAs<TagType>() ||
-            ObjectType->castAs<TagType>()
-                ->getOriginalDecl()
-                ->isEntityBeingDefined()) &&
+            ObjectType->castAs<TagType>()->getDecl()->isEntityBeingDefined()) &&
            "Caller should have completed object type");
   } else if (SS && SS->isNotEmpty()) {
     // This nested-name-specifier occurs after another nested-name-specifier,
@@ -3191,9 +3189,8 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
     //        namespaces of its associated classes.
     case Type::Record: {
       // FIXME: This should use the original decl.
-      CXXRecordDecl *Class =
-          cast<CXXRecordDecl>(cast<RecordType>(T)->getOriginalDecl())
-              ->getDefinitionOrSelf();
+      auto *Class = cast<CXXRecordDecl>(cast<RecordType>(T)->getDecl())
+                        ->getDefinitionOrSelf();
       addAssociatedClassesAndNamespaces(Result, Class);
       break;
     }
@@ -3303,6 +3300,8 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
     // Inline SPIR-V types are treated as fundamental types.
     case Type::HLSLInlineSpirv:
       break;
+    case Type::OverflowBehavior:
+      T = cast<OverflowBehaviorType>(T)->getUnderlyingType().getTypePtr();
     }
 
     if (Queue.empty())
@@ -3930,7 +3929,8 @@ void Sema::ArgumentDependentLookup(DeclarationName Name, SourceLocation Loc,
             break;
           }
 
-          if (!getLangOpts().CPlusPlusModules)
+          if (!D->getOwningModule() ||
+              !D->getOwningModule()->getTopLevelModule()->isNamedModule())
             continue;
 
           if (D->isInExportDeclContext()) {
@@ -3962,7 +3962,9 @@ void Sema::ArgumentDependentLookup(DeclarationName Name, SourceLocation Loc,
               break;
             }
           }
-        } else if (D->getFriendObjectKind()) {
+        }
+
+        if (D->getFriendObjectKind()) {
           auto *RD = cast<CXXRecordDecl>(D->getLexicalDeclContext());
           // [basic.lookup.argdep]p4:
           //   Argument-dependent lookup finds all declarations of functions and
@@ -4453,26 +4455,28 @@ void Sema::LookupVisibleDecls(DeclContext *Ctx, LookupNameKind Kind,
   H.lookupVisibleDecls(*this, Ctx, Kind, IncludeGlobalScope);
 }
 
+LabelDecl *Sema::LookupExistingLabel(IdentifierInfo *II, SourceLocation Loc) {
+  NamedDecl *Res = LookupSingleName(CurScope, II, Loc, LookupLabel,
+                                    RedeclarationKind::NotForRedeclaration);
+  // If we found a label, check to see if it is in the same context as us.
+  // When in a Block, we don't want to reuse a label in an enclosing function.
+  if (!Res || Res->getDeclContext() != CurContext)
+    return nullptr;
+  return cast<LabelDecl>(Res);
+}
+
 LabelDecl *Sema::LookupOrCreateLabel(IdentifierInfo *II, SourceLocation Loc,
                                      SourceLocation GnuLabelLoc) {
-  // Do a lookup to see if we have a label with this name already.
-  NamedDecl *Res = nullptr;
-
   if (GnuLabelLoc.isValid()) {
     // Local label definitions always shadow existing labels.
-    Res = LabelDecl::Create(Context, CurContext, Loc, II, GnuLabelLoc);
+    auto *Res = LabelDecl::Create(Context, CurContext, Loc, II, GnuLabelLoc);
     Scope *S = CurScope;
     PushOnScopeChains(Res, S, true);
     return cast<LabelDecl>(Res);
   }
 
   // Not a GNU local label.
-  Res = LookupSingleName(CurScope, II, Loc, LookupLabel,
-                         RedeclarationKind::NotForRedeclaration);
-  // If we found a label, check to see if it is in the same context as us.
-  // When in a Block, we don't want to reuse a label in an enclosing function.
-  if (Res && Res->getDeclContext() != CurContext)
-    Res = nullptr;
+  LabelDecl *Res = LookupExistingLabel(II, Loc);
   if (!Res) {
     // If not forward referenced or defined already, create the backing decl.
     Res = LabelDecl::Create(Context, CurContext, Loc, II);
@@ -4480,7 +4484,7 @@ LabelDecl *Sema::LookupOrCreateLabel(IdentifierInfo *II, SourceLocation Loc,
     assert(S && "Not in a function?");
     PushOnScopeChains(Res, S, true);
   }
-  return cast<LabelDecl>(Res);
+  return Res;
 }
 
 //===----------------------------------------------------------------------===//
@@ -4573,6 +4577,13 @@ static void getNestedNameSpecifierIdentifiers(
       case Type::TemplateSpecialization: {
         TemplateName Name =
             cast<TemplateSpecializationType>(T)->getTemplateName();
+        if (const DependentTemplateName *DTN =
+                Name.getAsDependentTemplateName()) {
+          getNestedNameSpecifierIdentifiers(DTN->getQualifier(), Identifiers);
+          if (const auto *II = DTN->getName().getIdentifier())
+            Identifiers.push_back(II);
+          return;
+        }
         if (const QualifiedTemplateName *QTN =
                 Name.getAsQualifiedTemplateName()) {
           getNestedNameSpecifierIdentifiers(QTN->getQualifier(), Identifiers);
@@ -4580,15 +4591,6 @@ static void getNestedNameSpecifierIdentifiers(
         }
         if (const auto *TD = Name.getAsTemplateDecl(/*IgnoreDeduced=*/true))
           Identifiers.push_back(TD->getIdentifier());
-        return;
-      }
-      case Type::DependentTemplateSpecialization: {
-        const DependentTemplateStorage &S =
-            cast<DependentTemplateSpecializationType>(T)
-                ->getDependentTemplateName();
-        getNestedNameSpecifierIdentifiers(S.getQualifier(), Identifiers);
-        // FIXME: Should this dig into the Name as well?
-        // Identifiers.push_back(S.getName().getIdentifier());
         return;
       }
       case Type::SubstTemplateTypeParm:
@@ -4606,7 +4608,7 @@ static void getNestedNameSpecifierIdentifiers(
       case Type::InjectedClassName: {
         auto *TT = cast<TagType>(T);
         getNestedNameSpecifierIdentifiers(TT->getQualifier(), Identifiers);
-        Identifiers.push_back(TT->getOriginalDecl()->getIdentifier());
+        Identifiers.push_back(TT->getDecl()->getIdentifier());
         return;
       }
       case Type::Typedef: {
@@ -4748,7 +4750,7 @@ void TypoCorrectionConsumer::addCorrection(TypoCorrection Correction) {
           RI->getAsString(SemaRef.getLangOpts())};
 
       if (NewKey < PrevKey)
-        *RI = Correction;
+        *RI = std::move(Correction);
       return;
     }
   }
@@ -5485,7 +5487,7 @@ TypoCorrection Sema::CorrectTypo(const DeclarationNameInfo &TypoName,
 
     if (BestTC.getCorrection().getAsString() != "super") {
       if (SecondBestTC.getCorrection().getAsString() == "super")
-        BestTC = SecondBestTC;
+        BestTC = std::move(SecondBestTC);
       else if ((*Consumer)["super"].front().isKeyword())
         BestTC = (*Consumer)["super"].front();
     }

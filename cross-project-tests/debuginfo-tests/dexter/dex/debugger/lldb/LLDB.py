@@ -32,6 +32,12 @@ class LLDB(DebuggerBase):
         # condition. See get_triggered_breakpoint_ids usage for more info.
         self._breakpoint_conditions = {}
         super(LLDB, self).__init__(context, *args)
+        if self.has_loaded:
+            self._interface.SBDebugger.Initialize()
+
+    def __del__(self):
+        if self.has_loaded:
+            self._interface.SBDebugger.Terminate()
 
     def _custom_init(self):
         self._debugger = self._interface.SBDebugger.Create()
@@ -49,8 +55,10 @@ class LLDB(DebuggerBase):
     def _custom_exit(self):
         if getattr(self, "_process", None):
             self._process.Kill()
-        if getattr(self, "_debugger", None) and getattr(self, "_target", None):
-            self._debugger.DeleteTarget(self._target)
+        if getattr(self, "_debugger", None):
+            if getattr(self, "_target", None):
+                self._debugger.DeleteTarget(self._target)
+            self._interface.SBDebugger.Destroy(self._debugger)
 
     def _translate_stop_reason(self, reason):
         if reason == self._interface.eStopReasonNone:
@@ -232,7 +240,7 @@ class LLDB(DebuggerBase):
                     ):
                         stepped_to_breakpoint = True
             if stepped_to_breakpoint:
-                self._thread.StepInto()
+                self._process.Continue()
 
     def go(self) -> ReturnCode:
         self._process.Continue()
@@ -431,8 +439,15 @@ class LLDBDAP(DAP):
             if not trace_response["success"]:
                 raise DebuggerException("failed to get stack frames")
             stackframes = trace_response["body"]["stackFrames"]
-            path = stackframes[0]["source"]["path"]
             addr = stackframes[0]["instructionPointerReference"]
+            try:
+                path = stackframes[0]["source"]["path"]
+            except KeyError:
+                # We may have no path, e.g., if the module hasn't loaded or
+                # there's no debug info. If that's the case we won't have
+                # bound a source-location breakpoint here, so we can bail now.
+                return
+
             if any(
                 self._debugger_state.bp_addr_map.get(self.dex_id_to_dap_id[dex_bp_id])
                 == addr
@@ -441,7 +456,7 @@ class LLDBDAP(DAP):
                 # Step again now to get to the breakpoint.
                 step_req_id = self.send_message(
                     self.make_request(
-                        "stepIn", {"threadId": self._debugger_state.thread}
+                        "continue", {"threadId": self._debugger_state.thread}
                     )
                 )
                 response = self._await_response(step_req_id)

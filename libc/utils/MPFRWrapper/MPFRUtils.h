@@ -33,6 +33,7 @@ enum class Operation : int {
   Asinpi,
   Atan,
   Atanh,
+  Atanpi,
   Cbrt,
   Ceil,
   Cos,
@@ -49,12 +50,14 @@ enum class Operation : int {
   Log,
   Log2,
   Log10,
+  Log10p1,
   Log1p,
   Mod2PI,
   ModPIOver2,
   ModPIOver4,
   Round,
   RoundEven,
+  Rsqrt,
   Sin,
   Sinpi,
   Sinh,
@@ -353,7 +356,7 @@ template <Operation op, typename InputType, typename OutputType>
 __attribute__((no_sanitize("address"))) cpp::enable_if_t<
     is_valid_operation<op, InputType, OutputType>(),
     internal::MPFRMatcher<op, /*is_silent*/ false, InputType, OutputType>>
-get_mpfr_matcher(InputType input, OutputType output_unused,
+get_mpfr_matcher(InputType input, [[maybe_unused]] OutputType output_unused,
                  double ulp_tolerance, RoundingMode rounding) {
   return internal::MPFRMatcher<op, /*is_silent*/ false, InputType, OutputType>(
       input, ulp_tolerance, rounding);
@@ -363,7 +366,8 @@ template <Operation op, typename InputType, typename OutputType>
 __attribute__((no_sanitize("address"))) cpp::enable_if_t<
     is_valid_operation<op, InputType, OutputType>(),
     internal::MPFRMatcher<op, /*is_silent*/ true, InputType, OutputType>>
-get_silent_mpfr_matcher(InputType input, OutputType output_unused,
+get_silent_mpfr_matcher(InputType input,
+                        [[maybe_unused]] OutputType output_unused,
                         double ulp_tolerance, RoundingMode rounding) {
   return internal::MPFRMatcher<op, /*is_silent*/ true, InputType, OutputType>(
       input, ulp_tolerance, rounding);

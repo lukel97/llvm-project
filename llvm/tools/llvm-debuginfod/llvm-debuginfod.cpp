@@ -18,10 +18,10 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Debuginfod/Debuginfod.h"
-#include "llvm/Debuginfod/HTTPClient.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/HTTP/HTTPClient.h"
 #include "llvm/Support/LLVMDriver.h"
 #include "llvm/Support/ThreadPool.h"
 
@@ -131,8 +131,8 @@ int llvm_debuginfod_main(int argc, char **argv, const llvm::ToolContext &) {
   DefaultThreadPool Pool(hardware_concurrency(MaxConcurrency));
   DebuginfodLog Log;
   DebuginfodCollection Collection(Paths, Log, Pool, MinInterval);
-  DebuginfodServer Server =
-      ExitOnErr(DebuginfodServer::create(Log, Collection));
+  DebuginfodServer Server(Log, Collection);
+
   if (!Port)
     Port = ExitOnErr(Server.Server.bind(HostInterface.c_str()));
   else
