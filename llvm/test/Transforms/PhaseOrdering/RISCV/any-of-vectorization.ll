@@ -14,14 +14,15 @@ define i32 @f(ptr %p, i32 %n) {
 ; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; CHECK:       [[VECTOR_BODY]]:
 ; CHECK-NEXT:    [[TMP3:%.*]] = phi i64 [ 0, %[[VECTOR_SCEVCHECK]] ], [ [[CURRENT_ITERATION_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_SCEVCHECK]] ], [ [[DOTFR:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = phi <vscale x 4 x i8> [ zeroinitializer, %[[VECTOR_SCEVCHECK]] ], [ [[TMP6:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ [[TMP0]], %[[VECTOR_SCEVCHECK]] ], [ [[AVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = tail call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [4 x i8], ptr [[P]], i64 [[TMP3]]
 ; CHECK-NEXT:    [[VP_OP_LOAD:%.*]] = tail call <vscale x 4 x i32> @llvm.vp.load.nxv4i32.p0(ptr align 4 [[TMP4]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP2]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <vscale x 4 x i32> [[VP_OP_LOAD]], zeroinitializer
-; CHECK-NEXT:    [[TMP6:%.*]] = tail call <vscale x 4 x i1> @llvm.vp.merge.nxv4i1(<vscale x 4 x i1> [[TMP5]], <vscale x 4 x i1> splat (i1 true), <vscale x 4 x i1> [[VEC_PHI]], i32 [[TMP2]])
-; CHECK-NEXT:    [[DOTFR]] = freeze <vscale x 4 x i1> [[TMP6]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call <vscale x 4 x i8> @llvm.vp.merge.nxv4i8(<vscale x 4 x i1> [[TMP5]], <vscale x 4 x i8> splat (i8 1), <vscale x 4 x i8> [[TMP1]], i32 [[TMP2]])
+; CHECK-NEXT:    [[TMP6]] = freeze <vscale x 4 x i8> [[TMP10]]
+; CHECK-NEXT:    [[DOTFR:%.*]] = trunc <vscale x 4 x i8> [[TMP6]] to <vscale x 4 x i1>
 ; CHECK-NEXT:    [[TMP7:%.*]] = zext i32 [[TMP2]] to i64
 ; CHECK-NEXT:    [[CURRENT_ITERATION_NEXT]] = add nuw i64 [[TMP3]], [[TMP7]]
 ; CHECK-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP7]]
