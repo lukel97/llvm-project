@@ -187,7 +187,10 @@ bool RISCVCodeGenPrepare::widenVPMerge(Instruction *Root) {
 }
 
 bool RISCVCodeGenPrepare::visitFreezeInst(FreezeInst &I) {
-  return widenVPMerge(&I);
+  if (auto *II = dyn_cast<IntrinsicInst>(I.getOperand(0)))
+    if (II->getIntrinsicID() == Intrinsic::vp_merge)
+      return widenVPMerge(&I);
+  return false;
 }
 
 // LLVM vector reduction intrinsics return a scalar result, but on RISC-V vector
