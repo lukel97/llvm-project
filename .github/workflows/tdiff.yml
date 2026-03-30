@@ -1,0 +1,69 @@
+name: Diff llvm-test-suite codegen
+
+on:
+  push:
+  workflow_dispatch:
+  issue_comment:
+    types:
+      - created
+      - edited
+
+jobs:
+  tdiff:
+    name: Build and diff
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+      pull-requests: write
+    # if: >-
+    #   !startswith(github.event.comment.body, '<!--IGNORE-->') &&
+    #   github.event.issue.pull_request && contains(github.event.comment.body, '/tdiff')
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: llvm/llvm-test-suite
+          path: llvm-test-suite
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libc6-dev-riscv64-cross libgcc-14-dev-riscv64-cross libstdc++-14-dev-riscv64-cross
+      - run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD='AArch64;X86;RISCV' -DLLVM_ENABLE_PROJECTS='clang;lld' llvm -GNinja
+      - run: ninja -C build
+      - run: |
+          cat << EOF > rva23u64.cmake
+          set(CMAKE_SYSTEM_NAME Linux) 
+          set(CMAKE_C_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang)
+          set(CMAKE_CXX_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang++)
+          set(CMAKE_C_COMPILER_TARGET riscv64-linux-gnu) 
+          set(CMAKE_CXX_COMPILER_TARGET riscv64-linux-gnu)
+          set(CMAKE_C_FLAGS_INIT "-march=rva23u64 -save-temps=obj")
+          set(CMAKE_CXX_FLAGS_INIT "-march=rva23u64 -save-temps=obj")
+          set(CMAKE_SYSTEM_PROCESSOR riscv64)
+          set(CMAKE_LINKER_TYPE LLD)          
+          EOF
+        working-directory: llvm-test-suite
+      - run: cmake -B build.rva23u64-O3-b -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -GNinja && ninja -C build.rva23u64-O3-b
+        working-directory: llvm-test-suite
+      - run: git checkout ${{github.event.pull_request.base.ref}}
+      - run: ninja -C build
+      - run: cmake -B build.rva23u64-O3-a -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -GNinja && ninja -C build.rva23u64-O3-a
+        working-directory: llvm-test-suite
+      - run: ./utils/tdiff.py -a build.rva23u64-O3-a -b build.rva23u64-O3-b -s all > rva23u64-O3.diff
+        working-directory: llvm-test-suite
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
+        id: upload-rva23u64-O3
+        with:
+          name: rva23u64-O3
+          path: llvm-test-suite/rva23u64-O3.diff
+      - uses: actions/github-script@v5
+        env:
+          DIFF_URL: ${{ steps.upload-rva23u64-O3.outputs.artifact-url }}
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: process.env.DIFF_URL
+            })
