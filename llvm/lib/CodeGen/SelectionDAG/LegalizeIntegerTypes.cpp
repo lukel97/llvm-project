@@ -2167,7 +2167,7 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
   case ISD::VECTOR_FIND_LAST_ACTIVE:
   case ISD::CTTZ_ELTS:
   case ISD::CTTZ_ELTS_ZERO_POISON:
-    Res = PromoteIntOp_VECTOR_FIND_LAST_ACTIVE_CTTZ_ELTS(N, OpNo);
+    Res = PromoteIntOp_UnaryBooleanVectorOp(N, OpNo);
     break;
   case ISD::GET_ACTIVE_LANE_MASK:
     Res = PromoteIntOp_GET_ACTIVE_LANE_MASK(N);
@@ -2995,8 +2995,8 @@ SDValue DAGTypeLegalizer::PromoteIntOp_VECTOR_HISTOGRAM(SDNode *N,
   return SDValue(DAG.UpdateNodeOperands(N, NewOps), 0);
 }
 
-SDValue DAGTypeLegalizer::PromoteIntOp_VECTOR_FIND_LAST_ACTIVE_CTTZ_ELTS(
-    SDNode *N, unsigned OpNo) {
+SDValue DAGTypeLegalizer::PromoteIntOp_UnaryBooleanVectorOp(SDNode *N,
+                                                            unsigned OpNo) {
   assert(OpNo == 0 && "Unexpected operand for promotion");
   SDValue Op = N->getOperand(0);
 

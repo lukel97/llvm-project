@@ -418,8 +418,7 @@ private:
   SDValue PromoteIntOp_VP_STRIDED(SDNode *N, unsigned OpNo);
   SDValue PromoteIntOp_VP_SPLICE(SDNode *N, unsigned OpNo);
   SDValue PromoteIntOp_VECTOR_HISTOGRAM(SDNode *N, unsigned OpNo);
-  SDValue PromoteIntOp_VECTOR_FIND_LAST_ACTIVE_CTTZ_ELTS(SDNode *N,
-                                                         unsigned OpNo);
+  SDValue PromoteIntOp_UnaryBooleanVectorOp(SDNode *N, unsigned OpNo);
   SDValue PromoteIntOp_GET_ACTIVE_LANE_MASK(SDNode *N);
   SDValue PromoteIntOp_PARTIAL_REDUCE_MLA(SDNode *N);
   SDValue PromoteIntOp_LOOP_DEPENDENCE_MASK(SDNode *N, unsigned OpNo);

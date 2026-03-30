@@ -10115,12 +10115,12 @@ SDValue TargetLowering::expandVPCTTZElements(SDNode *N,
   return DAG.getNode(ISD::VP_REDUCE_UMIN, DL, ResVT, ExtEVL, Select, Mask, EVL);
 }
 
-/// Returns a step vector that's guaranteed to fit the number of elements in \p
-/// Mask, as well as a type-legalized version of \p Mask.
-static std::pair<SDValue, SDValue> getLegalStepVector(SDValue Mask,
-                                                      bool ZeroIsPoison,
-                                                      SDLoc DL,
-                                                      SelectionDAG &DAG) {
+/// Returns a type-legalized version of \p Mask as the first item in the
+/// pair. The second item contains a type-legalized step vector that's
+/// guaranteed to fit the number of elements in \p Mask.
+static std::pair<SDValue, SDValue>
+getLegalMaskAndStepVector(SDValue Mask, bool ZeroIsPoison, SDLoc DL,
+                          SelectionDAG &DAG) {
   EVT MaskVT = Mask.getValueType();
   EVT BoolVT = MaskVT.getScalarType();
 
@@ -10174,8 +10174,8 @@ static std::pair<SDValue, SDValue> getLegalStepVector(SDValue Mask,
 SDValue TargetLowering::expandVectorFindLastActive(SDNode *N,
                                                    SelectionDAG &DAG) const {
   SDLoc DL(N);
-  auto [Mask, StepVec] =
-      getLegalStepVector(N->getOperand(0), /*ZeroIsPoison=*/true, DL, DAG);
+  auto [Mask, StepVec] = getLegalMaskAndStepVector(
+      N->getOperand(0), /*ZeroIsPoison=*/true, DL, DAG);
   EVT StepVecVT = StepVec.getValueType();
   EVT StepVT = StepVec.getValueType().getVectorElementType();
 
@@ -12606,7 +12606,7 @@ SDValue TargetLowering::expandCttzElts(SDNode *Node, SelectionDAG &DAG) const {
 
   bool ZeroIsPoison = Node->getOpcode() == ISD::CTTZ_ELTS_ZERO_POISON;
   auto [Mask, StepVec] =
-      getLegalStepVector(Node->getOperand(0), ZeroIsPoison, DL, DAG);
+      getLegalMaskAndStepVector(Node->getOperand(0), ZeroIsPoison, DL, DAG);
   EVT StepVecVT = StepVec.getValueType();
   EVT StepVT = StepVecVT.getVectorElementType();
 
