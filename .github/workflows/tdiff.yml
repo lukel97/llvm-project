@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build libc6-dev-riscv64-cross libgcc-14-dev-riscv64-cross libstdc++-14-dev-riscv64-cross
-      - run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD='AArch64;X86;RISCV' -DLLVM_ENABLE_PROJECTS='clang;lld' llvm -GNinja
+      - run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD='AArch64;X86;RISCV' -DLLVM_ENABLE_PROJECTS='clang;lld' -DLLVM_APPEND_VC_REV=OFF llvm -GNinja
       - run: ninja -C build
       - run: |
           cat << EOF > rva23u64.cmake
