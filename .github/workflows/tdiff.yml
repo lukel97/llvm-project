@@ -1,7 +1,7 @@
 name: Diff llvm-test-suite codegen
 
 on:
-  push:
+  pull_request:
   workflow_dispatch:
   issue_comment:
     types:
@@ -43,13 +43,13 @@ jobs:
           set(CMAKE_LINKER_TYPE LLD)          
           EOF
         working-directory: llvm-test-suite
-      - run: cmake -B build.rva23u64-O3-b -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -GNinja && ninja -C build.rva23u64-O3-b
+      - run: cmake -B build.rva23u64-O3-b -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-b
         working-directory: llvm-test-suite
       - run: git checkout ${{github.event.pull_request.base.ref}}
       - run: ninja -C build
-      - run: cmake -B build.rva23u64-O3-a -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -GNinja && ninja -C build.rva23u64-O3-a
+      - run: cmake -B build.rva23u64-O3-a -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-a
         working-directory: llvm-test-suite
-      - run: ./utils/tdiff.py -a build.rva23u64-O3-a -b build.rva23u64-O3-b -s all > rva23u64-O3.diff
+      - run: ./utils/tdiff.py -a build.rva23u64-O3-a -b build.rva23u64-O3-b -s all > rva23u64-O3.diff || true
         working-directory: llvm-test-suite
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
         id: upload-rva23u64-O3
