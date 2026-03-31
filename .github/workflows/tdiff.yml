@@ -45,7 +45,7 @@ jobs:
         working-directory: llvm-test-suite
       - run: cmake -B build.rva23u64-O3-b -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-b
         working-directory: llvm-test-suite
-      - run: git fetch origin ${{github.event.pull_request.base.ref}} && git checkout ${{github.event.pull_request.base.ref}}
+      - run: git fetch origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
       - run: ninja -C build
       - run: cmake -B build.rva23u64-O3-a -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-a
         working-directory: llvm-test-suite
