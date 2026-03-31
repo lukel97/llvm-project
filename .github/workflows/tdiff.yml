@@ -53,16 +53,26 @@ jobs:
           set(CMAKE_SYSTEM_PROCESSOR arm64)
           set(CMAKE_LINKER_TYPE LLD)          
           EOF
-          cmake -B build.rva23u64-O3-b -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-b
-          cmake -B build.armv9-a-O3-b -C cmake/caches/O3.cmake --toolchain armv9-a.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.armv9-a-O3-b
-          cmake -B build.x86_64-O3-b -C cmake/caches/O3.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.x86_64-O3-b
+          build_llvm_test_suite () {
+            cmake -B build.$1 -C cmake/caches/O3.cmake ${@:2} -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
+            ninja -C build.$1
+            $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
+          }
+          build_llvm_test_suite rva23u64-O3-b --toolchain rva23u64.cmake
+          build_llvm_test_suite armv9-a-O3-b --toolchain armv9-a.cmake
+          build_llvm_test_suite x86_64-O3-b
         working-directory: llvm-test-suite
       - run: git fetch origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
       - run: ninja -C build
       - run: |
-          cmake -B build.rva23u64-O3-a -C cmake/caches/O3.cmake --toolchain rva23u64.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.rva23u64-O3-a
-          cmake -B build.armv9-a-O3-a -C cmake/caches/O3.cmake --toolchain armv9-a.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.armv9-a-O3-a
-          cmake -B build.x86_64-O3-a -C cmake/caches/O3.cmake -DTEST_SUITE_BENCHMARKING_ONLY=ON -GNinja && ninja -C build.x86_64-O3-a
+          build_llvm_test_suite () {
+            cmake -B build.$1 -C cmake/caches/O3.cmake ${@:2} -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
+            ninja -C build.$1
+            $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
+          }
+          build_llvm_test_suite rva23u64-O3-a --toolchain rva23u64.cmake
+          build_llvm_test_suite armv9-a-O3-a --toolchain armv9-a.cmake
+          build_llvm_test_suite x86_64-O3-a
         working-directory: llvm-test-suite
       - run: |
           mkdir diffs
@@ -75,6 +85,10 @@ jobs:
         with:
           name: diffs
           path: llvm-test-suite/diffs
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
+        with:
+          name: results
+          path: llvm-test-suite/results*.json
       - uses: actions/github-script@v5
         env:
           DIFF_URL: ${{ steps.upload-diffs.outputs.artifact-url }}
