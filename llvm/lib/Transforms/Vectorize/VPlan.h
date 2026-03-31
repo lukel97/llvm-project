@@ -2571,7 +2571,7 @@ public:
   };
 
   /// Returns true if only scalar values will be generated.
-  bool onlyScalarsGenerated(bool IsScalable);
+  bool onlyScalarsGenerated();
 
 protected:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -4537,9 +4537,9 @@ void VPCanonicalIVPHIRecipe::printRecipe(raw_ostream &O, const Twine &Indent,
 }
 #endif
 
-bool VPWidenPointerInductionRecipe::onlyScalarsGenerated(bool IsScalable) {
-  return vputils::onlyScalarValuesUsed(this) &&
-         (!IsScalable || vputils::onlyFirstLaneUsed(this));
+bool VPWidenPointerInductionRecipe::onlyScalarsGenerated() {
+  return vputils::onlyScalarValuesUsed(this) ||
+         vputils::onlyFirstLaneUsed(this);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
