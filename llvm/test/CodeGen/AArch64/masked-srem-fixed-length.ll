@@ -287,29 +287,20 @@ define <1 x i64> @srem_v1i164(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
 }
 
 ; Expansion
-define <2 x i128> @srem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
+define <2 x i128> @srem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) nounwind {
 ; NEON-LABEL: srem_v2i128:
 ; NEON:       // %bb.0:
 ; NEON-NEXT:    stp x30, x25, [sp, #-64]! // 16-byte Folded Spill
-; NEON-NEXT:    stp x24, x23, [sp, #16] // 16-byte Folded Spill
-; NEON-NEXT:    stp x22, x21, [sp, #32] // 16-byte Folded Spill
-; NEON-NEXT:    stp x20, x19, [sp, #48] // 16-byte Folded Spill
-; NEON-NEXT:    .cfi_def_cfa_offset 64
-; NEON-NEXT:    .cfi_offset w19, -8
-; NEON-NEXT:    .cfi_offset w20, -16
-; NEON-NEXT:    .cfi_offset w21, -24
-; NEON-NEXT:    .cfi_offset w22, -32
-; NEON-NEXT:    .cfi_offset w23, -40
-; NEON-NEXT:    .cfi_offset w24, -48
-; NEON-NEXT:    .cfi_offset w25, -56
-; NEON-NEXT:    .cfi_offset w30, -64
 ; NEON-NEXT:    // kill: def $d0 killed $d0 def $q0
 ; NEON-NEXT:    fmov w8, s0
+; NEON-NEXT:    stp x22, x21, [sp, #32] // 16-byte Folded Spill
 ; NEON-NEXT:    mov x21, x3
 ; NEON-NEXT:    mov x22, x2
+; NEON-NEXT:    stp x24, x23, [sp, #16] // 16-byte Folded Spill
+; NEON-NEXT:    mov w25, v0.s[1]
+; NEON-NEXT:    stp x20, x19, [sp, #48] // 16-byte Folded Spill
 ; NEON-NEXT:    mov x19, x7
 ; NEON-NEXT:    mov x20, x6
-; NEON-NEXT:    mov w25, v0.s[1]
 ; NEON-NEXT:    tst w8, #0x1
 ; NEON-NEXT:    csel x3, x5, xzr, ne
 ; NEON-NEXT:    csinc x2, x4, xzr, ne
@@ -335,25 +326,16 @@ define <2 x i128> @srem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; SVE-LABEL: srem_v2i128:
 ; SVE:       // %bb.0:
 ; SVE-NEXT:    stp x30, x25, [sp, #-64]! // 16-byte Folded Spill
-; SVE-NEXT:    stp x24, x23, [sp, #16] // 16-byte Folded Spill
-; SVE-NEXT:    stp x22, x21, [sp, #32] // 16-byte Folded Spill
-; SVE-NEXT:    stp x20, x19, [sp, #48] // 16-byte Folded Spill
-; SVE-NEXT:    .cfi_def_cfa_offset 64
-; SVE-NEXT:    .cfi_offset w19, -8
-; SVE-NEXT:    .cfi_offset w20, -16
-; SVE-NEXT:    .cfi_offset w21, -24
-; SVE-NEXT:    .cfi_offset w22, -32
-; SVE-NEXT:    .cfi_offset w23, -40
-; SVE-NEXT:    .cfi_offset w24, -48
-; SVE-NEXT:    .cfi_offset w25, -56
-; SVE-NEXT:    .cfi_offset w30, -64
 ; SVE-NEXT:    // kill: def $d0 killed $d0 def $q0
 ; SVE-NEXT:    fmov w8, s0
+; SVE-NEXT:    stp x22, x21, [sp, #32] // 16-byte Folded Spill
 ; SVE-NEXT:    mov x21, x3
 ; SVE-NEXT:    mov x22, x2
+; SVE-NEXT:    stp x24, x23, [sp, #16] // 16-byte Folded Spill
+; SVE-NEXT:    mov w25, v0.s[1]
+; SVE-NEXT:    stp x20, x19, [sp, #48] // 16-byte Folded Spill
 ; SVE-NEXT:    mov x19, x7
 ; SVE-NEXT:    mov x20, x6
-; SVE-NEXT:    mov w25, v0.s[1]
 ; SVE-NEXT:    tst w8, #0x1
 ; SVE-NEXT:    csel x3, x5, xzr, ne
 ; SVE-NEXT:    csinc x2, x4, xzr, ne

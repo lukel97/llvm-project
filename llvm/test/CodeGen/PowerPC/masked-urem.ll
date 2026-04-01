@@ -314,36 +314,28 @@ define <1 x i64> @urem_v1i164(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
 }
 
 ; Expansion
-define <2 x i128> @urem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
+define <2 x i128> @urem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) nounwind {
 ; CHECK-LABEL: urem_v2i128:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    mfocrf 12, 32
 ; CHECK-NEXT:    stw 12, 8(1)
 ; CHECK-NEXT:    mflr 0
 ; CHECK-NEXT:    stdu 1, -128(1)
-; CHECK-NEXT:    std 0, 144(1)
-; CHECK-NEXT:    .cfi_def_cfa_offset 128
-; CHECK-NEXT:    .cfi_offset lr, 16
-; CHECK-NEXT:    .cfi_offset r29, -24
-; CHECK-NEXT:    .cfi_offset r30, -16
-; CHECK-NEXT:    .cfi_offset cr2, 8
-; CHECK-NEXT:    .cfi_offset v29, -80
-; CHECK-NEXT:    .cfi_offset v30, -64
-; CHECK-NEXT:    .cfi_offset v31, -48
 ; CHECK-NEXT:    li 3, 48
+; CHECK-NEXT:    std 0, 144(1)
 ; CHECK-NEXT:    xxswapd 0, 38
 ; CHECK-NEXT:    xxswapd 1, 37
 ; CHECK-NEXT:    std 30, 112(1) # 8-byte Folded Spill
 ; CHECK-NEXT:    li 30, 1
 ; CHECK-NEXT:    std 29, 104(1) # 8-byte Folded Spill
 ; CHECK-NEXT:    li 29, 0
-; CHECK-NEXT:    mfvsrd 4, 35
-; CHECK-NEXT:    stvx 29, 1, 3 # 16-byte Folded Spill
+; CHECK-NEXT:    stxvd2x 61, 1, 3 # 16-byte Folded Spill
 ; CHECK-NEXT:    li 3, 64
-; CHECK-NEXT:    stvx 30, 1, 3 # 16-byte Folded Spill
+; CHECK-NEXT:    mfvsrd 4, 35
+; CHECK-NEXT:    stxvd2x 62, 1, 3 # 16-byte Folded Spill
 ; CHECK-NEXT:    li 3, 80
 ; CHECK-NEXT:    vmr 30, 2
-; CHECK-NEXT:    stvx 31, 1, 3 # 16-byte Folded Spill
+; CHECK-NEXT:    stxvd2x 63, 1, 3 # 16-byte Folded Spill
 ; CHECK-NEXT:    mffprd 3, 0
 ; CHECK-NEXT:    vmr 31, 4
 ; CHECK-NEXT:    andi. 3, 3, 1
@@ -353,8 +345,8 @@ define <2 x i128> @urem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; CHECK-NEXT:    mffprd 3, 1
 ; CHECK-NEXT:    iselgt 5, 3, 30
 ; CHECK-NEXT:    mfvsrd 3, 37
-; CHECK-NEXT:    iselgt 6, 3, 29
 ; CHECK-NEXT:    xxswapd 0, 35
+; CHECK-NEXT:    iselgt 6, 3, 29
 ; CHECK-NEXT:    mffprd 3, 0
 ; CHECK-NEXT:    bl __umodti3
 ; CHECK-NEXT:    nop
@@ -377,11 +369,11 @@ define <2 x i128> @urem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; CHECK-NEXT:    ld 30, 112(1) # 8-byte Folded Reload
 ; CHECK-NEXT:    vmr 3, 29
 ; CHECK-NEXT:    ld 29, 104(1) # 8-byte Folded Reload
-; CHECK-NEXT:    lvx 31, 1, 3 # 16-byte Folded Reload
+; CHECK-NEXT:    lxvd2x 63, 1, 3 # 16-byte Folded Reload
 ; CHECK-NEXT:    li 3, 64
-; CHECK-NEXT:    lvx 30, 1, 3 # 16-byte Folded Reload
+; CHECK-NEXT:    lxvd2x 62, 1, 3 # 16-byte Folded Reload
 ; CHECK-NEXT:    li 3, 48
-; CHECK-NEXT:    lvx 29, 1, 3 # 16-byte Folded Reload
+; CHECK-NEXT:    lxvd2x 61, 1, 3 # 16-byte Folded Reload
 ; CHECK-NEXT:    xxmrghd 34, 1, 0
 ; CHECK-NEXT:    addi 1, 1, 128
 ; CHECK-NEXT:    ld 0, 16(1)

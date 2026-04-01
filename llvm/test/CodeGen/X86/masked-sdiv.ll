@@ -508,29 +508,16 @@ define <1 x i64> @sdiv_v1i164(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
 }
 
 ; Expansion
-define <2 x i128> @sdiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
+define <2 x i128> @sdiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) nounwind {
 ; SSE2-LABEL: sdiv_v2i128:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pushq %rbp
-; SSE2-NEXT:    .cfi_def_cfa_offset 16
 ; SSE2-NEXT:    pushq %r15
-; SSE2-NEXT:    .cfi_def_cfa_offset 24
 ; SSE2-NEXT:    pushq %r14
-; SSE2-NEXT:    .cfi_def_cfa_offset 32
 ; SSE2-NEXT:    pushq %r13
-; SSE2-NEXT:    .cfi_def_cfa_offset 40
 ; SSE2-NEXT:    pushq %r12
-; SSE2-NEXT:    .cfi_def_cfa_offset 48
 ; SSE2-NEXT:    pushq %rbx
-; SSE2-NEXT:    .cfi_def_cfa_offset 56
 ; SSE2-NEXT:    subq $40, %rsp
-; SSE2-NEXT:    .cfi_def_cfa_offset 96
-; SSE2-NEXT:    .cfi_offset %rbx, -56
-; SSE2-NEXT:    .cfi_offset %r12, -48
-; SSE2-NEXT:    .cfi_offset %r13, -40
-; SSE2-NEXT:    .cfi_offset %r14, -32
-; SSE2-NEXT:    .cfi_offset %r15, -24
-; SSE2-NEXT:    .cfi_offset %rbp, -16
 ; SSE2-NEXT:    movq %r8, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; SSE2-NEXT:    movq %rcx, %r15
 ; SSE2-NEXT:    movq %rdi, %rbx
@@ -564,43 +551,23 @@ define <2 x i128> @sdiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; SSE2-NEXT:    movq %rbp, (%rbx)
 ; SSE2-NEXT:    movq %rbx, %rax
 ; SSE2-NEXT:    addq $40, %rsp
-; SSE2-NEXT:    .cfi_def_cfa_offset 56
 ; SSE2-NEXT:    popq %rbx
-; SSE2-NEXT:    .cfi_def_cfa_offset 48
 ; SSE2-NEXT:    popq %r12
-; SSE2-NEXT:    .cfi_def_cfa_offset 40
 ; SSE2-NEXT:    popq %r13
-; SSE2-NEXT:    .cfi_def_cfa_offset 32
 ; SSE2-NEXT:    popq %r14
-; SSE2-NEXT:    .cfi_def_cfa_offset 24
 ; SSE2-NEXT:    popq %r15
-; SSE2-NEXT:    .cfi_def_cfa_offset 16
 ; SSE2-NEXT:    popq %rbp
-; SSE2-NEXT:    .cfi_def_cfa_offset 8
 ; SSE2-NEXT:    retq
 ;
 ; AVX512-LABEL: sdiv_v2i128:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    pushq %rbp
-; AVX512-NEXT:    .cfi_def_cfa_offset 16
 ; AVX512-NEXT:    pushq %r15
-; AVX512-NEXT:    .cfi_def_cfa_offset 24
 ; AVX512-NEXT:    pushq %r14
-; AVX512-NEXT:    .cfi_def_cfa_offset 32
 ; AVX512-NEXT:    pushq %r13
-; AVX512-NEXT:    .cfi_def_cfa_offset 40
 ; AVX512-NEXT:    pushq %r12
-; AVX512-NEXT:    .cfi_def_cfa_offset 48
 ; AVX512-NEXT:    pushq %rbx
-; AVX512-NEXT:    .cfi_def_cfa_offset 56
 ; AVX512-NEXT:    subq $40, %rsp
-; AVX512-NEXT:    .cfi_def_cfa_offset 96
-; AVX512-NEXT:    .cfi_offset %rbx, -56
-; AVX512-NEXT:    .cfi_offset %r12, -48
-; AVX512-NEXT:    .cfi_offset %r13, -40
-; AVX512-NEXT:    .cfi_offset %r14, -32
-; AVX512-NEXT:    .cfi_offset %r15, -24
-; AVX512-NEXT:    .cfi_offset %rbp, -16
 ; AVX512-NEXT:    movq %r8, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; AVX512-NEXT:    movq %rcx, %r15
 ; AVX512-NEXT:    movq %rdi, %rbx
@@ -634,19 +601,12 @@ define <2 x i128> @sdiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; AVX512-NEXT:    movq %rbp, (%rbx)
 ; AVX512-NEXT:    movq %rbx, %rax
 ; AVX512-NEXT:    addq $40, %rsp
-; AVX512-NEXT:    .cfi_def_cfa_offset 56
 ; AVX512-NEXT:    popq %rbx
-; AVX512-NEXT:    .cfi_def_cfa_offset 48
 ; AVX512-NEXT:    popq %r12
-; AVX512-NEXT:    .cfi_def_cfa_offset 40
 ; AVX512-NEXT:    popq %r13
-; AVX512-NEXT:    .cfi_def_cfa_offset 32
 ; AVX512-NEXT:    popq %r14
-; AVX512-NEXT:    .cfi_def_cfa_offset 24
 ; AVX512-NEXT:    popq %r15
-; AVX512-NEXT:    .cfi_def_cfa_offset 16
 ; AVX512-NEXT:    popq %rbp
-; AVX512-NEXT:    .cfi_def_cfa_offset 8
 ; AVX512-NEXT:    retq
   %res = call <2 x i128> @llvm.masked.sdiv(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m)
   ret <2 x i128> %res

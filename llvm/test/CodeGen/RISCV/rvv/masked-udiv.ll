@@ -159,11 +159,10 @@ define <1 x i64> @udiv_v1i64(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
   ret <1 x i64> %res
 }
 
-define <2 x i128> @udiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
+define <2 x i128> @udiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) nounwind {
 ; CHECK-LABEL: udiv_v2i128:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -80
-; CHECK-NEXT:    .cfi_def_cfa_offset 80
 ; CHECK-NEXT:    sd ra, 72(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    sd s0, 64(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    sd s1, 56(sp) # 8-byte Folded Spill
@@ -172,17 +171,8 @@ define <2 x i128> @udiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; CHECK-NEXT:    sd s4, 32(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    sd s5, 24(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    sd s6, 16(sp) # 8-byte Folded Spill
-; CHECK-NEXT:    .cfi_offset ra, -8
-; CHECK-NEXT:    .cfi_offset s0, -16
-; CHECK-NEXT:    .cfi_offset s1, -24
-; CHECK-NEXT:    .cfi_offset s2, -32
-; CHECK-NEXT:    .cfi_offset s3, -40
-; CHECK-NEXT:    .cfi_offset s4, -48
-; CHECK-NEXT:    .cfi_offset s5, -56
-; CHECK-NEXT:    .cfi_offset s6, -64
 ; CHECK-NEXT:    csrr a3, vlenb
 ; CHECK-NEXT:    sub sp, sp, a3
-; CHECK-NEXT:    .cfi_escape 0x0f, 0x0e, 0x72, 0x00, 0x11, 0xd0, 0x00, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 80 + 1 * vlenb
 ; CHECK-NEXT:    mv a4, a1
 ; CHECK-NEXT:    addi a3, sp, 16
 ; CHECK-NEXT:    vs1r.v v0, (a3) # vscale x 8-byte Folded Spill
@@ -235,7 +225,6 @@ define <2 x i128> @udiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; CHECK-NEXT:    sd s5, 24(s0)
 ; CHECK-NEXT:    csrr a0, vlenb
 ; CHECK-NEXT:    add sp, sp, a0
-; CHECK-NEXT:    .cfi_def_cfa sp, 80
 ; CHECK-NEXT:    ld ra, 72(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:    ld s0, 64(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:    ld s1, 56(sp) # 8-byte Folded Reload
@@ -244,16 +233,7 @@ define <2 x i128> @udiv_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 ; CHECK-NEXT:    ld s4, 32(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:    ld s5, 24(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:    ld s6, 16(sp) # 8-byte Folded Reload
-; CHECK-NEXT:    .cfi_restore ra
-; CHECK-NEXT:    .cfi_restore s0
-; CHECK-NEXT:    .cfi_restore s1
-; CHECK-NEXT:    .cfi_restore s2
-; CHECK-NEXT:    .cfi_restore s3
-; CHECK-NEXT:    .cfi_restore s4
-; CHECK-NEXT:    .cfi_restore s5
-; CHECK-NEXT:    .cfi_restore s6
 ; CHECK-NEXT:    addi sp, sp, 80
-; CHECK-NEXT:    .cfi_def_cfa_offset 0
 ; CHECK-NEXT:    ret
   %res = call <2 x i128> @llvm.masked.udiv(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m)
   ret <2 x i128> %res
