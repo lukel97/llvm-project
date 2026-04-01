@@ -284,7 +284,7 @@ SDValue DAGTypeLegalizer::ScalarizeVecRes_MaskedBinOp(SDNode *N) {
   else
     Mask = DAG.getExtractVectorElt(DL, MaskVT.getVectorElementType(), Mask, 0);
   // Masked binary ops don't have UB on disabled lanes but produce poison, so
-  // use 1 as the divisor to avoid division by zero.
+  // use 1 as the divisor to avoid division by zero and overflow.
   SDValue Divisor = DAG.getSelect(DL, LHS.getValueType(), Mask, RHS,
                                   DAG.getConstant(1, DL, LHS.getValueType()));
   return DAG.getNode(ISD::getUnmaskedBinOpOpcode(N->getOpcode()), DL,
@@ -1279,7 +1279,7 @@ SDValue DAGTypeLegalizer::ScalarizeVecOp_MaskedBinOp(SDNode *N, unsigned OpNo) {
   SDValue RHS = DAG.getExtractVectorElt(DL, VT, N->getOperand(1), 0);
   SDValue Mask = GetScalarizedVector(N->getOperand(2));
   // Masked binary ops don't have UB on disabled lanes but produce poison, so
-  // use 1 as the divisor to avoid division by zero.
+  // use 1 as the divisor to avoid division by zero and overflow.
   SDValue BinOp =
       DAG.getNode(ISD::getUnmaskedBinOpOpcode(N->getOpcode()), DL, VT, LHS,
                   DAG.getSelect(DL, VT, Mask, RHS, DAG.getConstant(1, DL, VT)));

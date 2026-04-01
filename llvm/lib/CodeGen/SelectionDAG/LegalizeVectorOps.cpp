@@ -1931,7 +1931,7 @@ SDValue VectorLegalizer::ExpandLOOP_DEPENDENCE_MASK(SDNode *N) {
 SDValue VectorLegalizer::ExpandMaskedBinOp(SDNode *N) {
   // Masked bin ops don't have undefined behaviour when dividing by zero
   // on disabled lanes and produce poison instead. Replace the divisor on the
-  // disabled lanes with 1 to avoid division by zero.
+  // disabled lanes with 1 to avoid division by zero or overflow.
   SDLoc dl(N);
   EVT VT = N->getValueType(0);
   SDValue SafeDivisor = DAG.getSelect(
