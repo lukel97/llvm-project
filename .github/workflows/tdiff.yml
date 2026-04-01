@@ -61,25 +61,25 @@ jobs:
           set(CMAKE_LINKER_TYPE LLD)          
           EOF
           build_llvm_test_suite () {
-            cmake -B build.$1 -C cmake/caches/O3.cmake $2 -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
+            cmake -B build.$1 -C cmake/caches/O3.cmake --toolchain $2 -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
             ninja -C build.$1
             $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
           }
-          build_llvm_test_suite rva23u64-O3-b --toolchain rva23u64.cmake
-          build_llvm_test_suite armv9-a-O3-b --toolchain armv9-a.cmake
-          build_llvm_test_suite x86_64-O3-b --toolchain x86_64.cmake
+          build_llvm_test_suite rva23u64-O3-b rva23u64.cmake
+          build_llvm_test_suite armv9-a-O3-b armv9-a.cmake
+          build_llvm_test_suite x86_64-O3-b x86_64.cmake
         working-directory: llvm-test-suite
       - run: git fetch origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
       - run: ninja -C build
       - run: |
           build_llvm_test_suite () {
-            cmake -B build.$1 -C cmake/caches/O3.cmake ${@:2} -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
+            cmake -B build.$1 -C cmake/caches/O3.cmake --toolchain $2 -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
             ninja -C build.$1
             $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
           }
-          build_llvm_test_suite rva23u64-O3-a --toolchain rva23u64.cmake
-          build_llvm_test_suite armv9-a-O3-a --toolchain armv9-a.cmake
-          build_llvm_test_suite x86_64-O3-a --toolchain x86_64.cmake
+          build_llvm_test_suite rva23u64-O3-a rva23u64.cmake
+          build_llvm_test_suite armv9-a-O3-a armv9-a.cmake
+          build_llvm_test_suite x86_64-O3-a x86_64.cmake
         working-directory: llvm-test-suite
       - run: |
           mkdir diffs
