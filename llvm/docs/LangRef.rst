@@ -27950,7 +27950,7 @@ The first two arguments and the result have the same vector of integer type. The
 Semantics:
 """"""""""
 
-Unlike :ref:`sdiv <i_sdiv>`, disabled lanes produce poison and division by zero on disabled lanes is not undefined behavior. Division by zero on enabled lanes is still undefined behavior.
+Unlike :ref:`sdiv <i_sdiv>`, disabled lanes produce poison, and both overflow and division by zero on disabled lanes is not undefined behavior. Overflow and division by zero on enabled lanes is still undefined behavior.
 
 '``llvm.masked.urem.*``' Intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -28004,7 +28004,7 @@ The first two arguments and the result have the same vector of integer type. The
 Semantics:
 """"""""""
 
-Unlike :ref:`srem <i_srem>`, disabled lanes produce poison and taking the remainder of a division by zero on disabled lanes is not undefined behavior. Taking the remainder of a division by zero on enabled lanes is still undefined behavior.
+Unlike :ref:`srem <i_srem>`, disabled lanes produce poison, and both overflow and taking the remainder of a division by zero on disabled lanes is not undefined behavior. Overflow and taking the remainder of a division by zero on enabled lanes is still undefined behavior.
 
 Memory Use Markers
 ------------------
