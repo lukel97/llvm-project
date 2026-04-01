@@ -1619,8 +1619,8 @@ enum NodeType {
   LOOP_DEPENDENCE_RAW_MASK,
 
   /// Masked vector arithmetic that returns poison on disabled lanes. Disabled
-  /// lanes do not have undefined behaviour on division by zero. The first two
-  /// operands are input vectors, the third operand is the mask.
+  /// lanes do not have undefined behaviour on division by zero or overflow. The
+  /// first two operands are input vectors, the third operand is the mask.
   MASKED_UDIV,
   MASKED_SDIV,
   MASKED_UREM,
