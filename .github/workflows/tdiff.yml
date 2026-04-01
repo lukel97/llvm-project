@@ -69,7 +69,7 @@ jobs:
           build_llvm_test_suite armv9-a-O3-b armv9-a.cmake
           build_llvm_test_suite x86_64-O3-b x86_64.cmake
         working-directory: llvm-test-suite
-      - run: git fetch origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
+      - run: git fetch --depth=1 origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
       - run: ninja -C build
       - run: |
           build_llvm_test_suite () {
