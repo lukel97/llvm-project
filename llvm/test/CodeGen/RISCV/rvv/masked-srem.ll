@@ -271,6 +271,8 @@ define <3 x i10> @srem_v3i10(<3 x i10> %x, <3 x i10> %y, <3 x i1> %m) {
 ; CHECK-NEXT:    ld a3, 8(a2)
 ; CHECK-NEXT:    ld a2, 16(a2)
 ; CHECK-NEXT:    vmv.v.x v9, a5
+; CHECK-NEXT:    vmv.v.i v10, 7
+; CHECK-NEXT:    vmand.mm v0, v0, v10
 ; CHECK-NEXT:    vmv.v.i v10, 1
 ; CHECK-NEXT:    vslide1down.vx v8, v8, a4
 ; CHECK-NEXT:    vslide1down.vx v9, v9, a3

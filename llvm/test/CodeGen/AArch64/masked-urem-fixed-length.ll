@@ -383,23 +383,24 @@ define <2 x i128> @urem_v2i128(<2 x i128> %x, <2 x i128> %y, <2 x i1> %m) {
 define <3 x i10> @urem_v3i10(<3 x i10> %x, <3 x i10> %y, <3 x i1> %m) {
 ; NEON-LABEL: urem_v3i10:
 ; NEON:       // %bb.0:
-; NEON-NEXT:    fmov s0, w6
+; NEON-NEXT:    movi v0.2d, #0000000000000000
 ; NEON-NEXT:    fmov s1, w3
 ; NEON-NEXT:    ldr w8, [sp]
 ; NEON-NEXT:    fmov s2, w0
-; NEON-NEXT:    mov v0.h[1], w7
 ; NEON-NEXT:    mov v1.h[1], w4
+; NEON-NEXT:    mov v0.h[0], w6
 ; NEON-NEXT:    mov v2.h[1], w1
-; NEON-NEXT:    mov v0.h[2], w8
 ; NEON-NEXT:    mov v1.h[2], w5
+; NEON-NEXT:    mov v0.h[1], w7
 ; NEON-NEXT:    mov v2.h[2], w2
-; NEON-NEXT:    shl v0.4h, v0.4h, #15
 ; NEON-NEXT:    bic v1.4h, #252, lsl #8
+; NEON-NEXT:    mov v0.h[2], w8
 ; NEON-NEXT:    bic v2.4h, #252, lsl #8
-; NEON-NEXT:    cmlt v0.4h, v0.4h, #0
 ; NEON-NEXT:    umov w9, v2.h[0]
 ; NEON-NEXT:    umov w12, v2.h[1]
 ; NEON-NEXT:    umov w15, v2.h[2]
+; NEON-NEXT:    shl v0.4h, v0.4h, #15
+; NEON-NEXT:    cmlt v0.4h, v0.4h, #0
 ; NEON-NEXT:    and v1.8b, v1.8b, v0.8b
 ; NEON-NEXT:    mvn v0.8b, v0.8b
 ; NEON-NEXT:    sub v0.4h, v1.4h, v0.4h
@@ -419,22 +420,23 @@ define <3 x i10> @urem_v3i10(<3 x i10> %x, <3 x i10> %y, <3 x i1> %m) {
 ;
 ; SVE-LABEL: urem_v3i10:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    fmov s0, w6
+; SVE-NEXT:    movi v0.2d, #0000000000000000
 ; SVE-NEXT:    fmov s1, w3
 ; SVE-NEXT:    ldr w8, [sp]
 ; SVE-NEXT:    fmov s2, w0
 ; SVE-NEXT:    ptrue p0.s, vl4
-; SVE-NEXT:    mov v0.h[1], w7
 ; SVE-NEXT:    mov v1.h[1], w4
+; SVE-NEXT:    mov v0.h[0], w6
 ; SVE-NEXT:    mov v2.h[1], w1
-; SVE-NEXT:    mov v0.h[2], w8
 ; SVE-NEXT:    mov v1.h[2], w5
+; SVE-NEXT:    mov v0.h[1], w7
 ; SVE-NEXT:    mov v2.h[2], w2
-; SVE-NEXT:    shl v0.4h, v0.4h, #15
 ; SVE-NEXT:    bic v1.4h, #252, lsl #8
+; SVE-NEXT:    mov v0.h[2], w8
 ; SVE-NEXT:    bic v2.4h, #252, lsl #8
-; SVE-NEXT:    cmlt v0.4h, v0.4h, #0
 ; SVE-NEXT:    ushll v3.4s, v2.4h, #0
+; SVE-NEXT:    shl v0.4h, v0.4h, #15
+; SVE-NEXT:    cmlt v0.4h, v0.4h, #0
 ; SVE-NEXT:    and v1.8b, v1.8b, v0.8b
 ; SVE-NEXT:    mvn v0.8b, v0.8b
 ; SVE-NEXT:    sub v0.4h, v1.4h, v0.4h

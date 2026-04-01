@@ -340,40 +340,45 @@ define <3 x i10> @udiv_v3i10(<3 x i10> %x, <3 x i10> %y, <3 x i1> %m) {
 ; CHECK-LABEL: udiv_v3i10:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    mtfprwz 0, 9
-; CHECK-NEXT:    mtfprwz 1, 10
 ; CHECK-NEXT:    addis 9, 2, .LCPI7_0@toc@ha
+; CHECK-NEXT:    mtfprwz 1, 10
 ; CHECK-NEXT:    addi 9, 9, .LCPI7_0@toc@l
-; CHECK-NEXT:    mtvsrwz 33, 8
+; CHECK-NEXT:    mtvsrwz 38, 8
+; CHECK-NEXT:    vspltisw 0, -10
+; CHECK-NEXT:    vsrw 0, 0, 0
+; CHECK-NEXT:    lxvd2x 2, 0, 9
+; CHECK-NEXT:    lbz 9, 96(1)
+; CHECK-NEXT:    mtvsrwz 36, 9
+; CHECK-NEXT:    addis 9, 2, .LCPI7_1@toc@ha
+; CHECK-NEXT:    addi 9, 9, .LCPI7_1@toc@l
 ; CHECK-NEXT:    xxmrghw 34, 1, 0
-; CHECK-NEXT:    lxvd2x 0, 0, 9
 ; CHECK-NEXT:    mtfprwz 1, 7
-; CHECK-NEXT:    xxswapd 35, 0
+; CHECK-NEXT:    lxvd2x 0, 0, 9
+; CHECK-NEXT:    xxswapd 35, 2
+; CHECK-NEXT:    vperm 2, 4, 2, 3
+; CHECK-NEXT:    xxswapd 36, 0
 ; CHECK-NEXT:    mtfprwz 0, 6
-; CHECK-NEXT:    lbz 6, 96(1)
-; CHECK-NEXT:    mtvsrwz 37, 6
-; CHECK-NEXT:    xxmrghw 36, 1, 0
-; CHECK-NEXT:    mtfprwz 0, 3
-; CHECK-NEXT:    mtfprwz 1, 4
-; CHECK-NEXT:    vperm 4, 1, 4, 3
-; CHECK-NEXT:    mtvsrwz 33, 5
-; CHECK-NEXT:    vperm 2, 5, 2, 3
-; CHECK-NEXT:    vspltisw 5, -10
-; CHECK-NEXT:    vsrw 5, 5, 5
-; CHECK-NEXT:    xxmrghw 32, 1, 0
-; CHECK-NEXT:    xxland 0, 36, 37
+; CHECK-NEXT:    xxland 34, 34, 36
 ; CHECK-NEXT:    xxleqv 36, 36, 36
 ; CHECK-NEXT:    vslw 2, 2, 4
 ; CHECK-NEXT:    vsraw 2, 2, 4
-; CHECK-NEXT:    vperm 0, 1, 0, 3
-; CHECK-NEXT:    vspltisw 1, 1
-; CHECK-NEXT:    xxland 1, 32, 37
-; CHECK-NEXT:    xxswapd 3, 1
-; CHECK-NEXT:    xxsldwi 5, 1, 1, 1
-; CHECK-NEXT:    mffprwz 4, 3
-; CHECK-NEXT:    xxsel 0, 33, 0, 34
+; CHECK-NEXT:    xxmrghw 37, 1, 0
+; CHECK-NEXT:    mtfprwz 0, 3
+; CHECK-NEXT:    mtfprwz 1, 4
+; CHECK-NEXT:    vperm 5, 6, 5, 3
+; CHECK-NEXT:    mtvsrwz 38, 5
+; CHECK-NEXT:    xxmrghw 33, 1, 0
+; CHECK-NEXT:    xxland 0, 37, 32
+; CHECK-NEXT:    vperm 1, 6, 1, 3
+; CHECK-NEXT:    vspltisw 6, 1
+; CHECK-NEXT:    xxland 1, 33, 32
+; CHECK-NEXT:    xxsel 0, 38, 0, 34
 ; CHECK-NEXT:    xxswapd 2, 0
+; CHECK-NEXT:    xxswapd 3, 1
 ; CHECK-NEXT:    xxsldwi 4, 0, 0, 1
+; CHECK-NEXT:    xxsldwi 5, 1, 1, 1
 ; CHECK-NEXT:    mffprwz 3, 2
+; CHECK-NEXT:    mffprwz 4, 3
 ; CHECK-NEXT:    divwu 3, 4, 3
 ; CHECK-NEXT:    mffprwz 4, 4
 ; CHECK-NEXT:    mtfprwz 2, 3

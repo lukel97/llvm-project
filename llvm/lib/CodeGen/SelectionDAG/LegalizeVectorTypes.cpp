@@ -5439,15 +5439,9 @@ SDValue DAGTypeLegalizer::WidenVecRes_MaskedBinary(SDNode *N) {
   SDValue InOp1 = GetWidenedVector(N->getOperand(0));
   SDValue InOp2 = GetWidenedVector(N->getOperand(1));
   SDValue Mask = N->getOperand(2);
-  EVT MaskVT = Mask.getValueType();
-  if (getTypeAction(MaskVT) == TargetLowering::TypeWidenVector)
-    Mask = GetWidenedMask(Mask, WidenVT.getVectorElementCount());
-  else {
-    EVT WidenMaskVT = WidenVT.changeVectorElementType(
-        *DAG.getContext(), MaskVT.getVectorElementType());
-    Mask = DAG.getInsertSubvector(dl, DAG.getConstant(0, dl, WidenMaskVT), Mask,
-                                  0);
-  }
+  EVT WideMaskVT = WidenVT.changeVectorElementType(
+      *DAG.getContext(), Mask.getValueType().getVectorElementType());
+  Mask = ModifyToType(Mask, WideMaskVT, true);
   return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, Mask,
                      N->getFlags());
 }
