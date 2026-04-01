@@ -3050,12 +3050,7 @@ SDValue DAGTypeLegalizer::PromoteIntOp_GET_ACTIVE_LANE_MASK(SDNode *N) {
 SDValue DAGTypeLegalizer::PromoteIntOp_MaskedBinOp(SDNode *N, unsigned OpNo) {
   assert(OpNo == 2);
   SmallVector<SDValue, 3> NewOps(N->ops());
-
-  if (TLI.getBooleanContents(NewOps[2].getValueType()) ==
-      TargetLowering::ZeroOrNegativeOneBooleanContent)
-    NewOps[2] = SExtPromotedInteger(NewOps[2]);
-  else
-    NewOps[2] = ZExtPromotedInteger(NewOps[2]);
+  NewOps[2] = PromoteTargetBoolean(NewOps[2], N->getValueType(0));
   return SDValue(DAG.UpdateNodeOperands(N, NewOps), 0);
 }
 
