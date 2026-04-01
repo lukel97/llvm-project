@@ -1,8 +1,6 @@
 name: Diff llvm-test-suite codegen
 
 on:
-  pull_request:
-  workflow_dispatch:
   issue_comment:
     types:
       - created
@@ -19,7 +17,23 @@ jobs:
     #   !startswith(github.event.comment.body, '<!--IGNORE-->') &&
     #   github.event.issue.pull_request && contains(github.event.comment.body, '/tdiff')
     steps:
+      - id: base-ref
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+            core.setOutput('base_ref', pr.base.ref);
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+      - run: |
+          echo "REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "MERGE_BASE=$(git merge-base HEAD ${{steps.base-ref.outputs.base_ref}})" >> $GITHUB_ENV
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: llvm/llvm-test-suite
@@ -69,7 +83,7 @@ jobs:
           build_llvm_test_suite armv9-a-O3-b armv9-a.cmake
           build_llvm_test_suite x86_64-O3-b x86_64.cmake
         working-directory: llvm-test-suite
-      - run: git fetch --depth=1 origin ${{github.event.pull_request.base.sha}} && git checkout ${{github.event.pull_request.base.sha}}
+      - run: git fetch --depth=1 origin $MERGE_BASE && git checkout $MERGE_BASE
       - run: ninja -C build
       - run: |
           build_llvm_test_suite () {
@@ -96,7 +110,7 @@ jobs:
         with:
           name: results
           path: llvm-test-suite/results*.json
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v7
         env:
           DIFF_URL: ${{ steps.upload-diffs.outputs.artifact-url }}
         with:
