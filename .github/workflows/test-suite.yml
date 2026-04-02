@@ -86,17 +86,17 @@ jobs:
         run: ninja -C build
       - name: Configure and build test-suite @ head
         run: |
-          build-and-configure.sh rva23u64-O3-b $SCRIPTS_DIR/riscv64.cmake
-          build-and-configure.sh armv9-a-O3-b $SCRIPTS_DIR/aarch64.cmake
-          build-and-configure.sh x86_64-O3-b $SCRIPTS_DIR/x86_64.cmake
+          configure-and-build.sh rva23u64-O3-b $SCRIPTS_DIR/riscv64.cmake
+          configure-and-build.sh armv9-a-O3-b $SCRIPTS_DIR/aarch64.cmake
+          configure-and-build.sh x86_64-O3-b $SCRIPTS_DIR/x86_64.cmake
         working-directory: llvm-test-suite
       - name: Build test-suite @ base
         run: git checkout $BASE_SHA && ninja -C build
       - name: Configure and build test-suite @ base
         run: |
-          build-and-configure.sh rva23u64-O3-a $SCRIPTS_DIR/riscv64.cmake
-          build-and-configure.sh armv9-a-O3-a $SCRIPTS_DIR/aarch64.cmake
-          build-and-configure.sh x86_64-O3-a $SCRIPTS_DIR/x86_64.cmake
+          configure-and-build.sh rva23u64-O3-a $SCRIPTS_DIR/riscv64.cmake
+          configure-and-build.sh armv9-a-O3-a $SCRIPTS_DIR/aarch64.cmake
+          configure-and-build.sh x86_64-O3-a $SCRIPTS_DIR/x86_64.cmake
         working-directory: llvm-test-suite
       - name: Compute diffs
         run: |
