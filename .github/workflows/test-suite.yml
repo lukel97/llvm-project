@@ -62,7 +62,7 @@ jobs:
       - name: Checkout scripts and CMake files
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          path: test-suite
+          path: scripts
           sparse-checkout: .github/workflows/test-suite
       - name: Checkout llvm/llvm-test-suite
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -73,7 +73,7 @@ jobs:
         run: |
           echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "BASE_SHA=$(git rev-parse HEAD^)" >> $GITHUB_ENV
-          SCRIPTS_DIR="$GITHUB_WORKSPACE/test-suite/.github/workflows/test-suite"
+          SCRIPTS_DIR="$GITHUB_WORKSPACE/scripts/.github/workflows/test-suite"
           echo "SCRIPTS_DIR=$SCRIPTS_DIR" >> $GITHUB_ENV
           echo "$SCRIPTS_DIR" >> $GITHUB_PATH
       - name: Install system dependencies
@@ -81,7 +81,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build libc6-dev-{arm64,riscv64}-cross libgcc-14-dev-{arm64,riscv64}-cross libstdc++-14-dev-{arm64,riscv64}-cross
       - name: Configure Clang
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD='AArch64;X86;RISCV' -DLLVM_ENABLE_PROJECTS='clang;lld' -DLLVM_APPEND_VC_REV=OFF llvm -GNinja
+        run: cmake -B build -C $SCRIPTS_DIR/llvm.cmake llvm -GNinja
       - name: Build Clang @ head
         run: ninja -C build
       - name: Configure and build test-suite @ head
