@@ -77,6 +77,7 @@ jobs:
           SCRIPTS_DIR="$GITHUB_WORKSPACE/scripts/.github/workflows/test-suite"
           echo "SCRIPTS_DIR=$SCRIPTS_DIR" >> $GITHUB_ENV
           echo "$SCRIPTS_DIR" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/llvm-project/build/bin" >> $GITHUB_PATH
         working-directory: llvm-project
       - name: Install system dependencies
         run: |
