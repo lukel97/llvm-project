@@ -12,10 +12,8 @@ on:
 
 jobs:
   test-suite:
-    name: Build and diff
+    name: Build test-suite and diff
     runs-on: ubuntu-24.04
-    permissions:
-      pull-requests: write
     if: >-
       !startswith(github.event.comment.body, '<!--IGNORE-->') &&
       github.event.issue.pull_request && contains(github.event.comment.body, '/test-suite')
@@ -30,26 +28,12 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.payload.issue.number
             })
-            if (!pr.mergeable)
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: "Can't diff PR, PR isn't mergeable"
-              })
             return pr
       - name: Check pull request is mergeable
         if: ${{ !fromJSON(steps.get-pr.outputs.result).mergeable }}
-        run: exit 1
-      - name: Thumbs up comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: '+1'
-            })
+        run: |
+          echo "Unable to diff test-suite with PR, PR isn't mergeable" >> comments
+          exit 1
       - name: Checkout pull request
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -57,14 +41,6 @@ jobs:
           repository: ${{ fromJSON(steps.get-pr.outputs.result).head.repo.full_name }}
           fetch-depth: 2
           path: llvm-project
-      # Check out the test-suite scripts and CMake files from the default branch
-      # on the upstream repository. Use these instead of the scripts in the pull
-      # request's branch since it's untrusted.
-      - name: Checkout scripts and CMake files
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          path: scripts
-          sparse-checkout: .github/workflows/test-suite
       - name: Checkout llvm/llvm-test-suite
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -74,7 +50,7 @@ jobs:
         run: |
           echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "BASE_SHA=$(git rev-parse HEAD^)" >> $GITHUB_ENV
-          SCRIPTS_DIR="$GITHUB_WORKSPACE/scripts/.github/workflows/test-suite"
+          SCRIPTS_DIR="$GITHUB_WORKSPACE/llvm-project/.github/workflows/test-suite"
           echo "SCRIPTS_DIR=$SCRIPTS_DIR" >> $GITHUB_ENV
           echo "$SCRIPTS_DIR" >> $GITHUB_PATH
           echo "$GITHUB_WORKSPACE/llvm-project/build/bin" >> $GITHUB_PATH
@@ -123,14 +99,12 @@ jobs:
           name: results
           path: llvm-test-suite/results*.json
       - name: Create comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        env:
-          DIFF_URL: ${{ steps.upload-diffs.outputs.artifact-url }}
+        run: |
+          echo "test-suite diff from $BASE_SHA...$HEAD_SHA: ${{ steps.upload-diffs.outputs.artifact-url }} >> comments
+      - name: Upload comment
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
-          script: |
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `test-suite diff from ${process.env.BASE_SHA}...${process.env.HEAD_SHA}: ${process.env.DIFF_URL}`
-            })
+          name: workflow-args
+          path: |
+            comments
