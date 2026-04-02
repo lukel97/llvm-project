@@ -55,6 +55,7 @@ jobs:
       - run: |
           echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "BASE_SHA=$(git rev-parse HEAD^)" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/.github/workflows/test-suite" >> $GITHUB_PATH
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: llvm/llvm-test-suite
@@ -69,56 +70,17 @@ jobs:
         run: ninja -C build
       - name: Configure and build test-suite @ head
         run: |
-          cat << EOF > rva23u64.cmake
-          set(CMAKE_SYSTEM_NAME Linux)
-          set(CMAKE_C_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang)
-          set(CMAKE_CXX_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang++)
-          set(CMAKE_C_COMPILER_TARGET riscv64-linux-gnu)
-          set(CMAKE_CXX_COMPILER_TARGET riscv64-linux-gnu)
-          set(CMAKE_C_FLAGS_INIT "-march=rva23u64 -save-temps=obj")
-          set(CMAKE_CXX_FLAGS_INIT "-march=rva23u64 -save-temps=obj")
-          set(CMAKE_SYSTEM_PROCESSOR riscv64)
-          set(CMAKE_LINKER_TYPE LLD)
-          EOF
-          cat << EOF > armv9-a.cmake
-          set(CMAKE_SYSTEM_NAME Linux)
-          set(CMAKE_C_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang)
-          set(CMAKE_CXX_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang++)
-          set(CMAKE_C_COMPILER_TARGET aarch64-linux-gnu)
-          set(CMAKE_CXX_COMPILER_TARGET aarch64-linux-gnu)
-          set(CMAKE_C_FLAGS_INIT "-march=armv9-a -save-temps=obj")
-          set(CMAKE_CXX_FLAGS_INIT "-march=armv9-a -save-temps=obj")
-          set(CMAKE_SYSTEM_PROCESSOR arm64)
-          set(CMAKE_LINKER_TYPE LLD)
-          EOF
-          cat << EOF > x86_64.cmake
-          set(CMAKE_C_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang)
-          set(CMAKE_CXX_COMPILER ${GITHUB_WORKSPACE}/build/bin/clang++)
-          set(CMAKE_C_FLAGS_INIT "-save-temps=obj")
-          set(CMAKE_CXX_FLAGS_INIT "-save-temps=obj")
-          set(CMAKE_LINKER_TYPE LLD)
-          EOF
-          build_llvm_test_suite () {
-            cmake -B build.$1 -C cmake/caches/O3.cmake --toolchain $2 -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
-            ninja -C build.$1
-            $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
-          }
-          build_llvm_test_suite rva23u64-O3-b rva23u64.cmake
-          build_llvm_test_suite armv9-a-O3-b armv9-a.cmake
-          build_llvm_test_suite x86_64-O3-b x86_64.cmake
+          build-and-configure.sh rva23u64-O3-b riscv64.cmake
+          build-and-configure.sh armv9-a-O3-b aarch64.cmake
+          build-and-configure.sh x86_64-O3-b x86_64.cmake
         working-directory: llvm-test-suite
       - name: Build test-suite @ base
         run: git checkout $BASE_SHA && ninja -C build
       - name: Configure and build test-suite @ base
         run: |
-          build_llvm_test_suite () {
-            cmake -B build.$1 -C cmake/caches/O3.cmake --toolchain $2 -DTEST_SUITE_BENCHMARKING_ONLY=ON -DTEST_SUITE_RUN_BENCHMARKS=OFF -GNinja
-            ninja -C build.$1
-            $GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
-          }
-          build_llvm_test_suite rva23u64-O3-a rva23u64.cmake
-          build_llvm_test_suite armv9-a-O3-a armv9-a.cmake
-          build_llvm_test_suite x86_64-O3-a x86_64.cmake
+          build-and-configure.sh rva23u64-O3-a riscv64.cmake
+          build-and-configure.sh armv9-a-O3-a aarch64.cmake
+          build-and-configure.sh x86_64-O3-a x86_64.cmake
         working-directory: llvm-test-suite
       - run: |
           mkdir diffs

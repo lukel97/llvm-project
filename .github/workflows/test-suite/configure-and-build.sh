@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -eux
+
+cmake -B build.$1 \
+      --toolchain $GITHUB_WORKSPACE/.github/workflows/test-suite/$2 \
+      -C cmake/caches/O3.cmake \
+      -GNinja \
+      -DTEST_SUITE_BENCHMARKING_ONLY=ON \
+      -DTEST_SUITE_RUN_BENCHMARKS=OFF
+ninja -C build.$1
+$GITHUB_WORKSPACE/build/bin/llvm-lit build.$1 -o results.$1.json
