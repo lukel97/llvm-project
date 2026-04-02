@@ -15,7 +15,7 @@ jobs:
     name: Build and diff
     runs-on: ubuntu-24.04
     permissions:
-      issues: write
+      pull-requests: write
     if: >-
       !startswith(github.event.comment.body, '<!--IGNORE-->') &&
       github.event.issue.pull_request && contains(github.event.comment.body, '/test-suite')
