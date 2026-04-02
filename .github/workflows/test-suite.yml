@@ -20,7 +20,8 @@ jobs:
       !startswith(github.event.comment.body, '<!--IGNORE-->') &&
       github.event.issue.pull_request && contains(github.event.comment.body, '/test-suite')
     steps:
-      - id: get-pr
+      - name: Get pull request
+        id: get-pr
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
@@ -36,9 +37,11 @@ jobs:
                 body: "Can't diff PR, PR isn't mergeable"
               })
             return pr
-      - if: ${{ !fromJSON(steps.get-pr.outputs.result).mergeable }}
+      - name: Check pull request is mergeable
+        if: ${{ !fromJSON(steps.get-pr.outputs.result).mergeable }}
         run: exit 1
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      - name: Thumbs up comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             github.rest.reactions.createForIssueComment({
@@ -47,19 +50,32 @@ jobs:
               comment_id: context.payload.comment.id,
               content: '+1'
             })
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Checkout pull request
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ fromJSON(steps.get-pr.outputs.result).merge_commit_sha }}
           repository: ${{ fromJSON(steps.get-pr.outputs.result).head.repo.full_name }}
           fetch-depth: 2
-      - run: |
-          echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
-          echo "BASE_SHA=$(git rev-parse HEAD^)" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/.github/workflows/test-suite" >> $GITHUB_PATH
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      # Check out the test-suite scripts and CMake files from the default branch
+      # on the upstream repository. Use these instead of the scripts in the pull
+      # request's branch since it's untrusted.
+      - name: Checkout scripts and CMake files
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          path: test-suite
+          sparse-checkout: .github/workflows/test-suite
+      - name: Checkout llvm/llvm-test-suite
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: llvm/llvm-test-suite
           path: llvm-test-suite
+      - name: Setup environment variables
+        run: |
+          echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "BASE_SHA=$(git rev-parse HEAD^)" >> $GITHUB_ENV
+          SCRIPTS_DIR="$GITHUB_WORKSPACE/test-suite/.github/workflows/test-suite"
+          echo "SCRIPTS_DIR=$SCRIPTS_DIR" >> $GITHUB_ENV
+          echo "$SCRIPTS_DIR" >> $GITHUB_PATH
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -70,34 +86,38 @@ jobs:
         run: ninja -C build
       - name: Configure and build test-suite @ head
         run: |
-          build-and-configure.sh rva23u64-O3-b riscv64.cmake
-          build-and-configure.sh armv9-a-O3-b aarch64.cmake
-          build-and-configure.sh x86_64-O3-b x86_64.cmake
+          build-and-configure.sh rva23u64-O3-b $SCRIPTS_DIR/riscv64.cmake
+          build-and-configure.sh armv9-a-O3-b $SCRIPTS_DIR/aarch64.cmake
+          build-and-configure.sh x86_64-O3-b $SCRIPTS_DIR/x86_64.cmake
         working-directory: llvm-test-suite
       - name: Build test-suite @ base
         run: git checkout $BASE_SHA && ninja -C build
       - name: Configure and build test-suite @ base
         run: |
-          build-and-configure.sh rva23u64-O3-a riscv64.cmake
-          build-and-configure.sh armv9-a-O3-a aarch64.cmake
-          build-and-configure.sh x86_64-O3-a x86_64.cmake
+          build-and-configure.sh rva23u64-O3-a $SCRIPTS_DIR/riscv64.cmake
+          build-and-configure.sh armv9-a-O3-a $SCRIPTS_DIR/aarch64.cmake
+          build-and-configure.sh x86_64-O3-a $SCRIPTS_DIR/x86_64.cmake
         working-directory: llvm-test-suite
-      - run: |
+      - name: Compute diffs
+        run: |
           mkdir diffs
           ./utils/tdiff.py -a build.rva23u64-O3-a -b build.rva23u64-O3-b -s all > diffs/rva23u64-O3.diff || true
           ./utils/tdiff.py -a build.armv9-a-O3-a -b build.armv9-a-O3-b -s all > diffs/armv9-a-O3.diff || true
           ./utils/tdiff.py -a build.x86_64-O3-a -b build.x86_64-O3-b -s all > diffs/x86_64-O3.diff || true
         working-directory: llvm-test-suite
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
+      - name: Upload diffs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
         id: upload-diffs
         with:
           name: diffs
           path: llvm-test-suite/diffs
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
+      - name: Upload results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
         with:
           name: results
           path: llvm-test-suite/results*.json
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      - name: Create comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           DIFF_URL: ${{ steps.upload-diffs.outputs.artifact-url }}
         with:

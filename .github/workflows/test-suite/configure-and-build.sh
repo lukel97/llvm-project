@@ -3,7 +3,7 @@
 set -eux
 
 cmake -B build.$1 \
-      --toolchain $GITHUB_WORKSPACE/.github/workflows/test-suite/$2 \
+      --toolchain $2 \
       -C cmake/caches/O3.cmake \
       -GNinja \
       -DTEST_SUITE_BENCHMARKING_ONLY=ON \
