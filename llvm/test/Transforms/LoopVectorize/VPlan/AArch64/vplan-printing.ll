@@ -22,7 +22,7 @@ define i32 @print_partial_reduction(ptr %a, ptr %b) "target-features"="+neon,+do
 ; CHECK-NEXT: <x1> vector loop: {
 ; CHECK-NEXT: vector.body:
 ; CHECK-NEXT:   EMIT vp<[[CAN_IV:%.+]]> = CANONICAL-INDUCTION ir<0>, vp<[[CAN_IV_NEXT:%.+]]>
-; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[ACC:%.+]]> = phi vp<[[RDX_START]]>, vp<[[REDUCE:%.+]]> (VF scaled by 1/4)
+; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[ACC:%.+]]> = phi (add) vp<[[RDX_START]]>, vp<[[REDUCE:%.+]]> (VF scaled by 1/4)
 ; CHECK-NEXT:   vp<[[STEPS:%.+]]> = SCALAR-STEPS vp<[[CAN_IV]]>, ir<1>, vp<[[VF]]>
 ; CHECK-NEXT:   CLONE ir<%gep.a> = getelementptr ir<%a>, vp<[[STEPS]]>
 ; CHECK-NEXT:   vp<[[PTR_A:%.+]]> = vector-pointer ir<%gep.a>
@@ -80,7 +80,7 @@ define i32 @print_partial_reduction(ptr %a, ptr %b) "target-features"="+neon,+do
 ; CHECK-EMPTY:
 ; CHECK-NEXT: vector.body:
 ; CHECK-NEXT:   EMIT-SCALAR vp<[[EP_IV:%.+]]> = phi [ ir<0>, vector.ph ], [ vp<%index.next>, vector.body ]
-; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[RDX:%.+]]> = phi vp<[[RDX_START]]>, ir<[[RDX_NEXT:%.+]]> (VF scaled by 1/4)
+; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[RDX:%.+]]> = phi (add) vp<[[RDX_START]]>, ir<[[RDX_NEXT:%.+]]> (VF scaled by 1/4)
 ; CHECK-NEXT:   CLONE ir<%gep.a> = getelementptr ir<%a>, vp<%index>
 ; CHECK-NEXT:   WIDEN ir<%load.a> = load ir<%gep.a>
 ; CHECK-NEXT:   CLONE ir<%gep.b> = getelementptr ir<%b>, vp<%index>
@@ -144,7 +144,7 @@ define i32 @print_partial_reduction_predication(ptr %a, ptr %b, i64 %N) "target-
 ; CHECK-NEXT:   vector.body:
 ; CHECK-NEXT:     EMIT vp<[[CAN_IV:%[0-9]+]]> = CANONICAL-INDUCTION ir<0>, vp<%index.next>
 ; CHECK-NEXT:     ACTIVE-LANE-MASK-PHI vp<[[MASK:%[0-9]+]]> = phi vp<%active.lane.mask.entry>, vp<%active.lane.mask.next>
-; CHECK-NEXT:     WIDEN-REDUCTION-PHI ir<%accum> = phi vp<[[RDX_START]]>, vp<[[REDUCE:%[0-9]+]]> (VF scaled by 1/4)
+; CHECK-NEXT:     WIDEN-REDUCTION-PHI ir<%accum> = phi (add) vp<[[RDX_START]]>, vp<[[REDUCE:%[0-9]+]]> (VF scaled by 1/4)
 ; CHECK-NEXT:     vp<[[STEPS:%[0-9]+]]> = SCALAR-STEPS vp<[[CAN_IV]]>, ir<1>, vp<[[VF]]>
 ; CHECK-NEXT:     CLONE ir<%gep.a> = getelementptr ir<%a>, vp<[[STEPS]]>
 ; CHECK-NEXT:     vp<[[PTR_A:%[0-9]+]]> = vector-pointer ir<%gep.a>
@@ -208,7 +208,7 @@ define i32 @print_partial_reduction_ext_mul(ptr %a, ptr %b) "target-features"="+
 ; CHECK-NEXT: <x1> vector loop: {
 ; CHECK-NEXT: vector.body:
 ; CHECK-NEXT:   EMIT vp<[[CAN_IV:%.+]]> = CANONICAL-INDUCTION ir<0>, vp<[[CAN_IV_NEXT:%.+]]>
-; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[ACC:%.+]]> = phi vp<[[RDX_START]]>, vp<[[REDUCE:%.+]]> (VF scaled by 1/4)
+; CHECK-NEXT:   WIDEN-REDUCTION-PHI ir<[[ACC:%.+]]> = phi (add) vp<[[RDX_START]]>, vp<[[REDUCE:%.+]]> (VF scaled by 1/4)
 ; CHECK-NEXT:   vp<[[STEPS:%.+]]> = SCALAR-STEPS vp<[[CAN_IV]]>, ir<1>, vp<[[VF]]>
 ; CHECK-NEXT:   CLONE ir<%gep.a> = getelementptr ir<%a>, vp<[[STEPS]]>
 ; CHECK-NEXT:   vp<[[PTR_A:%.+]]> = vector-pointer ir<%gep.a>

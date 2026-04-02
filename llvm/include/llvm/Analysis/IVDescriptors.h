@@ -458,6 +458,90 @@ private:
   SmallVector<Instruction *, 2> RedundantCasts;
 };
 
+inline raw_ostream &operator<<(raw_ostream &OS, const RecurKind &Kind) {
+  switch (Kind) {
+  case RecurKind::None:
+    OS << "none";
+    break;
+  case RecurKind::Add:
+    OS << "add";
+    break;
+  case RecurKind::Sub:
+    OS << "sub";
+    break;
+  case RecurKind::AddChainWithSubs:
+    OS << "add-chain-with-subs";
+    break;
+  case RecurKind::Mul:
+    OS << "mul";
+    break;
+  case RecurKind::Or:
+    OS << "or";
+    break;
+  case RecurKind::And:
+    OS << "and";
+    break;
+  case RecurKind::Xor:
+    OS << "xor";
+    break;
+  case RecurKind::SMin:
+    OS << "smin";
+    break;
+  case RecurKind::SMax:
+    OS << "smax";
+    break;
+  case RecurKind::UMin:
+    OS << "umin";
+    break;
+  case RecurKind::UMax:
+    OS << "umax";
+    break;
+  case RecurKind::FAdd:
+    OS << "fadd";
+    break;
+  case RecurKind::FMul:
+    OS << "fmul";
+    break;
+  case RecurKind::FMin:
+    OS << "fmin";
+    break;
+  case RecurKind::FMax:
+    OS << "fmax";
+    break;
+  case RecurKind::FMinNum:
+    OS << "fminnum";
+    break;
+  case RecurKind::FMaxNum:
+    OS << "fmaxnum";
+    break;
+  case RecurKind::FMinimum:
+    OS << "fminimum";
+    break;
+  case RecurKind::FMaximum:
+    OS << "fmaximum";
+    break;
+  case RecurKind::FMinimumNum:
+    OS << "fminimumnum";
+    break;
+  case RecurKind::FMaximumNum:
+    OS << "fmaximumnum";
+    break;
+  case RecurKind::FMulAdd:
+    OS << "fmuladd";
+    break;
+  case RecurKind::AnyOf:
+    OS << "any-of";
+    break;
+  case RecurKind::FindIV:
+    OS << "find-iv";
+    break;
+  case RecurKind::FindLast:
+    OS << "find-last";
+    break;
+  }
+  return OS;
+}
+
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_IVDESCRIPTORS_H

@@ -273,7 +273,7 @@ define i32 @reduction(ptr noalias %p, i32 %n) {
 ; CHECK-NEXT:    vector.body:
 ; CHECK-NEXT:      EMIT vp<[[VP4:%[0-9]+]]> = CANONICAL-INDUCTION ir<0>, vp<%index.next>
 ; CHECK-NEXT:      ir<%iv> = WIDEN-INDUCTION ir<0>, ir<1>, vp<[[VP0]]>
-; CHECK-NEXT:      WIDEN-REDUCTION-PHI ir<%rdx> = phi ir<0>, vp<[[VP8:%[0-9]+]]>
+; CHECK-NEXT:      WIDEN-REDUCTION-PHI ir<%rdx> = phi (add) ir<0>, vp<[[VP8:%[0-9]+]]>
 ; CHECK-NEXT:      EMIT vp<[[VP5:%[0-9]+]]> = WIDEN-CANONICAL-INDUCTION vp<[[VP4]]>
 ; CHECK-NEXT:      EMIT vp<[[VP6:%[0-9]+]]> = icmp ule vp<[[VP5]]>, vp<[[VP3]]>
 ; CHECK-NEXT:      EMIT branch-on-cond vp<[[VP6]]>

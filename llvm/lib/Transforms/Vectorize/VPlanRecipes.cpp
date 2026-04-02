@@ -2247,49 +2247,8 @@ void VPIRFlags::printFlags(raw_ostream &O) const {
       O << " nneg";
     break;
   case OperationType::ReductionOp: {
-    RecurKind RK = getRecurKind();
     O << " (";
-    switch (RK) {
-    case RecurKind::AnyOf:
-      O << "any-of";
-      break;
-    case RecurKind::FindLast:
-      O << "find-last";
-      break;
-    case RecurKind::SMax:
-      O << "smax";
-      break;
-    case RecurKind::SMin:
-      O << "smin";
-      break;
-    case RecurKind::UMax:
-      O << "umax";
-      break;
-    case RecurKind::UMin:
-      O << "umin";
-      break;
-    case RecurKind::FMinNum:
-      O << "fminnum";
-      break;
-    case RecurKind::FMaxNum:
-      O << "fmaxnum";
-      break;
-    case RecurKind::FMinimum:
-      O << "fminimum";
-      break;
-    case RecurKind::FMaximum:
-      O << "fmaximum";
-      break;
-    case RecurKind::FMinimumNum:
-      O << "fminimumnum";
-      break;
-    case RecurKind::FMaximumNum:
-      O << "fmaximumnum";
-      break;
-    default:
-      O << Instruction::getOpcodeName(RecurrenceDescriptor::getOpcode(RK));
-      break;
-    }
+    O << getRecurKind();
     if (isReductionInLoop())
       O << ", in-loop";
     if (isReductionOrdered())
@@ -4670,7 +4629,9 @@ void VPReductionPHIRecipe::printRecipe(raw_ostream &O, const Twine &Indent,
   O << Indent << "WIDEN-REDUCTION-PHI ";
 
   printAsOperand(O, SlotTracker);
-  O << " = phi";
+  O << " = phi (";
+  O << Kind;
+  O << ")";
   printFlags(O);
   printOperands(O, SlotTracker);
   if (getVFScaleFactor() > 1)
