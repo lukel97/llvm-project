@@ -280,14 +280,14 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
 
     // Traverse the post dominator frontier and find the edges where the path
     // can now reach multiple incoming edges.
-    // TODO: If two incoming edges have the same incoming value, consdier them
+    // TODO: If two incoming edges have the same incoming value, consider them
     // equal.
     SmallVector<VPBlockBase *> Worklist = {InVPBB};
     MapVector<VPBlockBase *, SmallSetVector<VPBlockBase *, 8>> Edges;
     while (!Worklist.empty()) {
       auto *X = cast<VPBasicBlock>(Worklist.pop_back_val());
       if (Reachable[X].size() == 1) {
-        assert(Reachable[X].contains(InVPBB));
+        assert(Reachable[X].contains(InVPBB) && "Reachable block not InVPBB?");
         append_range(Worklist, VPPDF.find(X)->second);
         continue;
       }
@@ -298,7 +298,7 @@ VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
     }
 
     VPValue *Mask = nullptr;
-    for (auto [DstBase, Preds] : Edges) {
+    for (const auto &[DstBase, Preds] : Edges) {
       auto *Dst = cast<VPBasicBlock>(DstBase);
       // If the blend mask uses all the edges to Dst, reuse Dst's block-in mask.
       if (Preds.size() == Dst->getNumPredecessors()) {
