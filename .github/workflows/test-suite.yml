@@ -41,11 +41,13 @@ jobs:
           repository: ${{ fromJSON(steps.get-pr.outputs.result).head.repo.full_name }}
           fetch-depth: 2
           path: llvm-project
+          persist-credentials: false
       - name: Checkout llvm/llvm-test-suite
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: llvm/llvm-test-suite
           path: llvm-test-suite
+          persist-credentials: false
       - name: Setup environment variables
         run: |
           echo "HEAD_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
