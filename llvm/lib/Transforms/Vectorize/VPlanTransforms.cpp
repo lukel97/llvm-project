@@ -3150,6 +3150,14 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
       return new VPInterleaveEVLRecipe(*Interleave, EVL, Mask);
 
   VPValue *LHS, *RHS;
+  // lhs | (headermask && rhs) -> vp.merge rhs, true, lhs, evl
+  if (match(&CurRecipe,
+            m_c_BinaryOr(m_VPValue(LHS),
+                         m_LogicalAnd(m_Specific(HeaderMask), m_VPValue(RHS)))))
+    return new VPWidenIntrinsicRecipe(
+        Intrinsic::vp_merge, {RHS, Plan->getTrue(), LHS, &EVL},
+        TypeInfo.inferScalarType(LHS), {}, {}, DL);
+
   if (match(&CurRecipe,
             m_Select(m_Specific(HeaderMask), m_VPValue(LHS), m_VPValue(RHS))))
     return new VPWidenIntrinsicRecipe(
