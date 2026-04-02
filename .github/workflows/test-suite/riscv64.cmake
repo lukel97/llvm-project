@@ -1,6 +1,6 @@
 set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_C_COMPILER $ENV{GITHUB_WORKSPACE}/build/bin/clang)
-set(CMAKE_CXX_COMPILER $ENV{GITHUB_WORKSPACE}/build/bin/clang++)
+set(CMAKE_C_COMPILER $ENV{GITHUB_WORKSPACE}/llvm-project/build/bin/clang)
+set(CMAKE_CXX_COMPILER $ENV{GITHUB_WORKSPACE}/llvm-project/build/bin/clang++)
 set(CMAKE_C_COMPILER_TARGET riscv64-linux-gnu)
 set(CMAKE_CXX_COMPILER_TARGET riscv64-linux-gnu)
 set(CMAKE_C_FLAGS_INIT "-march=rva23u64 -save-temps=obj")

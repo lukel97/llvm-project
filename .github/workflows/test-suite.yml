@@ -56,6 +56,7 @@ jobs:
           ref: ${{ fromJSON(steps.get-pr.outputs.result).merge_commit_sha }}
           repository: ${{ fromJSON(steps.get-pr.outputs.result).head.repo.full_name }}
           fetch-depth: 2
+          path: llvm-project
       # Check out the test-suite scripts and CMake files from the default branch
       # on the upstream repository. Use these instead of the scripts in the pull
       # request's branch since it's untrusted.
@@ -76,14 +77,17 @@ jobs:
           SCRIPTS_DIR="$GITHUB_WORKSPACE/scripts/.github/workflows/test-suite"
           echo "SCRIPTS_DIR=$SCRIPTS_DIR" >> $GITHUB_ENV
           echo "$SCRIPTS_DIR" >> $GITHUB_PATH
+        working-directory: llvm-project
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build libc6-dev-{arm64,riscv64}-cross libgcc-14-dev-{arm64,riscv64}-cross libstdc++-14-dev-{arm64,riscv64}-cross
       - name: Configure Clang
         run: cmake -B build -C $SCRIPTS_DIR/llvm.cmake llvm -GNinja
+        working-directory: llvm-project
       - name: Build Clang @ head
         run: ninja -C build
+        working-directory: llvm-project
       - name: Configure and build test-suite @ head
         run: |
           configure-and-build.sh rva23u64-O3-head $SCRIPTS_DIR/riscv64.cmake
@@ -92,6 +96,7 @@ jobs:
         working-directory: llvm-test-suite
       - name: Build test-suite @ base
         run: git checkout $BASE_SHA && ninja -C build
+        working-directory: llvm-project
       - name: Configure and build test-suite @ base
         run: |
           configure-and-build.sh rva23u64-O3-base $SCRIPTS_DIR/riscv64.cmake
