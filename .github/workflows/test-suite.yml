@@ -17,6 +17,8 @@ jobs:
   test-suite:
     name: Build test-suite and diff
     runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/llvm/ci-ubuntu-24.04:latest
     if: github.event.issue.pull_request && startswith(github.event.comment.body, '/test-suite')
     steps:
       - name: Get pull request
