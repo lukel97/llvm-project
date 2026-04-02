@@ -10,6 +10,9 @@ on:
     types:
       - created
 
+permissions:
+  contents: read
+
 jobs:
   test-suite:
     name: Build test-suite and diff
