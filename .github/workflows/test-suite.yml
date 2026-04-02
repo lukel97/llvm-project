@@ -63,7 +63,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libc6-dev-{arm64,riscv64}-cross libgcc-14-dev-{arm64,riscv64}-cross libstdc++-14-dev-{arm64,riscv64}-cross
+          sudo apt-get install -y cmake ninja-build libc6-dev-arm64-cross libc6-dev-riscv64-cross libgcc-14-dev-arm64-cross libgcc-14-dev-riscv64-cross libstdc++-14-dev-arm64-cross libstdc++-14-dev-riscv64-cross
       - name: Configure Clang
         run: cmake -B build -C $SCRIPTS_DIR/llvm.cmake llvm -GNinja
         working-directory: llvm-project
