@@ -82,7 +82,7 @@ jobs:
           configure-and-build.sh armv9-a-O3-head $SCRIPTS_DIR/aarch64.cmake
           configure-and-build.sh x86_64-O3-head $SCRIPTS_DIR/x86_64.cmake
         working-directory: llvm-test-suite
-      - name: Build test-suite @ base
+      - name: Build Clang @ base
         run: git checkout $BASE_SHA && ninja -C build
         working-directory: llvm-project
       - name: Configure and build test-suite @ base
