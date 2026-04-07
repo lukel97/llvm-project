@@ -35,7 +35,9 @@ jobs:
       - name: Check pull request is mergeable
         if: ${{ !fromJSON(steps.get-pr.outputs.result).mergeable }}
         run: |
-          echo "Unable to diff test-suite with PR, PR isn't mergeable" >> comments
+          cat << EOF > comments
+          [{"body": "Unable to diff test-suite with PR, PR isn't mergeable"}]
+          EOF
           exit 1
       - name: Checkout pull request
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -111,7 +113,9 @@ jobs:
           path: llvm-test-suite/results*.json
       - name: Create comment
         run: |
-          echo "test-suite diff from $BASE_SHA...$HEAD_SHA: ${{ steps.upload-diffs.outputs.artifact-url }}" >> comments
+          cat << EOF > comments
+          [{"body" : "test-suite diff from $BASE_SHA...$HEAD_SHA: ${{ steps.upload-diffs.outputs.artifact-url }}"}]
+          EOF
       - name: Upload comment
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
