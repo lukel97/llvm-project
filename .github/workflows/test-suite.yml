@@ -39,7 +39,6 @@ jobs:
           [{"body": "Unable to diff test-suite with PR, PR isn't mergeable"}]
           EOF
           exit 1
-      - run: exit 1
       - name: Checkout pull request
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -126,7 +125,7 @@ jobs:
           EOF
       - name: Save PR number
         if: always()
-        run: echo ${{ fromJSON(steps.get-pr.outputs.result).id }} > pr_number
+        run: echo ${{ fromJSON(steps.get-pr.outputs.result).number }} > pr_number
       - name: Upload comment and PR number
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
