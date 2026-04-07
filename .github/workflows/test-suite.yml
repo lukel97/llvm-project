@@ -116,6 +116,13 @@ jobs:
           cat << EOF > comments
           [{"body" : "test-suite diff from $BASE_SHA...$HEAD_SHA: ${{ steps.upload-diffs.outputs.artifact-url }}"}]
           EOF
+      - name: Create comment on failure
+        if: failure()
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cat << EOF > comments
+          [{"body" : "Failed to get test-suite diff from $BASE_SHA...$HEAD_SHA: $RUN_URL"}]
+          EOF
       - name: Upload comment
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
