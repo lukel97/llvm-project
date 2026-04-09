@@ -884,7 +884,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
     static const unsigned FloatingPointVPOps[] = {
         ISD::VP_FADD,        ISD::VP_FSUB,        ISD::VP_FMUL,
-        ISD::VP_FDIV,        ISD::VP_FNEG,        ISD::VP_FABS,
+        ISD::VP_FNEG,        ISD::VP_FABS,
         ISD::VP_FMA,         ISD::VP_REDUCE_FADD, ISD::VP_REDUCE_SEQ_FADD,
         ISD::VP_REDUCE_FMIN, ISD::VP_REDUCE_FMAX, ISD::VP_MERGE,
         ISD::VP_SELECT,
@@ -1206,7 +1206,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
         ISD::VP_FADD,
         ISD::VP_FSUB,
         ISD::VP_FMUL,
-        ISD::VP_FDIV,
         ISD::VP_FMA,
         ISD::VP_REDUCE_FMIN,
         ISD::VP_REDUCE_FMAX,
@@ -7549,7 +7548,6 @@ static unsigned getRISCVVLOp(SDValue Op) {
   VP_CASE(FADD)       // VP_FADD
   VP_CASE(FSUB)       // VP_FSUB
   VP_CASE(FMUL)       // VP_FMUL
-  VP_CASE(FDIV)       // VP_FDIV
   VP_CASE(FNEG)       // VP_FNEG
   VP_CASE(FABS)       // VP_FABS
   VP_CASE(SMIN)       // VP_SMIN
@@ -8962,7 +8960,6 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
   case ISD::VP_FADD:
   case ISD::VP_FSUB:
   case ISD::VP_FMUL:
-  case ISD::VP_FDIV:
   case ISD::VP_FNEG:
   case ISD::VP_FABS:
   case ISD::VP_SQRT:
@@ -9610,8 +9607,15 @@ static SDValue lowerSelectToBinOp(SDNode *N, SelectionDAG &DAG,
       return DAG.getNode(ISD::AND, DL, VT, Neg, DAG.getFreeze(FalseV));
     }
     if (isNullConstant(FalseV)) {
-      // (select c, (1 << ShAmount) + 1, 0) -> (c << ShAmount) + c
       if (auto *TrueC = dyn_cast<ConstantSDNode>(TrueV)) {
+        // (select c, y, 0) -> (c * (y - 1)) + c
+        int64_t MulImm = TrueC->getSExtValue();
+        if (MulImm != INT64_MIN && isInt<12>(MulImm - 1) &&
+            Subtarget.hasVendorXqciac())
+          return DAG.getNode(RISCVISD::QC_MULIADD, DL, VT, CondV, CondV,
+                             DAG.getTargetConstant(MulImm - 1, DL, VT));
+
+        // (select c, (1 << ShAmount) + 1, 0) -> (c << ShAmount) + c
         uint64_t TrueM1 = TrueC->getZExtValue() - 1;
         if (isPowerOf2_64(TrueM1)) {
           unsigned ShAmount = Log2_64(TrueM1);
@@ -24370,6 +24374,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
       continue;
     }
     InVals.push_back(ArgValue);
+
     if (Ins[InsIdx].Flags.isByVal())
       RVFI->addIncomingByValArgs(ArgValue);
   }
@@ -24401,7 +24406,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
 
       // If saving an odd number of registers then create an extra stack slot to
       // ensure that the frame pointer is 2*XLEN-aligned, which in turn ensures
-      // offsets to even-numbered registered remain 2*XLEN-aligned.
+      // offsets to even-numbered registers remain 2*XLEN-aligned.
       if (Idx % 2) {
         MFI.CreateFixedObject(
             XLenInBytes, VaArgOffset - static_cast<int>(XLenInBytes), true);
@@ -24434,8 +24439,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
   RVFI->setArgumentStackSize(CCInfo.getStackSize());
 
   // All stores are grouped in one node to allow the matching between
-  // the size of Ins and InVals. This only happens for vararg functions.
+  // the size of Ins and InVals.
   if (!OutChains.empty()) {
+    assert(IsVarArg && "Only variadic functions should have OutChains");
     OutChains.push_back(Chain);
     Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, OutChains);
   }
