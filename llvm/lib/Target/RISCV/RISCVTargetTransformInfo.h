@@ -378,7 +378,6 @@ public:
         Intrinsic::vp_cttz_elts,
         Intrinsic::vp_fadd,
         Intrinsic::vp_fcmp,
-        Intrinsic::vp_fdiv,
         Intrinsic::vp_fma,
         Intrinsic::vp_fmul,
         Intrinsic::vp_fmuladd,
