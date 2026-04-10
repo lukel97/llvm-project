@@ -68,9 +68,9 @@ class VPRecipeBuilder {
   VPSingleDefRecipe *tryToWidenCall(VPInstruction *VPI, VFRange &Range);
 
   /// Check if \p VPI has an opcode that can be widened and return a
-  /// VPWidenRecipe if it can. The function should only be called if the
+  /// widened recipe if it can. The function should only be called if the
   /// cost-model indicates that widening should be performed.
-  VPWidenRecipe *tryToWiden(VPInstruction *VPI);
+  VPRecipeWithIRFlags *tryToWiden(VPInstruction *VPI);
 
   /// Makes Histogram count operations safe for vectorization, by emitting a
   /// llvm.experimental.vector.histogram.add intrinsic in place of the

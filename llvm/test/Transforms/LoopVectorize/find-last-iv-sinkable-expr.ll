@@ -954,8 +954,7 @@ define i64 @findlast_sdiv_iv_as_divisor(ptr %a, i64 %n) {
 ; TF-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[OFFSET_IDX]]
 ; TF-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr align 8 [[TMP3]], <4 x i1> [[TMP2]], <4 x i64> poison)
 ; TF-NEXT:    [[TMP4:%.*]] = icmp eq <4 x i64> [[WIDE_MASKED_LOAD]], splat (i64 42)
-; TF-NEXT:    [[TMP5:%.*]] = select <4 x i1> [[TMP2]], <4 x i64> [[VEC_IND]], <4 x i64> splat (i64 1)
-; TF-NEXT:    [[TMP6:%.*]] = sdiv <4 x i64> splat (i64 100), [[TMP5]]
+; TF-NEXT:    [[TMP6:%.*]] = call <4 x i64> @llvm.masked.sdiv.v4i64(<4 x i64> splat (i64 100), <4 x i64> [[VEC_IND]], <4 x i1> [[TMP2]])
 ; TF-NEXT:    [[TMP7:%.*]] = select <4 x i1> [[TMP2]], <4 x i1> [[TMP4]], <4 x i1> zeroinitializer
 ; TF-NEXT:    [[TMP8:%.*]] = freeze <4 x i1> [[TMP7]]
 ; TF-NEXT:    [[TMP9:%.*]] = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> [[TMP8]])
@@ -1539,8 +1538,7 @@ define i64 @findlast_udiv_may_trap_due_to_sentinel(ptr %a, i64 %n) {
 ; TF-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[OFFSET_IDX]]
 ; TF-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr align 8 [[TMP3]], <4 x i1> [[TMP2]], <4 x i64> poison)
 ; TF-NEXT:    [[TMP4:%.*]] = icmp eq <4 x i64> [[WIDE_MASKED_LOAD]], splat (i64 42)
-; TF-NEXT:    [[TMP5:%.*]] = select <4 x i1> [[TMP2]], <4 x i64> [[VEC_IND]], <4 x i64> splat (i64 1)
-; TF-NEXT:    [[TMP6:%.*]] = udiv <4 x i64> splat (i64 100), [[TMP5]]
+; TF-NEXT:    [[TMP6:%.*]] = call <4 x i64> @llvm.masked.udiv.v4i64(<4 x i64> splat (i64 100), <4 x i64> [[VEC_IND]], <4 x i1> [[TMP2]])
 ; TF-NEXT:    [[TMP7:%.*]] = select <4 x i1> [[TMP2]], <4 x i1> [[TMP4]], <4 x i1> zeroinitializer
 ; TF-NEXT:    [[TMP8:%.*]] = freeze <4 x i1> [[TMP7]]
 ; TF-NEXT:    [[TMP9:%.*]] = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> [[TMP8]])
@@ -1655,8 +1653,7 @@ define i64 @findlast_srem_iv_as_divisor(ptr %a, i64 %n) {
 ; TF-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[OFFSET_IDX]]
 ; TF-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr align 8 [[TMP3]], <4 x i1> [[TMP2]], <4 x i64> poison)
 ; TF-NEXT:    [[TMP4:%.*]] = icmp eq <4 x i64> [[WIDE_MASKED_LOAD]], splat (i64 42)
-; TF-NEXT:    [[TMP5:%.*]] = select <4 x i1> [[TMP2]], <4 x i64> [[VEC_IND]], <4 x i64> splat (i64 1)
-; TF-NEXT:    [[TMP6:%.*]] = srem <4 x i64> splat (i64 100), [[TMP5]]
+; TF-NEXT:    [[TMP6:%.*]] = call <4 x i64> @llvm.masked.srem.v4i64(<4 x i64> splat (i64 100), <4 x i64> [[VEC_IND]], <4 x i1> [[TMP2]])
 ; TF-NEXT:    [[TMP7:%.*]] = select <4 x i1> [[TMP2]], <4 x i1> [[TMP4]], <4 x i1> zeroinitializer
 ; TF-NEXT:    [[TMP8:%.*]] = freeze <4 x i1> [[TMP7]]
 ; TF-NEXT:    [[TMP9:%.*]] = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> [[TMP8]])

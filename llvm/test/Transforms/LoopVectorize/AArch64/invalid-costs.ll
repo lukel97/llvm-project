@@ -31,8 +31,7 @@ define void @replicate_sdiv_conditional(ptr noalias %a, ptr noalias %b, ptr noal
 ; CHECK-NEXT:    [[TMP8:%.*]] = ashr <vscale x 4 x i32> [[WIDE_MASKED_LOAD]], splat (i32 1)
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <vscale x 4 x i32> [[TMP8]], [[WIDE_LOAD]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = sext <vscale x 4 x i32> [[TMP9]] to <vscale x 4 x i64>
-; CHECK-NEXT:    [[TMP11:%.*]] = select <vscale x 4 x i1> [[TMP5]], <vscale x 4 x i64> [[TMP7]], <vscale x 4 x i64> splat (i64 1)
-; CHECK-NEXT:    [[TMP12:%.*]] = sdiv <vscale x 4 x i64> [[TMP10]], [[TMP11]]
+; CHECK-NEXT:    [[TMP12:%.*]] = call <vscale x 4 x i64> @llvm.masked.sdiv.nxv4i64(<vscale x 4 x i64> [[TMP10]], <vscale x 4 x i64> [[TMP7]], <vscale x 4 x i1> [[TMP5]])
 ; CHECK-NEXT:    [[TMP13:%.*]] = trunc <vscale x 4 x i64> [[TMP12]] to <vscale x 4 x i32>
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <vscale x 4 x i1> [[TMP5]], <vscale x 4 x i32> [[TMP13]], <vscale x 4 x i32> [[WIDE_LOAD]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[INDEX]]

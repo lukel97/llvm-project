@@ -381,7 +381,7 @@ exit:
 
 define i32 @header_mask_and_invariant_compare(ptr %A, ptr %B, ptr %C, ptr %D, ptr %E, i64 %N) "target-features"="+sve" {
 ; DEFAULT-LABEL: define i32 @header_mask_and_invariant_compare(
-; DEFAULT-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], i64 [[N:%.*]]) #[[ATTR1:[0-9]+]] {
+; DEFAULT-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], i64 [[N:%.*]]) #[[ATTR0:[0-9]+]] {
 ; DEFAULT-NEXT:  [[ENTRY:.*:]]
 ; DEFAULT-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
 ; DEFAULT-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP0]], 28
@@ -466,7 +466,7 @@ define i32 @header_mask_and_invariant_compare(ptr %A, ptr %B, ptr %C, ptr %D, pt
 ; DEFAULT:       [[SCALAR_PH]]:
 ;
 ; PRED-LABEL: define i32 @header_mask_and_invariant_compare(
-; PRED-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], i64 [[N:%.*]]) #[[ATTR1:[0-9]+]] {
+; PRED-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], i64 [[N:%.*]]) #[[ATTR0:[0-9]+]] {
 ; PRED-NEXT:  [[ENTRY:.*:]]
 ; PRED-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
 ; PRED-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
@@ -567,7 +567,7 @@ exit:
 
 define void @multiple_exit_conditions(ptr %src, ptr noalias %dst) #1 {
 ; DEFAULT-LABEL: define void @multiple_exit_conditions(
-; DEFAULT-SAME: ptr [[SRC:%.*]], ptr noalias [[DST:%.*]]) #[[ATTR2:[0-9]+]] {
+; DEFAULT-SAME: ptr [[SRC:%.*]], ptr noalias [[DST:%.*]]) #[[ATTR1:[0-9]+]] {
 ; DEFAULT-NEXT:  [[ENTRY:.*:]]
 ; DEFAULT-NEXT:    [[TMP2:%.*]] = call i64 @llvm.vscale.i64()
 ; DEFAULT-NEXT:    [[TMP3:%.*]] = shl nuw i64 [[TMP2]], 4
@@ -610,7 +610,7 @@ define void @multiple_exit_conditions(ptr %src, ptr noalias %dst) #1 {
 ; DEFAULT:       [[SCALAR_PH]]:
 ;
 ; PRED-LABEL: define void @multiple_exit_conditions(
-; PRED-SAME: ptr [[SRC:%.*]], ptr noalias [[DST:%.*]]) #[[ATTR2:[0-9]+]] {
+; PRED-SAME: ptr [[SRC:%.*]], ptr noalias [[DST:%.*]]) #[[ATTR1:[0-9]+]] {
 ; PRED-NEXT:  [[ENTRY:.*:]]
 ; PRED-NEXT:    br label %[[VECTOR_PH:.*]]
 ; PRED:       [[VECTOR_PH]]:
@@ -693,7 +693,7 @@ exit:
 
 define void @test_conditional_interleave_group (ptr noalias %src.1, ptr noalias %src.2, ptr noalias %src.3, ptr noalias %src.4, ptr noalias %dst, i64 %N) #2 {
 ; DEFAULT-LABEL: define void @test_conditional_interleave_group(
-; DEFAULT-SAME: ptr noalias [[SRC_1:%.*]], ptr noalias [[SRC_2:%.*]], ptr noalias [[SRC_3:%.*]], ptr noalias [[SRC_4:%.*]], ptr noalias [[DST:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
+; DEFAULT-SAME: ptr noalias [[SRC_1:%.*]], ptr noalias [[SRC_2:%.*]], ptr noalias [[SRC_3:%.*]], ptr noalias [[SRC_4:%.*]], ptr noalias [[DST:%.*]], i64 [[N:%.*]]) #[[ATTR2:[0-9]+]] {
 ; DEFAULT-NEXT:  [[ENTRY:.*:]]
 ; DEFAULT-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
 ; DEFAULT-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[TMP0]], 8
@@ -852,7 +852,7 @@ define void @test_conditional_interleave_group (ptr noalias %src.1, ptr noalias 
 ; DEFAULT:       [[SCALAR_PH]]:
 ;
 ; PRED-LABEL: define void @test_conditional_interleave_group(
-; PRED-SAME: ptr noalias [[SRC_1:%.*]], ptr noalias [[SRC_2:%.*]], ptr noalias [[SRC_3:%.*]], ptr noalias [[SRC_4:%.*]], ptr noalias [[DST:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
+; PRED-SAME: ptr noalias [[SRC_1:%.*]], ptr noalias [[SRC_2:%.*]], ptr noalias [[SRC_3:%.*]], ptr noalias [[SRC_4:%.*]], ptr noalias [[DST:%.*]], i64 [[N:%.*]]) #[[ATTR2:[0-9]+]] {
 ; PRED-NEXT:  [[ENTRY:.*:]]
 ; PRED-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
 ; PRED-NEXT:    br label %[[VECTOR_SCEVCHECK:.*]]
@@ -1188,7 +1188,7 @@ exit:
 
 define void @pred_udiv_select_cost(ptr %A, ptr %B, ptr %C, i64 %n, i8 %y) #1 {
 ; DEFAULT-LABEL: define void @pred_udiv_select_cost(
-; DEFAULT-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], i64 [[N:%.*]], i8 [[Y:%.*]]) #[[ATTR2]] {
+; DEFAULT-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], i64 [[N:%.*]], i8 [[Y:%.*]]) #[[ATTR1]] {
 ; DEFAULT-NEXT:  [[ENTRY:.*:]]
 ; DEFAULT-NEXT:    [[B3:%.*]] = ptrtoaddr ptr [[B]] to i64
 ; DEFAULT-NEXT:    [[A2:%.*]] = ptrtoaddr ptr [[A]] to i64
@@ -1223,13 +1223,12 @@ define void @pred_udiv_select_cost(ptr %A, ptr %B, ptr %C, i64 %n, i8 %y) #1 {
 ; DEFAULT-NEXT:    [[TMP11:%.*]] = uitofp <vscale x 4 x i8> [[WIDE_LOAD]] to <vscale x 4 x float>
 ; DEFAULT-NEXT:    [[TMP12:%.*]] = getelementptr i8, ptr [[B]], i64 [[INDEX]]
 ; DEFAULT-NEXT:    [[WIDE_LOAD5:%.*]] = load <vscale x 4 x i8>, ptr [[TMP12]], align 1
-; DEFAULT-NEXT:    [[TMP13:%.*]] = icmp eq <vscale x 4 x i8> [[WIDE_LOAD5]], zeroinitializer
+; DEFAULT-NEXT:    [[TMP13:%.*]] = icmp ne <vscale x 4 x i8> [[WIDE_LOAD5]], zeroinitializer
 ; DEFAULT-NEXT:    [[TMP14:%.*]] = xor <vscale x 4 x i8> [[WIDE_LOAD]], splat (i8 1)
-; DEFAULT-NEXT:    [[TMP15:%.*]] = select <vscale x 4 x i1> [[TMP13]], <vscale x 4 x i8> splat (i8 1), <vscale x 4 x i8> [[BROADCAST_SPLAT]]
-; DEFAULT-NEXT:    [[TMP16:%.*]] = udiv <vscale x 4 x i8> [[TMP14]], [[TMP15]]
+; DEFAULT-NEXT:    [[TMP16:%.*]] = call <vscale x 4 x i8> @llvm.masked.udiv.nxv4i8(<vscale x 4 x i8> [[TMP14]], <vscale x 4 x i8> [[BROADCAST_SPLAT]], <vscale x 4 x i1> [[TMP13]])
 ; DEFAULT-NEXT:    [[TMP17:%.*]] = icmp ugt <vscale x 4 x i8> [[TMP16]], splat (i8 1)
 ; DEFAULT-NEXT:    [[TMP18:%.*]] = select <vscale x 4 x i1> [[TMP17]], <vscale x 4 x i32> zeroinitializer, <vscale x 4 x i32> splat (i32 255)
-; DEFAULT-NEXT:    [[PREDPHI:%.*]] = select <vscale x 4 x i1> [[TMP13]], <vscale x 4 x i32> zeroinitializer, <vscale x 4 x i32> [[TMP18]]
+; DEFAULT-NEXT:    [[PREDPHI:%.*]] = select <vscale x 4 x i1> [[TMP13]], <vscale x 4 x i32> [[TMP18]], <vscale x 4 x i32> zeroinitializer
 ; DEFAULT-NEXT:    [[TMP19:%.*]] = zext <vscale x 4 x i8> [[WIDE_LOAD]] to <vscale x 4 x i32>
 ; DEFAULT-NEXT:    [[TMP20:%.*]] = sub <vscale x 4 x i32> [[PREDPHI]], [[TMP19]]
 ; DEFAULT-NEXT:    [[TMP21:%.*]] = sitofp <vscale x 4 x i32> [[TMP20]] to <vscale x 4 x float>
@@ -1246,7 +1245,7 @@ define void @pred_udiv_select_cost(ptr %A, ptr %B, ptr %C, i64 %n, i8 %y) #1 {
 ; DEFAULT:       [[SCALAR_PH]]:
 ;
 ; PRED-LABEL: define void @pred_udiv_select_cost(
-; PRED-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], i64 [[N:%.*]], i8 [[Y:%.*]]) #[[ATTR2]] {
+; PRED-SAME: ptr [[A:%.*]], ptr [[B:%.*]], ptr [[C:%.*]], i64 [[N:%.*]], i8 [[Y:%.*]]) #[[ATTR1]] {
 ; PRED-NEXT:  [[ENTRY:.*:]]
 ; PRED-NEXT:    [[B3:%.*]] = ptrtoaddr ptr [[B]] to i64
 ; PRED-NEXT:    [[A2:%.*]] = ptrtoaddr ptr [[A]] to i64
@@ -1280,8 +1279,7 @@ define void @pred_udiv_select_cost(ptr %A, ptr %B, ptr %C, i64 %n, i8 %y) #1 {
 ; PRED-NEXT:    [[TMP15:%.*]] = icmp ne <vscale x 16 x i8> [[WIDE_MASKED_LOAD5]], zeroinitializer
 ; PRED-NEXT:    [[TMP16:%.*]] = select <vscale x 16 x i1> [[ACTIVE_LANE_MASK]], <vscale x 16 x i1> [[TMP15]], <vscale x 16 x i1> zeroinitializer
 ; PRED-NEXT:    [[TMP17:%.*]] = xor <vscale x 16 x i8> [[WIDE_MASKED_LOAD]], splat (i8 1)
-; PRED-NEXT:    [[TMP18:%.*]] = select <vscale x 16 x i1> [[TMP16]], <vscale x 16 x i8> [[BROADCAST_SPLAT]], <vscale x 16 x i8> splat (i8 1)
-; PRED-NEXT:    [[TMP19:%.*]] = udiv <vscale x 16 x i8> [[TMP17]], [[TMP18]]
+; PRED-NEXT:    [[TMP19:%.*]] = call <vscale x 16 x i8> @llvm.masked.udiv.nxv16i8(<vscale x 16 x i8> [[TMP17]], <vscale x 16 x i8> [[BROADCAST_SPLAT]], <vscale x 16 x i1> [[TMP16]])
 ; PRED-NEXT:    [[TMP20:%.*]] = icmp ugt <vscale x 16 x i8> [[TMP19]], splat (i8 1)
 ; PRED-NEXT:    [[TMP21:%.*]] = select <vscale x 16 x i1> [[TMP20]], <vscale x 16 x i32> zeroinitializer, <vscale x 16 x i32> splat (i32 255)
 ; PRED-NEXT:    [[PREDPHI:%.*]] = select <vscale x 16 x i1> [[TMP15]], <vscale x 16 x i32> [[TMP21]], <vscale x 16 x i32> zeroinitializer
@@ -1340,7 +1338,7 @@ exit:
 
 define void @predicated_store(ptr %A, ptr noalias %B, ptr noalias %C, ptr %D, ptr %E, double %divisor, i64 %loop.count) #3 {
 ; COMMON-LABEL: define void @predicated_store(
-; COMMON-SAME: ptr [[A:%.*]], ptr noalias [[B:%.*]], ptr noalias [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], double [[DIVISOR:%.*]], i64 [[LOOP_COUNT:%.*]]) #[[ATTR4:[0-9]+]] {
+; COMMON-SAME: ptr [[A:%.*]], ptr noalias [[B:%.*]], ptr noalias [[C:%.*]], ptr [[D:%.*]], ptr [[E:%.*]], double [[DIVISOR:%.*]], i64 [[LOOP_COUNT:%.*]]) #[[ATTR3:[0-9]+]] {
 ; COMMON-NEXT:  [[ENTRY:.*]]:
 ; COMMON-NEXT:    br label %[[LOOP_HEADER:.*]]
 ; COMMON:       [[LOOP_HEADER]]:

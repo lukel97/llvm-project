@@ -3063,6 +3063,21 @@ static inline RemoveMask_match<Op0_t, Op1_t> m_RemoveMask(const Op0_t &In,
   return RemoveMask_match<Op0_t, Op1_t>(In, Out);
 }
 
+static std::optional<Intrinsic::ID> getVPDivRemIntrinsic(Intrinsic::ID IntrID) {
+  switch (IntrID) {
+  case Intrinsic::masked_udiv:
+    return Intrinsic::vp_udiv;
+  case Intrinsic::masked_sdiv:
+    return Intrinsic::vp_sdiv;
+  case Intrinsic::masked_urem:
+    return Intrinsic::vp_urem;
+  case Intrinsic::masked_srem:
+    return Intrinsic::vp_srem;
+  default:
+    return std::nullopt;
+  }
+}
+
 /// Try to optimize a \p CurRecipe masked by \p HeaderMask to a corresponding
 /// EVL-based recipe without the header mask. Returns nullptr if no EVL-based
 /// recipe could be created.
@@ -3160,6 +3175,15 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
         Instruction::Sub, {ZExt, Plan->getConstantInt(Ty, 1)},
         VPIRFlags::getDefaultFlags(Instruction::Sub), {}, DL);
   }
+
+  if (auto *IntrR = dyn_cast<VPWidenIntrinsicRecipe>(&CurRecipe))
+    if (auto VPID = getVPDivRemIntrinsic(IntrR->getVectorIntrinsicID()))
+      if (match(IntrR->getOperand(2), m_RemoveMask(HeaderMask, Mask)))
+        return new VPWidenIntrinsicRecipe(*VPID,
+                                          {IntrR->getOperand(0),
+                                           IntrR->getOperand(1),
+                                           Mask ? Mask : Plan->getTrue(), &EVL},
+                                          IntrR->getResultType(), {}, {}, DL);
 
   return nullptr;
 }

@@ -7771,7 +7771,22 @@ bool VPRecipeBuilder::shouldWiden(Instruction *I, VFRange &Range) const {
                                                              Range);
 }
 
-VPWidenRecipe *VPRecipeBuilder::tryToWiden(VPInstruction *VPI) {
+static Intrinsic::ID getMaskedDivRemIntrinsic(unsigned Opcode) {
+  switch (Opcode) {
+  case Instruction::UDiv:
+    return Intrinsic::masked_udiv;
+  case Instruction::SDiv:
+    return Intrinsic::masked_sdiv;
+  case Instruction::URem:
+    return Intrinsic::masked_urem;
+  case Instruction::SRem:
+    return Intrinsic::masked_srem;
+  default:
+    llvm_unreachable("Unexpected opcode");
+  }
+}
+
+VPRecipeWithIRFlags *VPRecipeBuilder::tryToWiden(VPInstruction *VPI) {
   auto *I = VPI->getUnderlyingInstr();
   switch (VPI->getOpcode()) {
   default:
@@ -7779,20 +7794,13 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(VPInstruction *VPI) {
   case Instruction::SDiv:
   case Instruction::UDiv:
   case Instruction::SRem:
-  case Instruction::URem: {
-    // If not provably safe, use a select to form a safe divisor before widening the
-    // div/rem operation itself.  Otherwise fall through to general handling below.
-    if (CM.isPredicatedInst(I)) {
-      SmallVector<VPValue *> Ops(VPI->operandsWithoutMask());
-      VPValue *Mask = VPI->getMask();
-      VPValue *One = Plan.getConstantInt(I->getType(), 1u);
-      auto *SafeRHS =
-          Builder.createSelect(Mask, Ops[1], One, VPI->getDebugLoc());
-      Ops[1] = SafeRHS;
-      return new VPWidenRecipe(*I, Ops, *VPI, *VPI, VPI->getDebugLoc());
-    }
+  case Instruction::URem:
+    // If not provably safe, use a masked intrinsic.
+    if (CM.isPredicatedInst(I))
+      return new VPWidenIntrinsicRecipe(
+          getMaskedDivRemIntrinsic(VPI->getOpcode()), VPI->operands(),
+          I->getType(), {}, {}, VPI->getDebugLoc());
     [[fallthrough]];
-  }
   case Instruction::Add:
   case Instruction::And:
   case Instruction::AShr:
