@@ -388,6 +388,22 @@ TEST(SessionTest, ScheduleShutdownFromOnDetachHandler) {
   EXPECT_TRUE(OnShutdownHandlerRun);
 }
 
+TEST(SessionTest, RedundantAsyncShutdown) {
+  // Check that redundant calls to shutdown have their callbacks run.
+  std::deque<std::unique_ptr<Task>> Tasks;
+  Session S(mockExecutorProcessInfo(),
+            std::make_unique<EnqueueingDispatcher>(Tasks), noErrors);
+
+  // Initiate shutdown here, and wait for the on-shutdown callbacks to start
+  // running.
+  waitForShutdown(S);
+
+  // Now try to add a new on-shutdown callback and verify that it runs.
+  bool RedundantCallbackRan = false;
+  S.shutdown([&]() { RedundantCallbackRan = true; });
+  EXPECT_TRUE(RedundantCallbackRan);
+}
+
 TEST(SessionTest, ExpectedShutdownSequenceWithNoActiveManagedCodeCalls) {
   // Check that Session shutdown results in...
   // 1. Services being shut down.
@@ -681,8 +697,7 @@ TEST(ControllerAccessTest, Basics) {
   std::deque<std::unique_ptr<Task>> Tasks;
   Session S(mockExecutorProcessInfo(),
             std::make_unique<EnqueueingDispatcher>(Tasks), noErrors);
-  auto CA = std::make_shared<MockControllerAccess>(S);
-  S.attach(CA, BootstrapInfo(S));
+  S.attach<MockControllerAccess>(BootstrapInfo(S), S);
 
   EnqueueingDispatcher::runTasksFromFront(Tasks);
 }
@@ -702,8 +717,7 @@ TEST(ControllerAccessTest, ValidCallToController) {
   std::deque<std::unique_ptr<Task>> Tasks;
   Session S(mockExecutorProcessInfo(),
             std::make_unique<EnqueueingDispatcher>(Tasks), noErrors);
-  auto CA = std::make_shared<MockControllerAccess>(S);
-  S.attach(CA, BootstrapInfo(S));
+  S.attach<MockControllerAccess>(BootstrapInfo(S), S);
 
   int32_t Result = 0;
   SPSWrapperFunction<int32_t(int32_t, int32_t)>::call(
@@ -738,8 +752,7 @@ TEST(ControllerAccessTest, CallToControllerAfterDetach) {
   std::deque<std::unique_ptr<Task>> Tasks;
   Session S(mockExecutorProcessInfo(),
             std::make_unique<EnqueueingDispatcher>(Tasks), noErrors);
-  auto CA = std::make_shared<MockControllerAccess>(S);
-  S.attach(CA, BootstrapInfo(S));
+  S.attach<MockControllerAccess>(BootstrapInfo(S), S);
 
   S.detach();
 
@@ -771,22 +784,6 @@ TEST(ControllerAccessTest, CallFromController) {
   EnqueueingDispatcher::runTasksFromFront(Tasks);
 
   EXPECT_EQ(Result, 42);
-}
-
-TEST(ControllerAccessTest, RedundantAsyncShutdown) {
-  // Check that redundant calls to shutdown have their callbacks run.
-  std::deque<std::unique_ptr<Task>> Tasks;
-  Session S(mockExecutorProcessInfo(),
-            std::make_unique<EnqueueingDispatcher>(Tasks), noErrors);
-
-  // Initiate shutdown here, and wait for the on-shutdown callbacks to start
-  // running.
-  waitForShutdown(S);
-
-  // Now try to add a new on-shutdown callback and verify that it runs.
-  bool RedundantCallbackRan = false;
-  S.shutdown([&]() { RedundantCallbackRan = true; });
-  EXPECT_TRUE(RedundantCallbackRan);
 }
 
 TEST(ControllerAccessTest, BootstrapInfoPassedToConnect) {
