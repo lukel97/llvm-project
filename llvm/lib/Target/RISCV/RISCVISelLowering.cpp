@@ -1087,17 +1087,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
       if (Subtarget.hasStdExtZvkb()) {
         setOperationAction(ISD::BSWAP, VT, Legal);
-        setOperationAction(ISD::VP_BSWAP, VT, Custom);
       } else {
-        setOperationAction({ISD::BSWAP, ISD::VP_BSWAP}, VT, Expand);
+        setOperationAction(ISD::BSWAP, VT, Expand);
         setOperationAction({ISD::ROTL, ISD::ROTR}, VT, Expand);
       }
 
       if (Subtarget.hasStdExtZvbb()) {
         setOperationAction(ISD::BITREVERSE, VT, Legal);
-        setOperationAction(ISD::VP_BITREVERSE, VT, Custom);
       } else {
-        setOperationAction({ISD::BITREVERSE, ISD::VP_BITREVERSE}, VT, Expand);
+        setOperationAction(ISD::BITREVERSE, VT, Expand);
         setOperationAction({ISD::CTLZ, ISD::CTTZ, ISD::CTPOP}, VT, Expand);
 
         // Lower CTLZ_ZERO_UNDEF and CTTZ_ZERO_UNDEF if element of VT in the
@@ -7555,12 +7553,10 @@ static unsigned getRISCVVLOp(SDValue Op) {
   VP_CASE(UMIN)       // VP_UMIN
   VP_CASE(UMAX)       // VP_UMAX
   VP_CASE(SETCC)      // VP_SETCC
-  VP_CASE(BITREVERSE) // VP_BITREVERSE
   VP_CASE(SADDSAT)    // VP_SADDSAT
   VP_CASE(UADDSAT)    // VP_UADDSAT
   VP_CASE(SSUBSAT)    // VP_SSUBSAT
   VP_CASE(USUBSAT)    // VP_USUBSAT
-  VP_CASE(BSWAP)      // VP_BSWAP
   case ISD::CTLZ_ZERO_UNDEF:
     return RISCVISD::CTLZ_VL;
   case ISD::CTTZ_ZERO_UNDEF:
@@ -8991,8 +8987,6 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
   case ISD::VP_SMAX:
   case ISD::VP_UMIN:
   case ISD::VP_UMAX:
-  case ISD::VP_BITREVERSE:
-  case ISD::VP_BSWAP:
     return lowerVPOp(Op, DAG);
   case ISD::EXPERIMENTAL_VP_STRIDED_LOAD:
     return lowerVPStridedLoad(Op, DAG);
