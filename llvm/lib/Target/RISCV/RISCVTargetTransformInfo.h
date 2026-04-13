@@ -417,7 +417,6 @@ public:
         Intrinsic::vp_shl,
         Intrinsic::vp_smax,
         Intrinsic::vp_smin,
-        Intrinsic::vp_sqrt,
         Intrinsic::vp_srem,
         Intrinsic::vp_store,
         Intrinsic::vp_sub,

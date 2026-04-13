@@ -887,7 +887,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
         ISD::VP_REDUCE_FMIN, ISD::VP_REDUCE_FMAX, ISD::VP_MERGE,
         ISD::VP_SELECT,
         ISD::VP_SETCC,       ISD::VP_FP_ROUND,    ISD::VP_FP_EXTEND,
-        ISD::VP_SQRT,
         ISD::VP_IS_FPCLASS,  ISD::VP_REDUCE_FMINIMUM,
         ISD::VP_REDUCE_FMAXIMUM};
 
@@ -1207,7 +1206,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
         ISD::VP_FMA,
         ISD::VP_REDUCE_FMIN,
         ISD::VP_REDUCE_FMAX,
-        ISD::VP_SQRT,
         ISD::VP_SETCC,
         ISD::VP_REDUCE_FMINIMUM,
         ISD::VP_REDUCE_FMAXIMUM};
@@ -7597,8 +7595,6 @@ static unsigned getRISCVVLOp(SDValue Op) {
     return RISCVISD::SRA_VL;
   case ISD::VP_SRL:
     return RISCVISD::SRL_VL;
-  case ISD::VP_SQRT:
-    return RISCVISD::FSQRT_VL;
   case ISD::VP_SIGN_EXTEND:
     return RISCVISD::VSEXT_VL;
   case ISD::VP_ZERO_EXTEND:
@@ -8952,7 +8948,6 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
   case ISD::VP_FSUB:
   case ISD::VP_FMUL:
   case ISD::VP_FNEG:
-  case ISD::VP_SQRT:
   case ISD::VP_FMA:
     if (isPromotedOpNeedingSplit(Op, Subtarget))
       return SplitVPOp(Op, DAG);
