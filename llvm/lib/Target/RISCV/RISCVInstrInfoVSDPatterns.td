@@ -170,21 +170,15 @@ multiclass VPatBinarySDNode_VV_VX_VI<SDPatternOperator vop, string instruction_n
 
 multiclass VPatBinaryMaskedSDNode_VV_VX<SDPatternOperator vop, string instruction_name> {
   foreach vti = AllIntegerVectors in {
-    def : Pat<(vti.Vector (vop vti.RegClass:$vs1, vti.RegClass:$vs2, VMV0:$vm)),
+    def : Pat<(vti.Vector (vop vti.RegClass:$vs2, vti.RegClass:$vs1, VMV0:$vm)),
               (!cast<Instruction>(instruction_name#"_VV_"#vti.LMul.MX#"_E"#!shl(1, vti.Log2SEW)#"_MASK")
-                 (vti.Vector (IMPLICIT_DEF)),
-                 vti.RegClass:$vs1,
-                 vti.RegClass:$vs2,
-                 VMV0:$vm,
+                 (IMPLICIT_DEF), vti.RegClass:$vs2, vti.RegClass:$vs1, VMV0:$vm,
                  vti.AVL, vti.Log2SEW, TA_MA)>;
-    def : Pat<(vti.Vector (vop vti.RegClass:$vs1,
-                               (SplatPat (XLenVT GPR:$rs2)),
+    def : Pat<(vti.Vector (vop vti.RegClass:$vs2,
+                               (SplatPat (XLenVT GPR:$rs1)),
                                VMV0:$vm)),
               (!cast<Instruction>(instruction_name#"_VX_"#vti.LMul.MX#"_E"#!shl(1, vti.Log2SEW)#"_MASK")
-                 (vti.Vector (IMPLICIT_DEF)),
-                 vti.RegClass:$vs1,
-                 GPR:$rs2,
-                 VMV0:$vm,
+                 (IMPLICIT_DEF), vti.RegClass:$vs2, GPR:$rs1, VMV0:$vm,
                  vti.AVL, vti.Log2SEW, TA_MA)>;
   }
 }
