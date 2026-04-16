@@ -65,6 +65,7 @@ jobs:
       - name: Install system dependencies
         run: |
           # Install newer version of CMake (llvm/ci-ubuntu-24.04 image has CMake 3.28)
+          # TODO(boomanaiden154): Remove once upgraded to Ubuntu 26.04
           sudo apt-get update
           sudo apt-get install -y wget
           wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
