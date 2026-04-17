@@ -168,12 +168,18 @@ multiclass VPatBinarySDNode_VV_VX_VI<SDPatternOperator vop, string instruction_n
   }
 }
 
-multiclass VPatBinaryMaskedSDNode_VV_VX<SDPatternOperator vop, string instruction_name> {
+multiclass VPatBinaryMaskedSDNode_VV<SDPatternOperator vop, string instruction_name> {
   foreach vti = AllIntegerVectors in {
     def : Pat<(vti.Vector (vop vti.RegClass:$vs2, vti.RegClass:$vs1, VMV0:$vm)),
               (!cast<Instruction>(instruction_name#"_VV_"#vti.LMul.MX#"_E"#!shl(1, vti.Log2SEW)#"_MASK")
                  (IMPLICIT_DEF), vti.RegClass:$vs2, vti.RegClass:$vs1, VMV0:$vm,
                  vti.AVL, vti.Log2SEW, TA_MA)>;
+  }
+}
+
+multiclass VPatBinaryMaskedSDNode_VV_VX<SDPatternOperator vop, string instruction_name>
+    : VPatBinaryMaskedSDNode_VV<vop, instruction_name> {
+  foreach vti = AllIntegerVectors in {
     def : Pat<(vti.Vector (vop vti.RegClass:$vs2,
                                (SplatPat (XLenVT GPR:$rs1)),
                                VMV0:$vm)),
