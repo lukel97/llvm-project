@@ -2817,6 +2817,21 @@ uint64_t LoopVectorizationCostModel::getPredBlockCostDivisor(
   return std::round((double)HeaderFreq / BBFreq);
 }
 
+static Intrinsic::ID getMaskedDivRemIntrinsic(unsigned Opcode) {
+  switch (Opcode) {
+  case Instruction::UDiv:
+    return Intrinsic::masked_udiv;
+  case Instruction::SDiv:
+    return Intrinsic::masked_sdiv;
+  case Instruction::URem:
+    return Intrinsic::masked_urem;
+  case Instruction::SRem:
+    return Intrinsic::masked_srem;
+  default:
+    llvm_unreachable("Unexpected opcode");
+  }
+}
+
 std::pair<InstructionCost, InstructionCost>
 LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
                                                      ElementCount VF) {
@@ -2857,21 +2872,11 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
         ScalarizationCost / getPredBlockCostDivisor(CostKind, I->getParent());
   }
 
-  InstructionCost SafeDivisorCost = 0;
   auto *VecTy = toVectorTy(I->getType(), VF);
-  // The cost of the select guard to ensure all lanes are well defined
-  // after we speculate above any internal control flow.
-  SafeDivisorCost +=
-      TTI.getCmpSelInstrCost(Instruction::Select, VecTy,
-                             toVectorTy(Type::getInt1Ty(I->getContext()), VF),
-                             CmpInst::BAD_ICMP_PREDICATE, CostKind);
-
-  SmallVector<const Value *, 4> Operands(I->operand_values());
-  SafeDivisorCost += TTI.getArithmeticInstrCost(
-      I->getOpcode(), VecTy, CostKind,
-      {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
-      {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
-      Operands, I);
+  auto *MaskTy = toVectorTy(Type::getInt1Ty(I->getContext()), VF);
+  IntrinsicCostAttributes ICA(getMaskedDivRemIntrinsic(I->getOpcode()), VecTy,
+                              {VecTy, VecTy, MaskTy});
+  InstructionCost SafeDivisorCost = TTI.getIntrinsicInstrCost(ICA, CostKind);
   return {ScalarizationCost, SafeDivisorCost};
 }
 
@@ -7440,21 +7445,6 @@ bool VPRecipeBuilder::shouldWiden(Instruction *I, VFRange &Range) const {
   };
   return !LoopVectorizationPlanner::getDecisionAndClampRange(WillScalarize,
                                                              Range);
-}
-
-static Intrinsic::ID getMaskedDivRemIntrinsic(unsigned Opcode) {
-  switch (Opcode) {
-  case Instruction::UDiv:
-    return Intrinsic::masked_udiv;
-  case Instruction::SDiv:
-    return Intrinsic::masked_sdiv;
-  case Instruction::URem:
-    return Intrinsic::masked_urem;
-  case Instruction::SRem:
-    return Intrinsic::masked_srem;
-  default:
-    llvm_unreachable("Unexpected opcode");
-  }
 }
 
 VPRecipeWithIRFlags *VPRecipeBuilder::tryToWiden(VPInstruction *VPI) {

@@ -661,17 +661,22 @@ define void @sdiv_with_uniform_ops(i16 %0, i1 %c, ptr %dst) {
 ;
 ; VEC-LABEL: @sdiv_with_uniform_ops(
 ; VEC-NEXT:  entry:
+; VEC-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i16> poison, i16 [[TMP0:%.*]], i64 0
+; VEC-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i16> [[BROADCAST_SPLATINSERT]], <2 x i16> poison, <2 x i32> zeroinitializer
+; VEC-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i1> poison, i1 [[C:%.*]], i64 0
+; VEC-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT1]], <2 x i1> poison, <2 x i32> zeroinitializer
+; VEC-NEXT:    [[TMP4:%.*]] = call <2 x i16> @llvm.masked.sdiv.v2i16(<2 x i16> splat (i16 10), <2 x i16> [[BROADCAST_SPLAT]], <2 x i1> [[BROADCAST_SPLAT2]])
 ; VEC-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; VEC:       vector.body:
 ; VEC-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE2:%.*]] ]
-; VEC-NEXT:    br i1 [[C:%.*]], label [[PRED_STORE_IF:%.*]], label [[PRED_STORE_CONTINUE2]]
+; VEC-NEXT:    br i1 [[C]], label [[PRED_STORE_IF:%.*]], label [[PRED_STORE_CONTINUE2]]
 ; VEC:       pred.store.if:
-; VEC-NEXT:    [[TMP1:%.*]] = sdiv i16 10, [[TMP0:%.*]]
+; VEC-NEXT:    [[TMP1:%.*]] = extractelement <2 x i16> [[TMP4]], i32 0
 ; VEC-NEXT:    store i16 [[TMP1]], ptr [[DST:%.*]], align 1
-; VEC-NEXT:    [[TMP2:%.*]] = sdiv i16 10, [[TMP0]]
+; VEC-NEXT:    [[TMP2:%.*]] = extractelement <2 x i16> [[TMP4]], i32 1
 ; VEC-NEXT:    store i16 [[TMP2]], ptr [[DST]], align 1
 ; VEC-NEXT:    br label [[PRED_STORE_CONTINUE2]]
-; VEC:       pred.store.continue2:
+; VEC:       pred.store.continue4:
 ; VEC-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
 ; VEC-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[INDEX_NEXT]], 98
 ; VEC-NEXT:    br i1 [[TMP3]], label [[LOOP_HEADER:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP6:![0-9]+]]
