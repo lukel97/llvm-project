@@ -671,44 +671,30 @@ define void @udiv_sdiv_with_invariant_divisors(i8 %x, i16 %y, i1 %c, ptr %p) {
 ; FIXED-NEXT:  entry:
 ; FIXED-NEXT:    br label [[VECTOR_PH:%.*]]
 ; FIXED:       vector.ph:
-; FIXED-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i1> poison, i1 [[C:%.*]], i64 0
-; FIXED-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <8 x i1> [[BROADCAST_SPLATINSERT]], <8 x i1> poison, <8 x i32> zeroinitializer
-; FIXED-NEXT:    [[TMP0:%.*]] = xor <8 x i1> [[BROADCAST_SPLAT]], splat (i1 true)
-; FIXED-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <8 x i8> poison, i8 [[X:%.*]], i64 0
-; FIXED-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <8 x i8> [[BROADCAST_SPLATINSERT1]], <8 x i8> poison, <8 x i32> zeroinitializer
-; FIXED-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <8 x i16> poison, i16 [[Y:%.*]], i64 0
-; FIXED-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <8 x i16> [[BROADCAST_SPLATINSERT3]], <8 x i16> poison, <8 x i32> zeroinitializer
+; FIXED-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i1> poison, i1 [[C:%.*]], i64 0
+; FIXED-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i1> [[BROADCAST_SPLATINSERT]], <4 x i1> poison, <4 x i32> zeroinitializer
+; FIXED-NEXT:    [[TMP0:%.*]] = xor <4 x i1> [[BROADCAST_SPLAT]], splat (i1 true)
+; FIXED-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <4 x i8> poison, i8 [[X:%.*]], i64 0
+; FIXED-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <4 x i8> [[BROADCAST_SPLATINSERT1]], <4 x i8> poison, <4 x i32> zeroinitializer
+; FIXED-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <4 x i16> poison, i16 [[Y:%.*]], i64 0
+; FIXED-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <4 x i16> [[BROADCAST_SPLATINSERT3]], <4 x i16> poison, <4 x i32> zeroinitializer
 ; FIXED-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FIXED:       vector.body:
-; FIXED-NEXT:    [[TMP1:%.*]] = call <8 x i8> @llvm.masked.udiv.v8i8(<8 x i8> <i8 -12, i8 -11, i8 -10, i8 -9, i8 -8, i8 -7, i8 -6, i8 -5>, <8 x i8> [[BROADCAST_SPLAT2]], <8 x i1> [[TMP0]])
-; FIXED-NEXT:    [[TMP2:%.*]] = zext <8 x i8> [[TMP1]] to <8 x i16>
-; FIXED-NEXT:    [[TMP3:%.*]] = call <8 x i16> @llvm.masked.sdiv.v8i16(<8 x i16> [[TMP2]], <8 x i16> [[BROADCAST_SPLAT4]], <8 x i1> [[TMP0]])
-; FIXED-NEXT:    [[TMP4:%.*]] = sext <8 x i16> [[TMP3]] to <8 x i32>
-; FIXED-NEXT:    [[PREDPHI:%.*]] = select i1 [[C]], <8 x i32> zeroinitializer, <8 x i32> [[TMP4]]
-; FIXED-NEXT:    [[TMP7:%.*]] = extractelement <8 x i32> [[PREDPHI]], i32 7
+; FIXED-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; FIXED-NEXT:    [[VEC_IND:%.*]] = phi <4 x i8> [ <i8 -12, i8 -11, i8 -10, i8 -9>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
+; FIXED-NEXT:    [[TMP1:%.*]] = call <4 x i8> @llvm.masked.udiv.v4i8(<4 x i8> [[VEC_IND]], <4 x i8> [[BROADCAST_SPLAT2]], <4 x i1> [[TMP0]])
+; FIXED-NEXT:    [[TMP2:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i16>
+; FIXED-NEXT:    [[TMP3:%.*]] = call <4 x i16> @llvm.masked.sdiv.v4i16(<4 x i16> [[TMP2]], <4 x i16> [[BROADCAST_SPLAT4]], <4 x i1> [[TMP0]])
+; FIXED-NEXT:    [[TMP4:%.*]] = sext <4 x i16> [[TMP3]] to <4 x i32>
+; FIXED-NEXT:    [[PREDPHI:%.*]] = select i1 [[C]], <4 x i32> zeroinitializer, <4 x i32> [[TMP4]]
+; FIXED-NEXT:    [[TMP7:%.*]] = extractelement <4 x i32> [[PREDPHI]], i32 3
 ; FIXED-NEXT:    store i32 [[TMP7]], ptr [[P:%.*]], align 4
-; FIXED-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
+; FIXED-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 4
+; FIXED-NEXT:    [[VEC_IND_NEXT]] = add <4 x i8> [[VEC_IND]], splat (i8 4)
+; FIXED-NEXT:    [[TMP6:%.*]] = icmp eq i32 [[INDEX_NEXT]], 12
+; FIXED-NEXT:    br i1 [[TMP6]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP11:![0-9]+]]
 ; FIXED:       middle.block:
-; FIXED-NEXT:    br label [[EXIT:%.*]]
-; FIXED:       scalar.ph:
-; FIXED-NEXT:    br label [[LOOP_HEADER:%.*]]
-; FIXED:       loop.header:
-; FIXED-NEXT:    [[IV:%.*]] = phi i16 [ -4, [[EXIT]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
-; FIXED-NEXT:    [[NARROW_IV:%.*]] = phi i8 [ -4, [[EXIT]] ], [ [[IV_NEXT_TRUNC:%.*]], [[LOOP_LATCH]] ]
-; FIXED-NEXT:    br i1 [[C]], label [[LOOP_LATCH]], label [[THEN:%.*]]
-; FIXED:       then:
-; FIXED-NEXT:    [[UD:%.*]] = udiv i8 [[NARROW_IV]], [[X]]
-; FIXED-NEXT:    [[UD_EXT:%.*]] = zext i8 [[UD]] to i16
-; FIXED-NEXT:    [[SD:%.*]] = sdiv i16 [[UD_EXT]], [[Y]]
-; FIXED-NEXT:    [[SD_EXT:%.*]] = sext i16 [[SD]] to i32
-; FIXED-NEXT:    br label [[LOOP_LATCH]]
-; FIXED:       loop.latch:
-; FIXED-NEXT:    [[MERGE:%.*]] = phi i32 [ 0, [[LOOP_HEADER]] ], [ [[SD_EXT]], [[THEN]] ]
-; FIXED-NEXT:    store i32 [[MERGE]], ptr [[P]], align 4
-; FIXED-NEXT:    [[IV_NEXT]] = add nsw i16 [[IV]], 1
-; FIXED-NEXT:    [[EC:%.*]] = icmp eq i16 [[IV_NEXT]], 0
-; FIXED-NEXT:    [[IV_NEXT_TRUNC]] = trunc i16 [[IV_NEXT]] to i8
-; FIXED-NEXT:    br i1 [[EC]], label [[EXIT1:%.*]], label [[LOOP_HEADER]], !llvm.loop [[LOOP11:![0-9]+]]
+; FIXED-NEXT:    br label [[LOOP_LATCH:%.*]]
 ; FIXED:       exit:
 ; FIXED-NEXT:    ret void
 ;
