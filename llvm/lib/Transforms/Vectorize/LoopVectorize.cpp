@@ -7531,9 +7531,14 @@ bool VPRecipeBuilder::replaceWithFinalIfReductionStore(
       Legal->isInvariantAddressOfReduction(SI->getPointerOperand())) {
     // Only create recipe for the final invariant store of the reduction.
     if (Legal->isInvariantStoreOfReduction(SI)) {
+      VPValue *Val = VPI->getOperand(0), *Addr = VPI->getOperand(1);
+      // If tail folded, we need to use the blended reduction value out.
+      auto *BlendIt = find_if(Val->users(), IsaPred<VPBlendRecipe>);
+      if (BlendIt != Val->user_end())
+        Val = cast<VPBlendRecipe>(*BlendIt);
       auto *Recipe = new VPReplicateRecipe(
-          SI, VPI->operandsWithoutMask(), true /* IsUniform */,
-          nullptr /*Mask*/, *VPI, *VPI, VPI->getDebugLoc());
+          SI, {Val, Addr}, true /* IsUniform */, nullptr /*Mask*/, *VPI, *VPI,
+          VPI->getDebugLoc());
       FinalRedStoresBuilder.insert(Recipe);
     }
     VPI->eraseFromParent();
@@ -8022,6 +8027,7 @@ void LoopVectorizationPlanner::addReductionResultComputation(
   VPBasicBlock *LatchVPBB = VectorLoopRegion->getExitingBasicBlock();
   Builder.setInsertPoint(&*std::prev(std::prev(LatchVPBB->end())));
   VPBasicBlock::iterator IP = MiddleVPBB->getFirstNonPhi();
+  VPValue *HeaderMask = vputils::findHeaderMask(*Plan);
   for (VPRecipeBase &R :
        Plan->getVectorLoopRegion()->getEntryBasicBlock()->phis()) {
     VPReductionPHIRecipe *PhiR = dyn_cast<VPReductionPHIRecipe>(&R);
@@ -8034,23 +8040,28 @@ void LoopVectorizationPlanner::addReductionResultComputation(
     const RecurrenceDescriptor &RdxDesc = Legal->getRecurrenceDescriptor(
         cast<PHINode>(PhiR->getUnderlyingInstr()));
     Type *PhiTy = TypeInfo.inferScalarType(PhiR);
-    // If tail is folded by masking, introduce selects between the phi
-    // and the users outside the vector region of each reduction, at the
-    // beginning of the dedicated latch block.
+
+    // Convert a VPBlendRecipe backedge to a select.
+    if (auto *Blend = dyn_cast<VPBlendRecipe>(PhiR->getBackedgeValue())) {
+      if (Blend->getNumIncomingValues() == 2 &&
+          Blend->getMask(0) == HeaderMask) {
+        auto *Sel = VPBuilder(Blend).createSelect(
+            Blend->getMask(0), Blend->getIncomingValue(0),
+            Blend->getIncomingValue(1), {}, "", *Blend);
+        Blend->replaceAllUsesWith(Sel);
+        Blend->eraseFromParent();
+      }
+    }
+
     auto *OrigExitingVPV = PhiR->getBackedgeValue();
     auto *NewExitingVPV = PhiR->getBackedgeValue();
-    if (!PhiR->isInLoop() && CM.foldTailByMasking()) {
-      VPValue *Cond = vputils::findHeaderMask(*Plan);
-      NewExitingVPV =
-          Builder.createSelect(Cond, OrigExitingVPV, PhiR, {}, "", *PhiR);
-      OrigExitingVPV->replaceUsesWithIf(NewExitingVPV, [](VPUser &U, unsigned) {
-        return match(&U,
-                     m_VPInstruction<VPInstruction::ComputeReductionResult>());
-      });
 
-      if (CM.usePredicatedReductionSelect(RecurrenceKind))
-        PhiR->setOperand(1, NewExitingVPV);
-    }
+    // Remove the predicated select if the target doesn't want it.
+    VPValue *V;
+    if (!CM.usePredicatedReductionSelect(RecurrenceKind) &&
+        match(PhiR->getBackedgeValue(),
+              m_Select(m_Specific(HeaderMask), m_VPValue(V), m_Specific(PhiR))))
+      PhiR->setBackedgeValue(V);
 
     // We want code in the middle block to appear to execute on the location of
     // the scalar loop's latch terminator because: (a) it is all compiler
