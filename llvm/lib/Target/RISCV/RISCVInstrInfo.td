@@ -2330,7 +2330,7 @@ def : Pat<(binop_allwusers<add> GPR:$rs1, immop_oneuse<AddiPair>:$rs2),
                  (AddiPairImmSmall imm:$rs2))>;
 
 // Select SUB if the negated constant is cheaper to materialize.
-def : Pat<(i64 (add GPR:$rs1, negImm:$rs2)), (SUB GPR:$rs1, negImm:$rs2)>;
+def : Pat<(i64 (add GPR:$rs1, negImm:$rs2)), (ADD GPR:$rs1, negImm:$rs2)>;
 }
 
 //===----------------------------------------------------------------------===//
