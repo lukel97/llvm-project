@@ -387,7 +387,6 @@ public:
         Intrinsic::vp_gather,
         Intrinsic::vp_icmp,
         Intrinsic::vp_inttoptr,
-        Intrinsic::vp_is_fpclass,
         Intrinsic::vp_load,
         Intrinsic::vp_load_ff,
         Intrinsic::vp_lshr,
