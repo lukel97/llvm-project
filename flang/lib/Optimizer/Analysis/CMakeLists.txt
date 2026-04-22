@@ -11,18 +11,21 @@ add_flang_library(FIRAnalysis
 
   LINK_LIBS
   CUFDialect
-  FIRBuilder
   FIRDialect
   FIRSupport
   HLFIRDialect
 
   MLIR_DEPS
   MLIRIR
+  MLIROpenACCDialect
+  MLIROpenACCUtils
   MLIROpenMPDialect
 
   MLIR_LIBS
   MLIRFuncDialect
   MLIRLLVMDialect
   MLIRMathTransforms
+  MLIROpenACCDialect
+  MLIROpenACCUtils
   MLIROpenMPDialect
 )
