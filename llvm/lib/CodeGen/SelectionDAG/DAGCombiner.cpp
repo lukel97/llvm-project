@@ -2980,6 +2980,21 @@ SDValue DAGCombiner::visitADDLike(SDNode *N) {
     if (SDValue RADD = reassociateOps(ISD::ADD, DL, N0, N1, N->getFlags()))
       return RADD;
 
+    // (X + Y) + X --> Y + (X + X)
+    SDValue X, Y, InnerAdd;
+    if (sd_match(
+            N, m_Add(m_OneUse(m_Value(InnerAdd, m_Add(m_Value(X), m_Value(Y)))),
+                     m_Deferred(X)))) {
+      if (X != Y) {
+        // Redistribute shared NUW flag.
+        // TODO: If NSW+NUW occurs on both adds, that can be redistributed too.
+        SDNodeFlags NewFlags =
+            N->getFlags() & InnerAdd->getFlags() & SDNodeFlags::NoUnsignedWrap;
+        SDValue X2 = DAG.getNode(ISD::ADD, DL, VT, X, X, NewFlags);
+        return DAG.getNode(ISD::ADD, DL, VT, Y, X2, NewFlags);
+      }
+    }
+
     // Reassociate (add (or x, c), y) -> (add add(x, y), c)) if (or x, c) is
     // equivalent to (add x, c).
     // Reassociate (add (xor x, c), y) -> (add add(x, y), c)) if (xor x, c) is
@@ -16175,6 +16190,10 @@ SDValue DAGCombiner::visitIS_FPCLASS(SDNode *N) {
   EVT VT = N->getValueType(0);
   SDLoc DL(N);
 
+  // is.fpclass(poison, mask) -> poison
+  if (Src.getOpcode() == ISD::POISON)
+    return DAG.getPOISON(VT);
+
   KnownFPClass Known = DAG.computeKnownFPClass(Src, Mask);
 
   // Clear test bits we know must be false from the source value.
@@ -17694,6 +17713,8 @@ SDValue DAGCombiner::visitFREEZE(SDNode *N) {
     // creating a cycle in a DAG. Let's undo that by mutating the freeze.
     assert(N->getOperand(0) == FrozenN0 && "Expected cycle in DAG");
     DAG.UpdateNodeOperands(N, N0);
+    // Revisit the node.
+    AddToWorklist(N);
     return FrozenN0;
   }
 
