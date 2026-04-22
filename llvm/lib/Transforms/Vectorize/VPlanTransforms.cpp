@@ -1972,12 +1972,12 @@ static void simplifyBlends(VPlan &Plan) {
       for (unsigned I = 0; I != Blend->getNumIncomingValues(); ++I) {
         if (I == StartIndex)
           continue;
-        Select =
-            Builder.createSelect(Blend->getMask(I), Blend->getIncomingValue(I),
-                                 Select, Blend->getDebugLoc(), "predphi", *Blend);
-        Select->setUnderlyingValue(Blend->getUnderlyingValue());
+        Select = Builder.createSelect(Blend->getMask(I),
+                                      Blend->getIncomingValue(I), Select,
+                                      Blend->getDebugLoc(), "predphi", *Blend);
       }
-
+      if (match(Select, m_VPInstruction<Instruction::Select>()))
+        Select->setUnderlyingValue(Blend->getUnderlyingValue());
       VPValue *DeadMask = Blend->getMask(StartIndex);
       Blend->replaceAllUsesWith(Select);
       Blend->eraseFromParent();
