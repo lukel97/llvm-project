@@ -388,10 +388,10 @@ cl::opt<bool> llvm::EnableLoopVectorization(
     "vectorize-loops", cl::init(true), cl::Hidden,
     cl::desc("Run the Loop vectorization passes"));
 
-static cl::opt<cl::boolOrDefault> ForceSafeDivisor(
-    "force-widen-divrem-via-safe-divisor", cl::Hidden,
-    cl::desc(
-        "Override cost based safe divisor widening for div/rem instructions"));
+static cl::opt<cl::boolOrDefault>
+    ForceMaskedDivRem("force-widen-divrem-via-masked-intrinsic", cl::Hidden,
+                      cl::desc("Override cost based masked intrinsic widening "
+                               "for div/rem instructions"));
 
 static cl::opt<bool> UseWiderVFIfCallVariantsPresent(
     "vectorizer-maximize-bandwidth-for-vector-calls", cl::init(true),
@@ -1191,10 +1191,10 @@ public:
   /// lowering should be used for div/rem.  This incorporates an override
   /// option so it is not simply a cost comparison.
   bool isDivRemScalarWithPredication(InstructionCost ScalarCost,
-                                     InstructionCost SafeDivisorCost) const {
-    switch (ForceSafeDivisor) {
+                                     InstructionCost MaskedCost) const {
+    switch (ForceMaskedDivRem) {
     case cl::BOU_UNSET:
-      return ScalarCost < SafeDivisorCost;
+      return ScalarCost < MaskedCost;
     case cl::BOU_TRUE:
       return false;
     case cl::BOU_FALSE:
@@ -1240,7 +1240,7 @@ public:
   /// Return the costs for our two available strategies for lowering a
   /// div/rem operation which requires speculating at least one lane.
   /// First result is for scalarization (will be invalid for scalable
-  /// vectors); second is for the safe-divisor strategy.
+  /// vectors); second is for the masked intrinsic strategy.
   std::pair<InstructionCost, InstructionCost>
   getDivRemSpeculationCost(Instruction *I, ElementCount VF);
 
@@ -2713,11 +2713,11 @@ bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I,
   case Instruction::SDiv:
   case Instruction::SRem:
   case Instruction::URem: {
-    // We have the option to use the safe-divisor idiom to avoid predication.
-    // The cost based decision here will always select safe-divisor for
-    // scalable vectors as scalarization isn't legal.
-    const auto [ScalarCost, SafeDivisorCost] = getDivRemSpeculationCost(I, VF);
-    return isDivRemScalarWithPredication(ScalarCost, SafeDivisorCost);
+    // We have the option to use the llvm.masked.udiv intrinsics to avoid
+    // predication. The cost based decision here will always select the masked
+    // intrinsics for scalable vectors as scalarization isn't legal.
+    const auto [ScalarCost, MaskedCost] = getDivRemSpeculationCost(I, VF);
+    return isDivRemScalarWithPredication(ScalarCost, MaskedCost);
   }
   }
 }
@@ -2858,8 +2858,8 @@ LoopVectorizationCostModel::getDivRemSpeculationCost(Instruction *I,
   auto *MaskTy = toVectorTy(Type::getInt1Ty(I->getContext()), VF);
   IntrinsicCostAttributes ICA(getMaskedDivRemIntrinsic(I->getOpcode()), VecTy,
                               {VecTy, VecTy, MaskTy});
-  InstructionCost SafeDivisorCost = TTI.getIntrinsicInstrCost(ICA, CostKind);
-  return {ScalarizationCost, SafeDivisorCost};
+  InstructionCost MaskedCost = TTI.getIntrinsicInstrCost(ICA, CostKind);
+  return {ScalarizationCost, MaskedCost};
 }
 
 bool LoopVectorizationCostModel::interleavedAccessCanBeWidened(
@@ -6037,9 +6037,9 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I,
   case Instruction::URem:
   case Instruction::SRem:
     if (VF.isVector() && isPredicatedInst(I)) {
-      const auto [ScalarCost, SafeDivisorCost] = getDivRemSpeculationCost(I, VF);
-      return isDivRemScalarWithPredication(ScalarCost, SafeDivisorCost) ?
-        ScalarCost : SafeDivisorCost;
+      const auto [ScalarCost, MaskedCost] = getDivRemSpeculationCost(I, VF);
+      return isDivRemScalarWithPredication(ScalarCost, MaskedCost) ? ScalarCost
+                                                                   : MaskedCost;
     }
     // We've proven all lanes safe to speculate, fall through.
     [[fallthrough]];
