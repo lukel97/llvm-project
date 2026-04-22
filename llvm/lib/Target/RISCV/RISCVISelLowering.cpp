@@ -19433,7 +19433,7 @@ static SDValue performVP_TRUNCATECombine(SDNode *N, SelectionDAG &DAG,
   SDValue Mask = N->getOperand(1);
   SDValue VL = N->getOperand(2);
 
-  // Input should be a srl with same mask and VL.
+  // Input should be a srl.
   if (In.getOpcode() != ISD::SRL)
     return SDValue();
 
