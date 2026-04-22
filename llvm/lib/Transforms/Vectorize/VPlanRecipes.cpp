@@ -3374,15 +3374,15 @@ static bool isUsedByLoadStoreAddress(const VPUser *V) {
                  match(Cur, m_VPInstruction<Instruction::Select>());
     // Check if any V* in m_Select(C1, V1, m_Select(C2, V2, ...)) was visited.
     auto VisitedIncomingValue = [&Seen](const VPSingleDefRecipe *Blend) {
-      const VPValue *V = Blend;
-      SmallVector<const VPValue *> IncomingVals;
-      while (V->getUnderlyingValue() == Blend->getUnderlyingValue()) {
-        const VPRecipeBase *Select = V->getDefiningRecipe();
-        if (Seen.contains(Select->getOperand(1)->getDefiningRecipe()))
+      const VPValue *X = Blend;
+      VPValue *LHS, *RHS;
+      while (match(X, m_VPInstruction<Instruction::Select>(
+                          m_VPValue(), m_VPValue(LHS), m_VPValue(RHS)))) {
+        if (Seen.contains(LHS->getDefiningRecipe()))
           return true;
-        V = Select->getOperand(2);
+        X = RHS;
       }
-      return Seen.contains(V->getDefiningRecipe());
+      return Seen.contains(X->getDefiningRecipe());
     };
     // Skip blends that use V only through a compare by checking if any incoming
     // value was already visited.
