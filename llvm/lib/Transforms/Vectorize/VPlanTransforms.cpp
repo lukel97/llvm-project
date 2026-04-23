@@ -881,8 +881,7 @@ static void legalizeAndOptimizeInductions(VPlan &Plan) {
     // Replace wide pointer inductions which have only their scalars used by
     // PtrAdd(IndStart, ScalarIVSteps (0, Step)).
     if (auto *PtrIV = dyn_cast<VPWidenPointerInductionRecipe>(&Phi)) {
-      if (!Plan.hasScalarVFOnly() &&
-          !PtrIV->onlyScalarsGenerated(Plan.hasScalableVF()))
+      if (!Plan.hasScalarVFOnly() && !PtrIV->onlyScalarsGenerated())
         continue;
 
       VPValue *PtrAdd = scalarizeVPWidenPointerInduction(PtrIV, Plan, Builder);
@@ -911,13 +910,9 @@ static void legalizeAndOptimizeInductions(VPlan &Plan) {
              "plans containing a scalar VF cannot also include scalable VFs");
       WideIV->replaceAllUsesWith(Steps);
     } else {
-      bool HasScalableVF = Plan.hasScalableVF();
-      WideIV->replaceUsesWithIf(Steps,
-                                [WideIV, HasScalableVF](VPUser &U, unsigned) {
-                                  if (HasScalableVF)
-                                    return U.usesFirstLaneOnly(WideIV);
-                                  return U.usesScalars(WideIV);
-                                });
+      WideIV->replaceUsesWithIf(Steps, [WideIV](VPUser &U, unsigned) {
+        return U.usesFirstLaneOnly(WideIV) || U.usesScalars(WideIV);
+      });
     }
   }
 }
@@ -3924,8 +3919,7 @@ static void expandVPWidenPointerInduction(VPWidenPointerInductionRecipe *R,
              InductionDescriptor::IK_PtrInduction &&
          "Not a pointer induction according to InductionDescriptor!");
   assert(TypeInfo.inferScalarType(R)->isPointerTy() && "Unexpected type.");
-  assert(!R->onlyScalarsGenerated(Plan->hasScalableVF()) &&
-         "Recipe should have been replaced");
+  assert(!R->onlyScalarsGenerated() && "Recipe should have been replaced");
 
   VPBuilder Builder(R);
   DebugLoc DL = R->getDebugLoc();
@@ -4034,7 +4028,7 @@ void VPlanTransforms::convertToConcreteRecipes(VPlan &Plan) {
       if (auto *WidenIVR = dyn_cast<VPWidenPointerInductionRecipe>(&R)) {
         // If the recipe only generates scalars, scalarize it instead of
         // expanding it.
-        if (WidenIVR->onlyScalarsGenerated(Plan.hasScalableVF())) {
+        if (WidenIVR->onlyScalarsGenerated()) {
           VPBuilder Builder(WidenIVR);
           VPValue *PtrAdd =
               scalarizeVPWidenPointerInduction(WidenIVR, Plan, Builder);
