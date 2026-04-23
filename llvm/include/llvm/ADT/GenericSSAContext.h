@@ -17,11 +17,11 @@
 #ifndef LLVM_ADT_GENERICSSACONTEXT_H
 #define LLVM_ADT_GENERICSSACONTEXT_H
 
+#include "llvm/Support/GenericDomTree.h"
 #include "llvm/Support/Printable.h"
 
 namespace llvm {
 
-template <typename, bool> class DominatorTreeBase;
 template <typename> class SmallVectorImpl;
 
 namespace Intrinsic {
