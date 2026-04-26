@@ -288,12 +288,15 @@ collectGroupedReplicateMemOps(
 }
 
 /// Return true if we do not know how to (mechanically) hoist or sink \p R out
-/// of a loop region.
-static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R) {
+/// of a loop region. When sinking, passing \p Sinking = true ensures that
+/// assumes aren't sunk.
+static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R,
+                                    bool Sinking = false) {
   // Assumes don't alias anything or throw; as long as they're guaranteed to
-  // execute, they're safe to hoist.
+  // execute, they're safe to hoist. They should however not be sunk, as it
+  // would destroy information.
   if (match(&R, m_Intrinsic<Intrinsic::assume>()))
-    return false;
+    return Sinking;
 
   // TODO: Relax checks in the future, e.g. we could also hoist reads, if their
   // memory location is not modified in the vector loop.
@@ -323,7 +326,8 @@ static bool sinkScalarOperands(VPlan &Plan) {
     if (!isa<VPReplicateRecipe, VPScalarIVStepsRecipe>(Candidate))
       return;
 
-    if (Candidate->getParent() == SinkTo || cannotHoistOrSinkRecipe(*Candidate))
+    if (Candidate->getParent() == SinkTo ||
+        cannotHoistOrSinkRecipe(*Candidate, /*Sinking=*/true))
       return;
 
     if (auto *RepR = dyn_cast<VPReplicateRecipe>(Candidate))
@@ -677,12 +681,7 @@ static void removeRedundantInductionCasts(VPlan &Plan) {
 static void removeRedundantCanonicalIVs(VPlan &Plan) {
   VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
   VPValue *CanonicalIV = LoopRegion->getCanonicalIV();
-  VPWidenCanonicalIVRecipe *WidenNewIV = nullptr;
-  for (VPUser *U : CanonicalIV->users()) {
-    WidenNewIV = dyn_cast<VPWidenCanonicalIVRecipe>(U);
-    if (WidenNewIV)
-      break;
-  }
+  auto *WidenNewIV = vputils::findUserOf<VPWidenCanonicalIVRecipe>(CanonicalIV);
 
   if (!WidenNewIV)
     return;
@@ -867,6 +866,11 @@ static void legalizeAndOptimizeInductions(VPlan &Plan) {
 
       // Skip recipes that may have other lanes than their first used.
       if (!vputils::isSingleScalar(Def) && !vputils::onlyFirstLaneUsed(Def))
+        continue;
+
+      // TODO: Support scalarizing ExtractValue.
+      if (match(Def,
+                m_Binary<Instruction::ExtractValue>(m_VPValue(), m_VPValue())))
         continue;
 
       auto *Clone = new VPReplicateRecipe(Def->getUnderlyingInstr(),
@@ -1845,7 +1849,7 @@ static void narrowToSingleScalarRecipes(VPlan &Plan) {
       }
 
       auto *RepOrWidenR = dyn_cast<VPRecipeWithIRFlags>(&R);
-      if (RepR && isa<StoreInst>(RepR->getUnderlyingInstr()) &&
+      if (RepR && RepR->getOpcode() == Instruction::Store &&
           vputils::isSingleScalar(RepR->getOperand(1))) {
         auto *Clone = new VPReplicateRecipe(
             RepOrWidenR->getUnderlyingInstr(), RepOrWidenR->operands(),
@@ -2345,7 +2349,7 @@ sinkRecurrenceUsersAfterPrevious(VPFirstOrderRecurrencePHIRecipe *FOR,
         VPDT.properlyDominates(Previous, SinkCandidate))
       return true;
 
-    if (cannotHoistOrSinkRecipe(*SinkCandidate))
+    if (cannotHoistOrSinkRecipe(*SinkCandidate, /*Sinking=*/true))
       return false;
 
     WorkList.push_back(SinkCandidate);
@@ -2481,7 +2485,6 @@ static bool hoistPreviousBeforeFORUsers(VPFirstOrderRecurrencePHIRecipe *FOR,
 bool VPlanTransforms::adjustFixedOrderRecurrences(VPlan &Plan,
                                                   VPBuilder &LoopBuilder) {
   VPDominatorTree VPDT(Plan);
-  VPTypeAnalysis TypeInfo(Plan);
 
   SmallVector<VPFirstOrderRecurrencePHIRecipe *> RecurrencePhis;
   for (VPRecipeBase &R :
@@ -2523,32 +2526,6 @@ bool VPlanTransforms::adjustFixedOrderRecurrences(VPlan &Plan,
     // Set the first operand of RecurSplice to FOR again, after replacing
     // all users.
     RecurSplice->setOperand(0, FOR);
-
-    // Check for users extracting at the penultimate active lane of the FOR.
-    // If only a single lane is active in the current iteration, we need to
-    // select the last element from the previous iteration (from the FOR phi
-    // directly).
-    for (VPUser *U : RecurSplice->users()) {
-      if (!match(U, m_ExtractLane(m_LastActiveLane(m_VPValue()),
-                                  m_Specific(RecurSplice))))
-        continue;
-
-      VPBuilder B(cast<VPInstruction>(U));
-      VPValue *LastActiveLane = cast<VPInstruction>(U)->getOperand(0);
-      Type *Ty = TypeInfo.inferScalarType(LastActiveLane);
-      VPValue *Zero = Plan.getConstantInt(Ty, 0);
-      VPValue *One = Plan.getConstantInt(Ty, 1);
-      VPValue *PenultimateIndex = B.createSub(LastActiveLane, One);
-      VPValue *PenultimateLastIter =
-          B.createNaryOp(VPInstruction::ExtractLane,
-                         {PenultimateIndex, FOR->getBackedgeValue()});
-      VPValue *LastPrevIter =
-          B.createNaryOp(VPInstruction::ExtractLastLane, FOR);
-
-      VPValue *Cmp = B.createICmp(CmpInst::ICMP_EQ, LastActiveLane, Zero);
-      VPValue *Sel = B.createSelect(Cmp, LastPrevIter, PenultimateLastIter);
-      cast<VPInstruction>(U)->replaceAllUsesWith(Sel);
-    }
   }
   return true;
 }
@@ -2729,7 +2706,7 @@ static void licm(VPlan &Plan) {
       LoopRegion->getEntry());
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(POT)) {
     for (VPRecipeBase &R : make_early_inc_range(reverse(*VPBB))) {
-      if (cannotHoistOrSinkRecipe(R))
+      if (cannotHoistOrSinkRecipe(R, /*Sinking=*/true))
         continue;
 
       if (auto *RepR = dyn_cast<VPReplicateRecipe>(&R)) {
@@ -2747,35 +2724,27 @@ static void licm(VPlan &Plan) {
       // TODO: Use R.definedValues() instead of casting to VPSingleDefRecipe to
       // support recipes with multiple defined values (e.g., interleaved loads).
       auto *Def = cast<VPSingleDefRecipe>(&R);
-      // Skip recipes without users as we cannot determine a sink block.
-      // TODO: Clone sinkable recipes without users to all exit blocks to reduce
-      // their execution frequency.
-      if (Def->getNumUsers() == 0)
-        continue;
 
+      // Cannot sink the recipe if the user is defined in a loop region or a
+      // non-successor of the vector loop region. Cannot sink if user is a phi
+      // either.
       VPBasicBlock *SinkBB = nullptr;
-      // Cannot sink the recipe if any user
-      //  * is defined in any loop region, or
-      //  * is a phi, or
-      //  * multiple users in different blocks.
-      if (any_of(Def->users(), [&SinkBB](VPUser *U) {
+      if (any_of(Def->users(), [&SinkBB, &LoopRegion](VPUser *U) {
             auto *UserR = cast<VPRecipeBase>(U);
             VPBasicBlock *Parent = UserR->getParent();
-            // TODO: If the user is a PHI node, we should check the block of
-            // incoming value. Support PHI node users if needed.
-            if (UserR->isPhi() || Parent->getEnclosingLoopRegion())
-              return true;
             // TODO: Support sinking when users are in multiple blocks.
             if (SinkBB && SinkBB != Parent)
               return true;
             SinkBB = Parent;
-            return false;
+            // TODO: If the user is a PHI node, we should check the block of
+            // incoming value. Support PHI node users if needed.
+            return UserR->isPhi() || Parent->getEnclosingLoopRegion() ||
+                   Parent->getSinglePredecessor() != LoopRegion;
           }))
         continue;
 
-      // Only sink to dedicated exit blocks of the loop region.
-      if (SinkBB->getSinglePredecessor() != LoopRegion)
-        continue;
+      if (!SinkBB)
+        SinkBB = cast<VPBasicBlock>(LoopRegion->getSingleSuccessor());
 
       // TODO: This will need to be a check instead of a assert after
       // conditional branches in vectorized loops are supported.
@@ -3057,13 +3026,11 @@ addVPLaneMaskPhiAndUpdateExitBranch(VPlan &Plan) {
 void VPlanTransforms::addActiveLaneMask(VPlan &Plan,
                                         bool UseActiveLaneMaskForControlFlow) {
   VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
-  auto *FoundWidenCanonicalIVUser = find_if(
-      LoopRegion->getCanonicalIV()->users(), IsaPred<VPWidenCanonicalIVRecipe>);
-  assert(FoundWidenCanonicalIVUser &&
+  auto *WideCanonicalIV = vputils::findUserOf<VPWidenCanonicalIVRecipe>(
+      LoopRegion->getCanonicalIV());
+  assert(WideCanonicalIV &&
          "Must have widened canonical IV when tail folding!");
   VPSingleDefRecipe *HeaderMask = vputils::findHeaderMask(Plan);
-  auto *WideCanonicalIV =
-      cast<VPWidenCanonicalIVRecipe>(*FoundWidenCanonicalIVUser);
   VPSingleDefRecipe *LaneMask;
   if (UseActiveLaneMaskForControlFlow) {
     LaneMask = addVPLaneMaskPhiAndUpdateExitBranch(Plan);
@@ -3226,6 +3193,14 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
         Instruction::Sub, {ZExt, Plan->getConstantInt(Ty, 1)},
         VPIRFlags::getDefaultFlags(Instruction::Sub), {}, DL);
   }
+
+  // lhs | (headermask && rhs) -> vp.merge rhs, true, lhs, evl
+  if (match(&CurRecipe,
+            m_c_BinaryOr(m_VPValue(LHS),
+                         m_LogicalAnd(m_Specific(HeaderMask), m_VPValue(RHS)))))
+    return new VPWidenIntrinsicRecipe(
+        Intrinsic::vp_merge, {RHS, Plan->getTrue(), LHS, &EVL},
+        TypeInfo.inferScalarType(LHS), {}, {}, DL);
 
   if (auto *IntrR = dyn_cast<VPWidenIntrinsicRecipe>(&CurRecipe))
     if (auto VPID = getVPDivRemIntrinsic(IntrR->getVectorIntrinsicID()))
@@ -3716,7 +3691,8 @@ void VPlanTransforms::dropPoisonGeneratingRecipes(
   // Traverse all the recipes in the VPlan and collect the poison-generating
   // recipes in the backward slice starting at the address of a VPWidenRecipe or
   // VPInterleaveRecipe.
-  auto Iter = vp_depth_first_deep(Plan.getEntry());
+  auto Iter =
+      vp_depth_first_shallow(Plan.getVectorLoopRegion()->getEntryBasicBlock());
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(Iter)) {
     for (VPRecipeBase &Recipe : *VPBB) {
       if (auto *WidenRec = dyn_cast<VPWidenMemoryRecipe>(&Recipe)) {
@@ -5162,11 +5138,10 @@ void VPlanTransforms::materializePacksAndUnpacks(VPlan &Plan) {
   }
 }
 
-void VPlanTransforms::materializeVectorTripCount(VPlan &Plan,
-                                                 VPBasicBlock *VectorPHVPBB,
-                                                 bool TailByMasking,
-                                                 bool RequiresScalarEpilogue,
-                                                 VPValue *Step) {
+void VPlanTransforms::materializeVectorTripCount(
+    VPlan &Plan, VPBasicBlock *VectorPHVPBB, bool TailByMasking,
+    bool RequiresScalarEpilogue, VPValue *Step,
+    std::optional<uint64_t> MaxRuntimeStep) {
   VPSymbolicValue &VectorTC = Plan.getVectorTripCount();
   // There's nothing to do if there are no users of the vector trip count or its
   // IR value has already been set.
@@ -5183,6 +5158,16 @@ void VPlanTransforms::materializeVectorTripCount(VPlan &Plan,
     InsertPt = std::next(StepR->getIterator());
   }
   VPBuilder Builder(VectorPHVPBB, InsertPt);
+
+  // For scalable steps, if TC is a constant and is divisible by the maximum
+  // possible runtime step, then TC % Step == 0 for all valid vscale values
+  // and the vector trip count equals TC directly.
+  const APInt *TCVal;
+  if (!RequiresScalarEpilogue && match(TC, m_APInt(TCVal)) && MaxRuntimeStep &&
+      TCVal->getZExtValue() % *MaxRuntimeStep == 0) {
+    VectorTC.replaceAllUsesWith(TC);
+    return;
+  }
 
   // If the tail is to be folded by masking, round the number of iterations N
   // up to a multiple of Step instead of rounding down. This is done by first
@@ -5450,8 +5435,7 @@ narrowInterleaveGroupOp(VPValue *V, SmallPtrSetImpl<VPValue *> &NarrowedOps) {
   }
 
   if (auto *RepR = dyn_cast<VPReplicateRecipe>(R)) {
-    assert(RepR->isSingleScalar() &&
-           isa<LoadInst>(RepR->getUnderlyingInstr()) &&
+    assert(RepR->isSingleScalar() && RepR->getOpcode() == Instruction::Load &&
            "must be a single scalar load");
     NarrowedOps.insert(RepR);
     return RepR;
@@ -6557,7 +6541,7 @@ void VPlanTransforms::createPartialReductions(VPlan &Plan,
         if (auto *Extend = dyn_cast<VPWidenCastRecipe>(Op))
           RegularCost += Extend->computeCost(VF, CostCtx);
     }
-    return PartialCost.isValid() && PartialCost <= RegularCost;
+    return PartialCost.isValid() && PartialCost < RegularCost;
   };
 
   // Validate chains: check that extends are only used by partial reductions,
@@ -6591,7 +6575,7 @@ void VPlanTransforms::createPartialReductions(VPlan &Plan,
       if (auto *RdxResult = vputils::findComputeReductionResult(RedPhiR)) {
         if (any_of(RdxResult->users(), [](VPUser *U) {
               auto *RepR = dyn_cast<VPReplicateRecipe>(U);
-              return RepR && isa<StoreInst>(RepR->getUnderlyingInstr());
+              return RepR && RepR->getOpcode() == Instruction::Store;
             })) {
           Chains.clear();
           break;
