@@ -65,12 +65,6 @@ def int_aarch64_sys  : DefaultAttrsIntrinsic<[], [llvm_i32_ty, llvm_i32_ty,
 // HINT
 
 def int_aarch64_hint : DefaultAttrsIntrinsic<[], [llvm_i32_ty]>;
-def int_aarch64_stshh_atomic_store
-    : Intrinsic<[],
-                [llvm_anyptr_ty, llvm_i64_ty, llvm_i32_ty, llvm_i32_ty,
-                 llvm_i32_ty],
-                [IntrHasSideEffects, ImmArg<ArgIndex<2>>,
-                 ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>]>;
 
 def int_aarch64_break : Intrinsic<[], [llvm_i32_ty],
     [IntrNoMem, IntrHasSideEffects, IntrNoReturn, IntrCold, ImmArg<ArgIndex<0>>]>;
@@ -2566,6 +2560,10 @@ def int_aarch64_sve_smaxp   : AdvSIMD_Pred2VectorArg_Intrinsic<[IntrSpeculatable
 def int_aarch64_sve_sminp   : AdvSIMD_Pred2VectorArg_Intrinsic<[IntrSpeculatable]>;
 def int_aarch64_sve_umaxp   : AdvSIMD_Pred2VectorArg_Intrinsic<[IntrSpeculatable]>;
 def int_aarch64_sve_uminp   : AdvSIMD_Pred2VectorArg_Intrinsic<[IntrSpeculatable]>;
+
+def int_aarch64_sve_addqp   : AdvSIMD_2VectorArg_Intrinsic<[IntrSpeculatable]>;
+def int_aarch64_sve_addsubp : AdvSIMD_2VectorArg_Intrinsic<[IntrSpeculatable]>;
+def int_aarch64_sve_subp    : AdvSIMD_Pred2VectorArg_Intrinsic<[IntrSpeculatable]>;
 
 //
 // SVE2 - Widening pairwise arithmetic
