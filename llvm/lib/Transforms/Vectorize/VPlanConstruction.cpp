@@ -1171,18 +1171,20 @@ void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
   for (const auto &[V, Users] : NeedsPhi) {
     if (isa<VPIRValue>(V))
       continue;
-    VPValue *Backedge =
+    VPValue *TailVal =
         Plan.getOrAddLiveIn(PoisonValue::get(TypeInfo.inferScalarType(V)));
     VPIRFlags Flags;
-    auto *RedIt = find_if(V->users(), IsaPred<VPReductionPHIRecipe>);
+    assert(llvm::count_if(Users, IsaPred<VPReductionPHIRecipe>) < 2 &&
+           "Value used by more than two reduction phis?");
+    auto *RedIt = find_if(Users, IsaPred<VPReductionPHIRecipe>);
     auto *RdxPhi =
-        RedIt != V->user_end() ? cast<VPReductionPHIRecipe>(*RedIt) : nullptr;
+        RedIt != Users.end() ? cast<VPReductionPHIRecipe>(*RedIt) : nullptr;
     if (RdxPhi && !RdxPhi->isInLoop()) {
-      Backedge = RdxPhi;
+      TailVal = RdxPhi;
       Flags = *RdxPhi;
     }
 
-    VPInstruction *Phi = Builder.createScalarPhi({V, Backedge}, {}, "", Flags);
+    VPInstruction *Phi = Builder.createScalarPhi({V, TailVal}, {}, "", Flags);
     for (VPUser *U : Users)
       U->replaceUsesOfWith(V, Phi);
   }
