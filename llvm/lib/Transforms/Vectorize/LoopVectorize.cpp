@@ -6793,10 +6793,14 @@ bool VPRecipeBuilder::replaceWithFinalIfReductionStore(
     // Only create recipe for the final invariant store of the reduction.
     if (Legal->isInvariantStoreOfReduction(SI)) {
       VPValue *Val = VPI->getOperand(0), *Addr = VPI->getOperand(1);
-      // If tail folded, we need to use the blended reduction value out.
-      auto *BlendIt = find_if(Val->users(), IsaPred<VPBlendRecipe>);
-      if (BlendIt != Val->user_end())
-        Val = cast<VPBlendRecipe>(*BlendIt);
+      // We need to store the exiting value of the reduction, so use the blend
+      // if tail folded.
+      if (auto *Blend = vputils::findUserOf<VPBlendRecipe>(Val))
+        Val = Blend;
+      assert(
+          vputils::findUserOf<VPReductionPHIRecipe>(Val)->getBackedgeValue() ==
+              Val &&
+          "Store isn't backedge value?");
       auto *Recipe = new VPReplicateRecipe(
           SI, {Val, Addr}, true /* IsUniform */, nullptr /*Mask*/, *VPI, *VPI,
           VPI->getDebugLoc());
