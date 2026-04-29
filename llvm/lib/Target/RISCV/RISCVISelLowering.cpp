@@ -10406,7 +10406,7 @@ SDValue RISCVTargetLowering::lowerVectorMaskExt(SDValue Op, SelectionDAG &DAG,
 // setcc operation:
 //   (vXi1 = trunc vXiN vec) -> (vXi1 = setcc (and vec, 1), 0, ne)
 SDValue RISCVTargetLowering::lowerVectorMaskTrunc(SDValue Op,
-                                                      SelectionDAG &DAG) const {
+                                                  SelectionDAG &DAG) const {
   SDLoc DL(Op);
   EVT MaskVT = Op.getValueType();
   // Only expect to custom-lower truncations to mask types
@@ -10444,7 +10444,7 @@ SDValue RISCVTargetLowering::lowerVectorMaskTrunc(SDValue Op,
 }
 
 SDValue RISCVTargetLowering::lowerVectorTrunc(SDValue Op,
-                                                  SelectionDAG &DAG) const {
+                                              SelectionDAG &DAG) const {
   unsigned Opc = Op.getOpcode();
   SDLoc DL(Op);
 
