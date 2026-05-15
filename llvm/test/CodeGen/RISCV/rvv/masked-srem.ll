@@ -123,6 +123,16 @@ define <4 x i16> @srem_v4i16(<4 x i16> %x, <4 x i16> %y, <4 x i1> %m) {
   ret <4 x i16> %res
 }
 
+define <8 x i16> @srem_v8i16(<8 x i16> %x, <8 x i16> %y, <8 x i1> %m) {
+; CHECK-LABEL: srem_v8i16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
+; CHECK-NEXT:    vrem.vv v8, v8, v9, v0.t
+; CHECK-NEXT:    ret
+  %res = call <8 x i16> @llvm.masked.srem(<8 x i16> %x, <8 x i16> %y, <8 x i1> %m)
+  ret <8 x i16> %res
+}
+
 define <1 x i64> @srem_v1i64(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
 ; CHECK-LABEL: srem_v1i64:
 ; CHECK:       # %bb.0:
