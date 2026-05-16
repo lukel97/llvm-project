@@ -123,16 +123,6 @@ define <4 x i16> @udiv_v4i16(<4 x i16> %x, <4 x i16> %y, <4 x i1> %m) {
   ret <4 x i16> %res
 }
 
-define <8 x i16> @udiv_v8i16(<8 x i16> %x, <8 x i16> %y, <8 x i1> %m) {
-; CHECK-LABEL: udiv_v8i16:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
-; CHECK-NEXT:    vdivu.vv v8, v8, v9, v0.t
-; CHECK-NEXT:    ret
-  %res = call <8 x i16> @llvm.masked.udiv(<8 x i16> %x, <8 x i16> %y, <8 x i1> %m)
-  ret <8 x i16> %res
-}
-
 define <1 x i64> @udiv_v1i64(<1 x i64> %x, <1 x i64> %y, <1 x i1> %m) {
 ; CHECK-LABEL: udiv_v1i64:
 ; CHECK:       # %bb.0:
@@ -285,4 +275,19 @@ define <8 x i8> @udiv_trunc_select(i1 %c) {
   %trunc = trunc <8 x i16> %udiv to <8 x i8>
   %res = select i1 %c, <8 x i8> zeroinitializer, <8 x i8> %trunc
   ret <8 x i8> %res
+}
+
+; Test non-fragile test case for the behaviour fixed in e67ca6573: fixed-length
+; masked div/rem operands must be converted to scalable vectors before creating
+; the VL node, otherwise the scalar-splat VX pattern is not recognised.
+define <8 x i16> @udiv_v8i16_splat_rhs(<8 x i16> %x, i16 %y, <8 x i1> %m) {
+; CHECK-LABEL: udiv_v8i16_splat_rhs:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 8, e16, m1, ta, ma
+; CHECK-NEXT:    vdivu.vx v8, v8, a0, v0.t
+; CHECK-NEXT:    ret
+  %ins = insertelement <8 x i16> poison, i16 %y, i32 0
+  %splat = shufflevector <8 x i16> %ins, <8 x i16> poison, <8 x i32> zeroinitializer
+  %res = call <8 x i16> @llvm.masked.udiv(<8 x i16> %x, <8 x i16> %splat, <8 x i1> %m)
+  ret <8 x i16> %res
 }
