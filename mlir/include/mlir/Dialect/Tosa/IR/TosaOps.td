@@ -161,6 +161,7 @@ def Tosa_AvgPool2dAdaptiveOp
   }];
 
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 
   let assemblyFormat =
       "operands attr-dict `:` functional-type(operands, results)";
@@ -536,7 +537,7 @@ def Tosa_MaxPool2dAdaptiveOp
     This performs a max pooling over the given input tensor. A sliding window of
     size given by <kernel size> is passed over the input tensor, with the
     maximum value being placed in the output tensor.
-    Compared to MAX_POOL2D, MAX_POOL2D_ADAPTIVE has the kernel, stride, 
+    Compared to MAX_POOL2D, MAX_POOL2D_ADAPTIVE has the kernel, stride,
     pad arguments as inputs rather than attributes.
   }];
 
@@ -557,6 +558,7 @@ def Tosa_MaxPool2dAdaptiveOp
   ];
 
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
   let hasCustomAssemblyFormat = 1;
 }
 
@@ -2204,7 +2206,6 @@ def Tosa_ConcatOp : Tosa_InferTensorTypeOp<"concat", [Pure]> {
   ];
 
   let hasCanonicalizer = 1;
-  let hasFolder = 1;
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
@@ -2349,8 +2350,12 @@ def Tosa_ReshapeBlockScaledOp
 // Operator: reverse
 //===----------------------------------------------------------------------===//
 def Tosa_ReverseOp: Tosa_Op<"reverse", [
-    DeclareOpInterfaceMethods<InferShapedTypeOpInterface,
-                              ["inferReturnTypeComponents"]>, Pure]> {
+      DeclareOpInterfaceMethods<InferShapedTypeOpInterface,
+                                ["inferReturnTypeComponents"]>,
+      SameOperandsAndResultRank,
+      SameOperandsAndResultShape,
+      SameOperandsAndResultElementType,
+      Pure]> {
   let summary = "Reverse operator.";
 
   let description = [{
@@ -2518,6 +2523,49 @@ def Tosa_GatherOp : Tosa_InferShapedTypeOp<"gather", [NoMemoryEffect]> {
   list<Availability> availability = [
     Profile<[Tosa_PRO_INT, Tosa_PRO_FP]>,
     Extension<[Tosa_EXT_FP8E4M3, Tosa_EXT_FP8E5M2, Tosa_EXT_BF16, Tosa_EXT_INT64]>,
+  ];
+
+  let hasVerifier = 1;
+
+  let assemblyFormat =
+      "operands attr-dict `:` functional-type(operands, results)";
+}
+
+//===----------------------------------------------------------------------===//
+// Operator: row_gather_block_scaled
+//===----------------------------------------------------------------------===//
+def Tosa_RowGatherBlockScaledOp
+    : Tosa_InferShapedTypeOp<"row_gather_block_scaled", [NoMemoryEffect]> {
+  let summary =
+      "Row gather operation for block-scaled and non-block-scaled data.";
+
+  let description = [{
+    Generate a tensor-list which contains a data tensor and an optional scale
+    tensor based on the input indices and row_count. The number of consecutive
+    rows gathered for each index is specified in row_count.
+
+    The variadic `values` operands and results model the flattened
+    `tensor_list_t` form from the TOSA spec:
+    - non-block-scaled: 1 input value tensor and 1 result tensor
+    - block-scaled: data + scale input tensors and data + scale result tensors
+
+    This operation follows the TOSA 1.1 draft specification and may evolve as
+    the specification is updated.
+
+    This operation is not pure. Undefined behaviour may occur if the specified
+    indices are out of range.
+  }];
+
+  let arguments = (ins Variadic<Tosa_Tensor3D>:$values,
+      Tosa_IndexTensor2D:$indices, Tosa_ScalarInt32Tensor:$row_count,
+      Tosa_BlockSizeAttr:$block_size);
+
+  let results = (outs Variadic<Tosa_Tensor3D>:$output);
+
+  list<Availability> availability = [Profile<[Tosa_PRO_INT, Tosa_PRO_FP]>,
+                                     Extension<[Tosa_EXT_FP8E4M3,
+                                                Tosa_EXT_FP8E5M2, Tosa_EXT_BF16,
+                                                Tosa_EXT_MXFP, Tosa_EXT_INT64]>,
   ];
 
   let hasVerifier = 1;
