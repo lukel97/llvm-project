@@ -1,0 +1,21 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github-copilot-steps.yml
+  pull_request:
+    paths:
+      - .github-copilot-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-4-core
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
