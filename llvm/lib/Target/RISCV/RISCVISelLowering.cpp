@@ -982,6 +982,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::EXPERIMENTAL_VP_SPLICE, VT, Custom);
       setOperationAction(ISD::EXPERIMENTAL_VP_REVERSE, VT, Custom);
 
+      setOperationAction({ISD::VP_LOAD, ISD::VP_STORE}, VT, Custom);
+
       setOperationPromotedToType(
           {ISD::VECTOR_SPLICE_LEFT, ISD::VECTOR_SPLICE_RIGHT}, VT,
           MVT::getVectorVT(MVT::i8, VT.getVectorElementCount()));
@@ -13455,6 +13457,22 @@ SDValue RISCVTargetLowering::lowerMaskedLoad(SDValue Op,
   if (!VL)
     VL = getDefaultVLOps(VT, ContainerVT, DL, DAG, Subtarget).second;
 
+  // Mask vector types (i1 element) use vlm for loading.
+  if (VT.getVectorElementType() == MVT::i1) {
+    SDValue IntID =
+        DAG.getTargetConstant(Intrinsic::riscv_vlm, DL, XLenVT);
+    SDVTList VTs = DAG.getVTList({ContainerVT, MVT::Other});
+    SmallVector<SDValue, 4> Ops{Chain, IntID, BasePtr, VL};
+    SDValue Result = DAG.getMemIntrinsicNode(ISD::INTRINSIC_W_CHAIN, DL, VTs,
+                                             Ops, MemVT, MMO);
+    Chain = Result.getValue(1);
+
+    if (VT.isFixedLengthVector())
+      Result = convertFromScalableVector(VT, Result, DAG, Subtarget);
+
+    return DAG.getMergeValues({Result, Chain}, DL);
+  }
+
   SDValue ExpandingVL;
   if (!IsUnmasked && IsExpandingLoad) {
     ExpandingVL = VL;
@@ -13602,6 +13620,15 @@ SDValue RISCVTargetLowering::lowerMaskedStore(SDValue Op,
 
   if (!VL)
     VL = getDefaultVLOps(VT, ContainerVT, DL, DAG, Subtarget).second;
+
+  // Mask vector types (i1 element) use vsm for storing.
+  if (VT.getVectorElementType() == MVT::i1) {
+    SDValue IntID =
+        DAG.getTargetConstant(Intrinsic::riscv_vsm, DL, XLenVT);
+    SmallVector<SDValue, 4> Ops{Chain, IntID, Val, BasePtr, VL};
+    return DAG.getMemIntrinsicNode(ISD::INTRINSIC_VOID, DL,
+                                   DAG.getVTList(MVT::Other), Ops, MemVT, MMO);
+  }
 
   if (IsCompressingStore) {
     Val = DAG.getNode(
