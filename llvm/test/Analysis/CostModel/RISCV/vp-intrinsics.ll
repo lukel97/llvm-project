@@ -978,6 +978,17 @@ define void @store() {
   ret void
 }
 
+define void @i1_vp_memory() {
+; CHECK-LABEL: 'i1_vp_memory'
+; CHECK-NEXT:  Cost Model: Invalid cost for instruction: %l = call <vscale x 16 x i1> @llvm.vp.load.nxv16i1.p0(ptr undef, <vscale x 16 x i1> undef, i32 undef)
+; CHECK-NEXT:  Cost Model: Invalid cost for instruction: call void @llvm.vp.store.nxv16i1.p0(<vscale x 16 x i1> undef, ptr undef, <vscale x 16 x i1> undef, i32 undef)
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
+;
+  %l = call <vscale x 16 x i1> @llvm.vp.load.nxv16i1.p0(ptr undef, <vscale x 16 x i1> undef, i32 undef)
+  call void @llvm.vp.store.nxv16i1.p0(<vscale x 16 x i1> undef, ptr undef, <vscale x 16 x i1> undef, i32 undef)
+  ret void
+}
+
 define void @gather() {
 ; ARGBASED-LABEL: 'gather'
 ; ARGBASED-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %1 = call <2 x i8> @llvm.vp.gather.v2i8.v2p0(<2 x ptr> poison, <2 x i1> poison, i32 poison)

@@ -1072,6 +1072,12 @@ RISCVTTIImpl::getMemIntrinsicInstrCost(const MemIntrinsicCostAttributes &MICA,
     return getGatherScatterOpCost(MICA, CostKind);
   case Intrinsic::vp_load:
   case Intrinsic::vp_store:
+    // RISC-V has no native masked memory instructions matching vp.load/store
+    // semantics for i1 elements (vlm/vsm don't have a mask operand). Model
+    // these as invalid so profitability checks reject plans that rely on them.
+    if (DataTy->isIntOrIntVectorTy(1))
+      return InstructionCost::getInvalid();
+    [[fallthrough]];
   case Intrinsic::masked_load:
   case Intrinsic::masked_store:
     return getMaskedMemoryOpCost(MICA, CostKind);
@@ -1380,6 +1386,14 @@ RISCVTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                     TTI::TargetCostKind CostKind) const {
   auto *RetTy = ICA.getReturnType();
   switch (ICA.getID()) {
+  case Intrinsic::vp_load:
+  case Intrinsic::vp_store: {
+    Type *DataTy = ICA.getID() == Intrinsic::vp_store ? ICA.getArgTypes()[0]
+                                                      : ICA.getReturnType();
+    if (DataTy && DataTy->isIntOrIntVectorTy(1))
+      return InstructionCost::getInvalid();
+    break;
+  }
   case Intrinsic::lrint:
   case Intrinsic::llrint:
   case Intrinsic::lround:

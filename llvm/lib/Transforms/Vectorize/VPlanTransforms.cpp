@@ -3088,15 +3088,9 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
 
   if (match(&CurRecipe,
             m_MaskedLoad(m_VPValue(Addr), m_RemoveMask(HeaderMask, Mask))) &&
-      !cast<VPWidenLoadRecipe>(CurRecipe).isReverse()) {
-    // Skip i1 element types since vp.load of i1 cannot be correctly lowered:
-    // vlm.v has no mask operand to represent the EVL mask.
-    if (getLoadStoreType(&cast<VPWidenLoadRecipe>(CurRecipe).getIngredient())
-            ->isIntegerTy(1))
-      return nullptr;
+      !cast<VPWidenLoadRecipe>(CurRecipe).isReverse())
     return new VPWidenLoadEVLRecipe(cast<VPWidenLoadRecipe>(CurRecipe), Addr,
                                     EVL, Mask);
-  }
 
   VPValue *ReversedVal;
   if (match(&CurRecipe, m_Reverse(m_VPValue(ReversedVal))) &&
@@ -3104,10 +3098,6 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
             m_MaskedLoad(m_VPValue(EndPtr), m_RemoveMask(HeaderMask, Mask))) &&
       match(EndPtr, m_VecEndPtr(m_VPValue(Addr), m_Specific(&Plan->getVF()))) &&
       cast<VPWidenLoadRecipe>(ReversedVal)->isReverse()) {
-    // Skip i1 element types since vp.load of i1 cannot be correctly lowered.
-    if (getLoadStoreType(&cast<VPWidenLoadRecipe>(ReversedVal)->getIngredient())
-            ->isIntegerTy(1))
-      return nullptr;
     auto *LoadR = new VPWidenLoadEVLRecipe(
         *cast<VPWidenLoadRecipe>(ReversedVal), AdjustEndPtr(EndPtr), EVL, Mask);
     LoadR->insertBefore(&CurRecipe);
@@ -3119,25 +3109,15 @@ static VPRecipeBase *optimizeMaskToEVL(VPValue *HeaderMask,
   VPValue *StoredVal;
   if (match(&CurRecipe, m_MaskedStore(m_VPValue(Addr), m_VPValue(StoredVal),
                                       m_RemoveMask(HeaderMask, Mask))) &&
-      !cast<VPWidenStoreRecipe>(CurRecipe).isReverse()) {
-    // Skip i1 element types since vp.store of i1 cannot be correctly lowered:
-    // vsm.m has no mask operand to represent the EVL mask.
-    if (getLoadStoreType(&cast<VPWidenStoreRecipe>(CurRecipe).getIngredient())
-            ->isIntegerTy(1))
-      return nullptr;
+      !cast<VPWidenStoreRecipe>(CurRecipe).isReverse())
     return new VPWidenStoreEVLRecipe(cast<VPWidenStoreRecipe>(CurRecipe), Addr,
                                      StoredVal, EVL, Mask);
-  }
 
   if (match(&CurRecipe,
             m_MaskedStore(m_VPValue(EndPtr), m_Reverse(m_VPValue(ReversedVal)),
                           m_RemoveMask(HeaderMask, Mask))) &&
       match(EndPtr, m_VecEndPtr(m_VPValue(Addr), m_Specific(&Plan->getVF()))) &&
       cast<VPWidenStoreRecipe>(CurRecipe).isReverse()) {
-    // Skip i1 element types since vp.store of i1 cannot be correctly lowered.
-    if (getLoadStoreType(&cast<VPWidenStoreRecipe>(CurRecipe).getIngredient())
-            ->isIntegerTy(1))
-      return nullptr;
     auto *NewReverse = new VPWidenIntrinsicRecipe(
         Intrinsic::experimental_vp_reverse,
         {ReversedVal, Plan->getTrue(), &EVL},
