@@ -1,5 +1,5 @@
 set(CMAKE_C_COMPILER $ENV{GITHUB_WORKSPACE}/llvm-project/build/bin/clang)
 set(CMAKE_CXX_COMPILER $ENV{GITHUB_WORKSPACE}/llvm-project/build/bin/clang++)
-set(CMAKE_C_FLAGS_INIT "-save-temps=obj")
-set(CMAKE_CXX_FLAGS_INIT "-save-temps=obj")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps=obj" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -save-temps=obj" CACHE STRING "" FORCE)
 set(CMAKE_LINKER_TYPE LLD)
