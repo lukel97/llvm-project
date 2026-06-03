@@ -309,7 +309,7 @@ define void @switch(ptr %a) {
 ; CHECK-NEXT:      EMIT vp<[[VP13:%[0-9]+]]> = not vp<[[VP12]]>
 ; CHECK-NEXT:      EMIT vp<[[VP14:%[0-9]+]]> = logical-and ir<%c0>, vp<[[VP13]]>
 ; CHECK-NEXT:      EMIT vp<[[VP15:%[0-9]+]]> = or vp<[[VP5]]>, vp<[[VP11]]>
-; CHECK-NEXT:      BLEND ir<%phi3> = ir<%add2>/vp<[[VP5]]> ir<%add1>/vp<[[VP11]]> ir<%add1>/vp<[[VP11]]>
+; CHECK-NEXT:      BLEND ir<%phi3> = ir<%add2>/vp<[[VP5]]> ir<%add1>/vp<[[VP11]]>
 ; CHECK-NEXT:      EMIT ir<%add3> = add ir<%phi3>, ir<3>, vp<[[VP15]]>
 ; CHECK-NEXT:    Successor(s): bb4
 ; CHECK-EMPTY:

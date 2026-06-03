@@ -207,7 +207,7 @@ template <typename BlockTy> class VPBlockShallowTraversalWrapper {
 
 public:
   VPBlockShallowTraversalWrapper(BlockTy Entry) : Entry(Entry) {}
-  BlockTy getEntry() { return Entry; }
+  BlockTy getEntry() const { return Entry; }
 };
 
 template <> struct GraphTraits<VPBlockShallowTraversalWrapper<VPBlockBase *>> {

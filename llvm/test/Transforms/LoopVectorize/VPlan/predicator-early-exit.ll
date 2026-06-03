@@ -46,15 +46,15 @@ define void @multi_early_exit_predicated_nested(ptr %p1, ptr %p2, i1 %c1, i1 %c2
 ; CHECK-NEXT:      EMIT vp<[[VP11:%[0-9]+]]> = or vp<[[VP8]]>, vp<[[VP10]]>
 ; CHECK-NEXT:      EMIT vp<[[VP12:%[0-9]+]]> = not ir<%c1>
 ; CHECK-NEXT:      EMIT vp<[[VP13:%[0-9]+]]> = or vp<[[VP11]]>, vp<[[VP12]]>
-; CHECK-NEXT:      BLEND ir<%phi1.join2> = ir<1>/vp<[[VP8]]> ir<1>/vp<[[VP10]]> ir<0>/vp<[[VP12]]>
-; CHECK-NEXT:      BLEND ir<%phi2.join2> = ir<1>/vp<[[VP8]]> ir<0>/vp<[[VP10]]> ir<0>/vp<[[VP12]]>
+; CHECK-NEXT:      EMIT vp<[[VP14:%[0-9]+]]> = or vp<[[VP8]]>, vp<[[VP10]]>
+; CHECK-NEXT:      BLEND ir<%phi1.join2> = ir<1>/vp<[[VP14]]> ir<0>/vp<[[VP12]]>
+; CHECK-NEXT:      EMIT vp<[[VP15:%[0-9]+]]> = or vp<[[VP10]]>, vp<[[VP12]]>
+; CHECK-NEXT:      BLEND ir<%phi2.join2> = ir<1>/vp<[[VP8]]> ir<0>/vp<[[VP15]]>
 ; CHECK-NEXT:    Successor(s): latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    latch:
-; CHECK-NEXT:      EMIT vp<[[VP14:%[0-9]+]]> = logical-and vp<[[VP6]]>, ir<%ee2>
-; CHECK-NEXT:      EMIT vp<[[VP15:%[0-9]+]]> = logical-and ir<%c1>, ir<%ee1>
-; CHECK-NEXT:      BLEND ir<%phi1> = ir<%phi1.join2>/vp<[[VP13]]> ir<1>/vp<[[VP14]]> ir<1>/vp<[[VP15]]>
-; CHECK-NEXT:      BLEND ir<%phi2> = ir<%phi2.join2>/vp<[[VP13]]> ir<1>/vp<[[VP14]]> ir<poison>/vp<[[VP15]]>
+; CHECK-NEXT:      BLEND ir<%phi1> = ir<1>/ir<%c1> ir<0>/vp<[[VP13]]>
+; CHECK-NEXT:      BLEND ir<%phi2> = ir<1>/vp<[[VP6]]> ir<0>/vp<[[VP13]]>
 ; CHECK-NEXT:      EMIT ir<%gep1> = getelementptr ir<%p1>, ir<%iv>
 ; CHECK-NEXT:      EMIT store ir<%phi1>, ir<%gep1>
 ; CHECK-NEXT:      EMIT ir<%gep2> = getelementptr ir<%p2>, ir<%iv>
@@ -151,10 +151,8 @@ define void @multi_early_exit_predicated_not_nested(ptr %p1, ptr %p2, i1 %c1, i1
 ; CHECK-NEXT:    Successor(s): latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    latch:
-; CHECK-NEXT:      EMIT vp<[[VP14:%[0-9]+]]> = logical-and vp<[[VP8]]>, ir<%ee2>
-; CHECK-NEXT:      EMIT vp<[[VP15:%[0-9]+]]> = logical-and ir<%c1>, ir<%ee1>
-; CHECK-NEXT:      BLEND ir<%phi1> = ir<%phi.join1>/vp<[[VP13]]> ir<%phi.join1>/vp<[[VP14]]> ir<1>/vp<[[VP15]]>
-; CHECK-NEXT:      BLEND ir<%phi2> = ir<%phi.join2>/vp<[[VP13]]> ir<1>/vp<[[VP14]]> ir<poison>/vp<[[VP15]]>
+; CHECK-NEXT:      BLEND ir<%phi1> = ir<1>/ir<%c1> ir<0>/vp<[[VP7]]>
+; CHECK-NEXT:      BLEND ir<%phi2> = ir<1>/vp<[[VP8]]> ir<0>/vp<[[VP13]]>
 ; CHECK-NEXT:      EMIT ir<%gep1> = getelementptr ir<%p1>, ir<%iv>
 ; CHECK-NEXT:      EMIT store ir<%phi1>, ir<%gep1>
 ; CHECK-NEXT:      EMIT ir<%gep2> = getelementptr ir<%p2>, ir<%iv>
@@ -262,14 +260,10 @@ define void @four_exits_2x2_diamond(ptr %p1, ptr %p2, ptr %p3, ptr %p4, i1 %c1, 
 ; CHECK-NEXT:    Successor(s): latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    latch:
-; CHECK-NEXT:      EMIT vp<[[VP18:%[0-9]+]]> = logical-and vp<[[VP11]]>, ir<%ee4>
-; CHECK-NEXT:      EMIT vp<[[VP19:%[0-9]+]]> = logical-and vp<[[VP12]]>, ir<%ee3>
-; CHECK-NEXT:      EMIT vp<[[VP20:%[0-9]+]]> = logical-and vp<[[VP4]]>, ir<%ee2>
-; CHECK-NEXT:      EMIT vp<[[VP21:%[0-9]+]]> = logical-and ir<%c1>, ir<%ee1>
-; CHECK-NEXT:      BLEND ir<%phi1> = ir<%phi1.join1>/vp<[[VP17]]> ir<%phi1.join1>/vp<[[VP18]]> ir<%phi1.join1>/vp<[[VP19]]> ir<0>/vp<[[VP20]]> ir<1>/vp<[[VP21]]>
-; CHECK-NEXT:      BLEND ir<%phi2> = ir<%phi2.join1>/vp<[[VP17]]> ir<%phi2.join1>/vp<[[VP18]]> ir<%phi2.join1>/vp<[[VP19]]> ir<1>/vp<[[VP20]]> ir<poison>/vp<[[VP21]]>
-; CHECK-NEXT:      BLEND ir<%phi3> = ir<%phi3.join2>/vp<[[VP17]]> ir<0>/vp<[[VP18]]> ir<1>/vp<[[VP19]]> ir<poison>/vp<[[VP20]]> ir<poison>/vp<[[VP21]]>
-; CHECK-NEXT:      BLEND ir<%phi4> = ir<%phi4.join2>/vp<[[VP17]]> ir<1>/vp<[[VP18]]> ir<poison>/vp<[[VP19]]> ir<poison>/vp<[[VP20]]> ir<poison>/vp<[[VP21]]>
+; CHECK-NEXT:      BLEND ir<%phi1> = ir<0>/vp<[[VP4]]> ir<1>/ir<%c1>
+; CHECK-NEXT:      BLEND ir<%phi2> = ir<1>/vp<[[VP4]]> ir<0>/ir<%c1>
+; CHECK-NEXT:      BLEND ir<%phi3> = ir<0>/vp<[[VP11]]> ir<1>/vp<[[VP12]]>
+; CHECK-NEXT:      BLEND ir<%phi4> = ir<1>/vp<[[VP11]]> ir<0>/vp<[[VP12]]>
 ; CHECK-NEXT:      EMIT ir<%gep1> = getelementptr ir<%p1>, ir<%iv>
 ; CHECK-NEXT:      EMIT store ir<%phi1>, ir<%gep1>
 ; CHECK-NEXT:      EMIT ir<%gep2> = getelementptr ir<%p2>, ir<%iv>
