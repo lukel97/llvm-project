@@ -600,7 +600,11 @@ vputils::getRecipesForUncountableExit(SmallVectorImpl<VPInstruction *> &Recipes,
     // FIXME: Remove the single user restriction; it's here because we're
     //        starting with the simplest set of loops we can, and multiple
     //        users means needing to add PHI nodes in the transform.
-    if (V->getNumUsers() > 1)
+    if (count_if(V->users(), [](VPUser *U) {
+          // Ignore VPInstruction::FirstActiveLanes inserted by
+          // handleUncountableEarlyExits
+          return !match(U, m_FirstActiveLane(m_VPValue()));
+        }) > 1)
       return std::nullopt;
 
     VPValue *Op1, *Op2;
@@ -621,10 +625,6 @@ vputils::getRecipesForUncountableExit(SmallVectorImpl<VPInstruction *> &Recipes,
       Recipes.push_back(cast<VPInstruction>(V->getDefiningRecipe()));
       Recipes.push_back(cast<VPInstruction>(GepR));
       GEPs.push_back(cast<VPInstruction>(GepR));
-    } else if (match(V, m_VPInstruction<VPInstruction::MaskedCond>(
-                            m_VPValue(Op1)))) {
-      Worklist.push_back(Op1);
-      Recipes.push_back(cast<VPInstruction>(V->getDefiningRecipe()));
     } else
       return std::nullopt;
   }
