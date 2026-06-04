@@ -1328,7 +1328,6 @@ public:
     /// is the value of the last lane of the induction increment (i.e. its
     /// backedge value). Has the wide induction recipe as operand.
     ExitingIVValue,
-    MaskedCond,
 
     // The opcodes below are used for VPInstructionWithType.
     // NOTE: VPInstructionWithType classes are also used for:
@@ -1374,9 +1373,6 @@ private:
 
   /// Returns true if the VPInstruction does not need masking.
   bool alwaysUnmasked() const {
-    if (Opcode == VPInstruction::MaskedCond)
-      return false;
-
     // For now only VPInstructions with underlying values use masks.
     // TODO: provide masks to VPInstructions w/o underlying values.
     if (!getUnderlyingValue())
