@@ -37,3 +37,7 @@ cmake -B build.riscv64 --toolchain rva23u64.cmake -C cmake/caches/ReleaseLTO.cma
 ```
 
 If cross compiling, make sure to also have built LLD in your LLVM build. Also, if you want to see the assembly of the generated binaries, make sure to have the `-save-temps=obj` flag set in the toolchain file.
+
+## Creating Reproducers
+
+If asked to create a reproducer for a crash or miscompile, always start by trying to recreate the failure. Then you can take the Clang invocation that is failing, and use the `-emit-llvm` flag to extract the LLVM IR. Then you can use the `llvm-reduce` tool to get a minimal reproducer.
