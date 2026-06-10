@@ -290,12 +290,14 @@ VPPredicator::computeBlendEdges(VPPhi *Phi) {
       VPValue *V = Edges.lookup(E);
       if (!V)
         return nullptr;
+      if (match(V, m_Poison()))
+        continue;
       if (!Common)
         Common = V;
       else if (Common != V)
         return nullptr;
     }
-    return Common;
+    return Common ? Common : Edges.lookup(OutEdges[0]);
   };
 
   SetVector<const VPBlockBase *> Worklist(from_range, Phi->incoming_blocks());

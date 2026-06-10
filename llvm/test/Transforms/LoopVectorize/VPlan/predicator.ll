@@ -942,7 +942,7 @@ define void @blend_poison(i1 %c1, i1 %c2, i1 %c3, i32 %x, i32 %y, ptr %p) {
 ; CHECK-NEXT:    Successor(s): latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    latch:
-; CHECK-NEXT:      BLEND ir<%phi> = ir<%y>/vp<[[VP4]]> ir<poison>/vp<[[VP8]]> ir<%x>/vp<[[VP9]]>
+; CHECK-NEXT:      BLEND ir<%phi> = ir<%y>/vp<[[VP4]]> ir<%x>/ir<%c1>
 ; CHECK-NEXT:      EMIT ir<%gep> = getelementptr ir<%p>, ir<%iv>
 ; CHECK-NEXT:      EMIT store ir<%phi>, ir<%gep>
 ; CHECK-NEXT:      EMIT ir<%iv.next> = add ir<%iv>, ir<1>
