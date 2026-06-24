@@ -2741,6 +2741,24 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
     return TheLoop->isLoopInvariant(cast<StoreInst>(I)->getValueOperand());
   };
 
+  // An interleave group that has a member which has been identified as dead
+  // (e.g. a load with no users) will not be formed as an interleave group;
+  // see VPlanTransforms::createInterleaveGroups. Its remaining members are
+  // instead widened as individual gather/scatter accesses, whose pointer
+  // operands are not uniform. Return true if I belongs to such a group.
+  auto IsMemberOfDroppedInterleaveGroup = [this](Instruction *I) {
+    if (!isAccessInterleaved(I))
+      return false;
+    const auto *Group = getInterleavedAccessGroup(I);
+    for (unsigned Idx = 0; Idx != Group->getFactor(); ++Idx) {
+      Instruction *Member = Group->getMember(Idx);
+      if (Member && (ValuesToIgnore.contains(Member) ||
+                     VecValuesToIgnore.contains(Member)))
+        return true;
+    }
+    return false;
+  };
+
   auto IsUniformDecision = [&](Instruction *I, ElementCount VF) {
     InstWidening WideningDecision = getWideningDecision(I, VF);
     assert(WideningDecision != CM_Unknown &&
@@ -2749,9 +2767,14 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
     if (IsUniformMemOpUse(I))
       return true;
 
+    // A member of an interleave group that won't be formed (because another
+    // member is dead) is widened as a gather/scatter, so its address is not
+    // uniform.
+    if (WideningDecision == CM_Interleave)
+      return !IsMemberOfDroppedInterleaveGroup(I);
+
     return (WideningDecision == CM_Widen ||
-            WideningDecision == CM_Widen_Reverse ||
-            WideningDecision == CM_Interleave);
+            WideningDecision == CM_Widen_Reverse);
   };
 
   // Returns true if Ptr is the pointer operand of a memory access instruction
