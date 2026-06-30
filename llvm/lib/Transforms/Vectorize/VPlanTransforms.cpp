@@ -1153,32 +1153,56 @@ optimizeLatchExitInductionUser(VPlan &Plan, VPValue *Op,
 }
 
 void VPlanTransforms::optimizeInductionLiveOutUsers(
-    VPlan &Plan, PredicatedScalarEvolution &PSE, bool FoldTail) {
-  // Compute end values for all inductions.
+    VPlan &Plan, PredicatedScalarEvolution &PSE) {
+  // Compute the value inductions at two points:
+  // - when exiting the loop from the latch, at trip-count iterations.
+  // - when resuming at the scalar preheader, at vector trip-count iterations.
   VPRegionBlock *VectorRegion = Plan.getVectorLoopRegion();
   auto *VectorPH = cast<VPBasicBlock>(VectorRegion->getSinglePredecessor());
   VPBuilder VectorPHBuilder(VectorPH, VectorPH->begin());
-  DenseMap<VPValue *, VPValue *> EndValues;
-  VPValue *ResumeTC =
-      FoldTail ? Plan.getTripCount() : &Plan.getVectorTripCount();
+  DenseMap<VPValue *, VPValue *> LatchExitValues, ResumeValues;
   for (auto &Phi : VectorRegion->getEntryBasicBlock()->phis()) {
     auto *WideIV = dyn_cast<VPWidenInductionRecipe>(&Phi);
     if (!WideIV)
       continue;
-    if (VPValue *EndValue =
-            tryToComputeEndValueForInduction(WideIV, VectorPHBuilder, ResumeTC))
-      EndValues[WideIV] = EndValue;
+    if (VPValue *EndValue = tryToComputeEndValueForInduction(
+            WideIV, VectorPHBuilder, Plan.getTripCount()))
+      LatchExitValues[WideIV] = EndValue;
+    if (VPValue *EndValue = tryToComputeEndValueForInduction(
+            WideIV, VectorPHBuilder, &Plan.getVectorTripCount()))
+      ResumeValues[WideIV] = EndValue;
   }
 
   VPBasicBlock *MiddleVPBB = Plan.getMiddleBlock();
+  VPBasicBlock *LatchExitVPBB = nullptr;
+  // Try and find the latch exit from MiddleVPBB.
+  if (Plan.isExitBlock(MiddleVPBB->getSuccessors()[0])) {
+    LatchExitVPBB = cast<VPBasicBlock>(MiddleVPBB->getSuccessors()[0]);
+    // If we branch to the latch exit on TC == VTC, then the IVs at the latch
+    // exit are equal to the IVs at the scalar preheader. Reuse ResumeValues
+    // to avoid computing the same value in two different ways.
+    if (match(MiddleVPBB->getTerminator(),
+              m_BranchOnCond(m_SpecificICmp(
+                  CmpInst::ICMP_EQ, m_Specific(Plan.getTripCount()),
+                  m_Specific(&Plan.getVectorTripCount())))))
+      LatchExitValues = ResumeValues;
+  }
+
+  // Optimize users in the latch exit and in the scalar preheader.
   for (VPRecipeBase &R : make_early_inc_range(*MiddleVPBB)) {
     VPValue *Op;
     if (!match(&R, m_ExitingIVValue(m_VPValue(Op))))
       continue;
     auto *WideIV = cast<VPWidenInductionRecipe>(Op);
-    if (VPValue *EndValue = EndValues.lookup(WideIV)) {
-      R.getVPSingleValue()->replaceAllUsesWith(EndValue);
-      R.eraseFromParent();
+    for (VPUser *U : to_vector(R.getVPSingleValue()->users())) {
+      auto *UR = cast<VPRecipeBase>(U);
+      if (UR->getParent() == LatchExitVPBB) {
+        if (VPValue *EndValue = LatchExitValues.lookup(WideIV))
+          UR->replaceUsesOfWith(R.getVPSingleValue(), EndValue);
+      } else if (UR->getParent() == Plan.getScalarPreheader()) {
+        if (VPValue *EndValue = ResumeValues.lookup(WideIV))
+          UR->replaceUsesOfWith(R.getVPSingleValue(), EndValue);
+      }
     }
   }
 
@@ -1191,7 +1215,7 @@ void VPlanTransforms::optimizeInductionLiveOutUsers(
         VPValue *Escape = nullptr;
         if (PredVPBB == MiddleVPBB)
           Escape = optimizeLatchExitInductionUser(
-              Plan, ExitIRI->getOperand(Idx), EndValues, PSE);
+              Plan, ExitIRI->getOperand(Idx), LatchExitValues, PSE);
         else
           Escape = optimizeEarlyExitInductionUser(
               Plan, ExitIRI->getOperand(Idx), PSE);
