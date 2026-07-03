@@ -19714,14 +19714,6 @@ static auto m_ReverseEVL = [](auto X, auto EVL) {
                  m_Node(ISD::EXPERIMENTAL_VP_REVERSE, X, m_Value(), EVL));
 };
 
-/// Returns true if there is one node that uses the SDValue \p X.
-static bool hasOneUser(SDValue X) {
-  auto Uses =
-      make_filter_range(X->uses(), [&X](SDUse &U) { return U.get() == X; });
-  auto Users = map_range(Uses, [](SDUse &U) { return U.getUser(); });
-  return all_equal(Users);
-}
-
 // TODO: A vlse.v is not necessarily faster than a vrgather.vv on all uarchs.
 // Remove once a cost model driven transform is implemented in the loop
 // vectorizer.
@@ -19746,7 +19738,7 @@ static SDValue performReverseEVLCombine(SDNode *N, SelectionDAG &DAG,
   SmallVector<SDValue> Worklist = {Op};
   while (!Worklist.empty()) {
     SDValue X = Worklist.pop_back_val();
-    if (!hasOneUser(X))
+    if (!X.hasOneUser())
       return SDValue();
     if (auto *VPL = dyn_cast<VPLoadSDNode>(X)) {
       if (VPLoad && VPLoad != VPL)
