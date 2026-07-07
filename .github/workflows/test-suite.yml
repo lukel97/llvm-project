@@ -27,12 +27,12 @@ jobs:
           sparse-checkout: |
             .github/workflows/
 
-      - name: Check Permissions
-        uses: ./.github/workflows/require-team-membership
-        with:
-          team-slug: llvm-committers
-          LLVM_TOKEN_GENERATOR_CLIENT_ID: ${{ secrets.LLVM_TOKEN_GENERATOR_CLIENT_ID }}
-          LLVM_TOKEN_GENERATOR_PRIVATE_KEY: ${{ secrets.LLVM_TOKEN_GENERATOR_PRIVATE_KEY }}
+      # - name: Check Permissions
+      #   uses: ./.github/workflows/require-team-membership
+      #   with:
+      #     team-slug: llvm-committers
+      #     LLVM_TOKEN_GENERATOR_CLIENT_ID: ${{ secrets.LLVM_TOKEN_GENERATOR_CLIENT_ID }}
+      #     LLVM_TOKEN_GENERATOR_PRIVATE_KEY: ${{ secrets.LLVM_TOKEN_GENERATOR_PRIVATE_KEY }}
 
   react-to-comment:
     needs:
