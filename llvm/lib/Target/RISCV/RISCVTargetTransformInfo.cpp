@@ -1137,10 +1137,13 @@ InstructionCost RISCVTTIImpl::getInterleavedMemoryOpCost(
           return LT.first * Cost;
         }
 
-        // Otherwise, the cost is proportional to the number of elements (VL *
-        // Factor ops).
-        unsigned NumLoads = getEstimatedVLFor(VTy);
-        return NumLoads * TTI::TCC_Basic;
+        // Otherwise, the cost is proportional to the number of segments.
+        // ceil(VL / Factor) * (SegmentSize / DLEN)
+        unsigned SegmentSizeInBits = VTy->getScalarSizeInBits() * Factor;
+        unsigned DLen = ST->getRealMinVLen() / ST->getDLenFactor();
+        unsigned DLenOpsPerSegment = divideCeil(SegmentSizeInBits, DLen);
+        unsigned NumSegments = divideCeil(getEstimatedVLFor(VTy), Factor);
+        return NumSegments * DLenOpsPerSegment * TTI::TCC_Basic;
       }
     }
   }
