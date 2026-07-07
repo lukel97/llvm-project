@@ -3,8 +3,8 @@
 
 define void @f() {
 ; CHECK-LABEL: 'f'
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %1 = fcmp oge <4 x float> poison, poison
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %2 = fcmp oge <4 x double> poison, poison
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %1 = fcmp oge <4 x float> poison, poison
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %2 = fcmp oge <4 x double> poison, poison
 ; CHECK-NEXT:  Cost Model: Invalid cost for instruction: %3 = fcmp oge <vscale x 2 x float> poison, poison
 ; CHECK-NEXT:  Cost Model: Invalid cost for instruction: %4 = fcmp oge <vscale x 2 x double> poison, poison
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
