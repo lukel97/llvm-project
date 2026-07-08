@@ -10913,6 +10913,13 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
 
     AllocType = Info.Ctx.getConstantArrayType(AllocType, ArrayBound, nullptr,
                                               ArraySizeModifier::Normal, 0);
+  } else if (E->isArray()) {
+    // We have an array new-expression whose array size could not be
+    // determined, e.g. 'new int[]()', where the bound is neither given nor
+    // deducible from the initializer. This is ill-formed and already
+    // diagnosed, so bail out rather than mis-evaluating a scalar allocation
+    // as an array (which would later crash the evaluator).
+    return false;
   } else {
     assert(!AllocType->isArrayType() &&
            "array allocation with non-array new");
@@ -12687,6 +12694,38 @@ bool VectorExprEvaluator::VisitCallExpr(const CallExpr *E) {
       return (llvm::APIntOps::mulsExtended(LHS, RHS).ashr(14) + 1)
           .extractBits(16, 1);
     });
+
+  case clang::X86::BI__builtin_ia32_psadbw128:
+  case clang::X86::BI__builtin_ia32_psadbw256:
+  case clang::X86::BI__builtin_ia32_psadbw512: {
+    APValue SourceLHS, SourceRHS;
+    if (!EvaluateAsRValue(Info, E->getArg(0), SourceLHS) ||
+        !EvaluateAsRValue(Info, E->getArg(1), SourceRHS))
+      return false;
+
+    assert(SourceLHS.isVector() && SourceRHS.isVector());
+    unsigned SourceLen = SourceLHS.getVectorLength();
+    assert(SourceLen == SourceRHS.getVectorLength());
+    assert((SourceLen % 8) == 0);
+
+    auto *DestTy = E->getType()->castAs<VectorType>();
+    QualType DestEltTy = DestTy->getElementType();
+    bool DestUnsigned = DestEltTy->isUnsignedIntegerOrEnumerationType();
+    SmallVector<APValue, 8> ResultElements;
+    ResultElements.reserve(SourceLen / 8);
+
+    for (unsigned Lane = 0; Lane != SourceLen; Lane += 8) {
+      APInt Sum(64, 0);
+      for (unsigned I = 0; I != 8; ++I) {
+        APInt LHS = SourceLHS.getVectorElt(Lane + I).getInt().extOrTrunc(8);
+        APInt RHS = SourceRHS.getVectorElt(Lane + I).getInt().extOrTrunc(8);
+        Sum += llvm::APIntOps::abdu(LHS, RHS).zext(64);
+      }
+      ResultElements.push_back(APValue(APSInt(Sum, DestUnsigned)));
+    }
+
+    return Success(APValue(ResultElements.data(), ResultElements.size()), E);
+  }
 
   case clang::X86::BI__builtin_ia32_pmaddubsw128:
   case clang::X86::BI__builtin_ia32_pmaddubsw256:
