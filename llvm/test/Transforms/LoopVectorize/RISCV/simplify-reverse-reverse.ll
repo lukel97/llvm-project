@@ -4,19 +4,36 @@
 define void @reverse_zext(ptr noalias %src, ptr noalias %dst, i32 %n) {
 ; CHECK-LABEL: define void @reverse_zext(
 ; CHECK-SAME: ptr noalias [[SRC:%.*]], ptr noalias [[DST:%.*]], i32 [[N:%.*]]) #[[ATTR0:[0-9]+]] {
-; CHECK-NEXT:  [[VECTOR_PH:.*]]:
+; CHECK-NEXT:  [[VECTOR_PH:.*:]]
+; CHECK-NEXT:    [[TMP0:%.*]] = add nsw i32 [[N]], -1
+; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP0]], i32 0)
+; CHECK-NEXT:    [[TMP1:%.*]] = sub i32 [[N]], [[SMIN]]
 ; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; CHECK:       [[VECTOR_BODY]]:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i32 [ [[N]], %[[VECTOR_PH]] ], [ [[TMP4:%.*]], %[[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP4]] = add nsw i32 [[TMP3]], -1
+; CHECK-NEXT:    br label %[[VECTOR_BODY1:.*]]
+; CHECK:       [[VECTOR_BODY1]]:
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, %[[VECTOR_BODY]] ], [ [[CURRENT_ITERATION_NEXT:%.*]], %[[VECTOR_BODY1]] ]
+; CHECK-NEXT:    [[AVL:%.*]] = phi i32 [ [[TMP1]], %[[VECTOR_BODY]] ], [ [[AVL_NEXT:%.*]], %[[VECTOR_BODY1]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.experimental.get.vector.length.i32(i32 [[AVL]], i32 2, i1 true)
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i32 [[N]], [[INDEX]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw i32 [[TMP3]], -1
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[SRC]], i32 [[TMP4]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[TMP5]], align 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = zext i32 [[TMP2]] to i64
+; CHECK-NEXT:    [[TMP7:%.*]] = sub nuw nsw i64 [[TMP6]], 1
+; CHECK-NEXT:    [[TMP8:%.*]] = sub i64 0, [[TMP7]]
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i32, ptr [[TMP5]], i64 [[TMP8]]
+; CHECK-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 2 x i32> @llvm.vp.load.nxv2i32.p0(ptr align 4 [[TMP9]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
+; CHECK-NEXT:    [[TMP10:%.*]] = zext <vscale x 2 x i32> [[VP_OP_LOAD]] to <vscale x 2 x i64>
 ; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i64, ptr [[DST]], i32 [[TMP4]]
-; CHECK-NEXT:    store i64 [[TMP6]], ptr [[TMP11]], align 8
-; CHECK-NEXT:    [[EC:%.*]] = icmp sgt i32 [[TMP4]], 0
-; CHECK-NEXT:    br i1 [[EC]], label %[[VECTOR_BODY]], label %[[EXIT:.*]]
+; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr i64, ptr [[TMP11]], i64 [[TMP8]]
+; CHECK-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[TMP10]], ptr align 8 [[TMP12]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
+; CHECK-NEXT:    [[CURRENT_ITERATION_NEXT]] = add nuw i32 [[TMP2]], [[INDEX]]
+; CHECK-NEXT:    [[AVL_NEXT]] = sub nuw i32 [[AVL]], [[TMP2]]
+; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i32 [[AVL_NEXT]], 0
+; CHECK-NEXT:    br i1 [[TMP13]], label %[[EXIT:.*]], label %[[VECTOR_BODY1]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    br label %[[EXIT1:.*]]
+; CHECK:       [[EXIT1]]:
 ; CHECK-NEXT:    ret void
 ;
 entry:

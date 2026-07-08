@@ -216,11 +216,9 @@ define void @reverse_zext(ptr noalias %src, ptr noalias %dst, i32 %n) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[SRC]], i32 [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i32, ptr [[TMP5]], i64 -3
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[TMP6]], align 4
-; CHECK-NEXT:    [[REVERSE:%.*]] = shufflevector <4 x i32> [[WIDE_LOAD]], <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP7:%.*]] = zext <4 x i32> [[REVERSE]] to <4 x i64>
+; CHECK-NEXT:    [[REVERSE1:%.*]] = zext <4 x i32> [[WIDE_LOAD]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i64, ptr [[DST]], i32 [[TMP4]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i64, ptr [[TMP8]], i64 -3
-; CHECK-NEXT:    [[REVERSE1:%.*]] = shufflevector <4 x i64> [[TMP7]], <4 x i64> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
 ; CHECK-NEXT:    store <4 x i64> [[REVERSE1]], ptr [[TMP9]], align 4
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
