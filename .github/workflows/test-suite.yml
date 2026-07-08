@@ -172,11 +172,11 @@ jobs:
 
           Statistics: $RESULTS_URL
 
-          ## riscv64-linux-gnu `-march=rva23u64 -O3`
+          ## riscv64-linux-gnu \`-march=rva23u64 -O3\`
           $(cat compare-rva23u64-O3.md)
-          ## aarch64-linux-gnu `-march=armv9-a -O3`
+          ## aarch64-linux-gnu \`-march=armv9-a -O3\`
           $(cat compare-armv9-a-O3.md)
-          ## x86_64-linux-gnu `-march=x86-64-v3 -O3`
+          ## x86_64-linux-gnu \`-march=x86-64-v3 -O3\`
           $(cat compare-x86-64-v3-O3.md)
           EOF
           # write escaped markdown to format expected by issue-write.yml
