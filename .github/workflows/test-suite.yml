@@ -157,7 +157,7 @@ jobs:
           path: llvm-test-suite/results*.json
       - name: Compare results
         run: |
-          for ARCH in rva23u64-O3 armv9-a-O3 x86_64-O3
+          for ARCH in rva23u64-O3 armv9-a-O3 x86-64-v3-O3
           do
             ./utils/compare.py results.$ARCH-base.json vs results.$ARCH-head.json -m size..text --only-changed --lhs-name base --rhs-name head --format=md > ../compare-$ARCH.md || true
           done
@@ -176,8 +176,8 @@ jobs:
           $(cat compare-rva23u64-O3.md)
           ## aarch64-linux-gnu `-march=armv9-a -O3`
           $(cat compare-armv9-a-O3.md)
-          ## x86_64-linux-gnu `-O3`
-          $(cat compare-x86_64-O3.md)
+          ## x86_64-linux-gnu `-march=x86-64-v3 -O3`
+          $(cat compare-x86-64-v3-O3.md)
           EOF
           # write escaped markdown to format expected by issue-write.yml
           python3 -c 'import json; print(json.dumps([{"body": open("comment-body").read()}]))' > comments
