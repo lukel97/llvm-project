@@ -3847,8 +3847,15 @@ void VPlanTransforms::createInterleaveGroups(
     Instruction *IRInsertPos = IG->getInsertPos();
     auto *InsertPos = IRMemberToRecipe.lookup(IRInsertPos);
     if (!InsertPos) {
+      // InsertPos member is dead: find a new member that is alive.
+      assert(isa<VPWidenLoadRecipe>(Start) && "Dead member in non-load group?");
       InsertPos = Start;
-      IRInsertPos = StartMember;
+      for (Instruction *Member : IG->members())
+        if (VPWidenMemoryRecipe *MemberR = IRMemberToRecipe.lookup(Member))
+          if (VPDT.properlyDominates(MemberR->getAsRecipe(),
+                                     InsertPos->getAsRecipe()))
+            InsertPos = MemberR;
+      IRInsertPos = &InsertPos->getIngredient();
     }
     VPRecipeBase *InsertPosR = InsertPos->getAsRecipe();
 
