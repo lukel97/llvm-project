@@ -1467,8 +1467,7 @@ public:
       InstructionCost Overhead;
       if (Opcode == Instruction::ICmp || Opcode == Instruction::FCmp)
         Overhead =
-            getScalarizationOverhead(ValVTy, /*Insert*/ false,
-                                     /*Extract*/ true, CostKind) +
+            getOperandsScalarizationOverhead({ValTy, ValTy}, CostKind) +
             getScalarizationOverhead(cast<VectorType>(CondTy), /*Insert*/ true,
                                      /*Extract*/ false, CostKind);
       else
