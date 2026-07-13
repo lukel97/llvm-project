@@ -1132,8 +1132,10 @@ InstructionCost RISCVTTIImpl::getInterleavedMemoryOpCost(
         if (ST->hasOptimizedSegmentLoadStore(Factor)) {
           unsigned VecSizeInBits =
               getEstimatedVLFor(VTy) * VTy->getScalarSizeInBits();
-          unsigned DLEN = ST->getRealMinVLen() / ST->getDLenFactor();
-          InstructionCost Cost = divideCeil(VecSizeInBits, DLEN);
+          unsigned VLENForTuning =
+              *getVScaleForTuning() * RISCV::RVVBitsPerBlock;
+          unsigned DLENForTuning = VLENForTuning / ST->getDLenFactor();
+          InstructionCost Cost = divideCeil(VecSizeInBits, DLENForTuning);
           MVT SubVecVT = getTLI()->getValueType(DL, SubVecTy).getSimpleVT();
           Cost += Factor * TLI->getLMULCost(SubVecVT);
           return Cost;
