@@ -179,7 +179,7 @@ public:
 /// intrinsic is used.
 ///
 /// On some targets, inserts/extracts can cheaply be folded into loads/stores.
-/// Similarly, vp.merge can also be folded into binary ops on some targets.s
+/// Similarly, vp.merge can also be folded into binary ops on some targets.
 ///
 /// This enum allows the vectorizer to give getVectorInstrCost and
 /// getIntrinsicInstrCost an idea of how the values are used.
