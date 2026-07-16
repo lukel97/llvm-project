@@ -4014,6 +4014,10 @@ The LLVM IR does not define any way to start parallel threads of
 execution or to register signal handlers. Nonetheless, there are
 platform-specific ways to create them, and we define LLVM IR's behavior
 in their presence. This model is inspired by the C++ memory model.
+The memory model is defined axiomatically: we consider a set of candidate
+executions where every read can (in principle) read from every write
+to the same location (including "later" writes), and provide constraints that
+reduce this candidate set to the set of actually valid executions.
 
 For a more informal introduction to this model, see the {doc}`Atomics`.
 
@@ -13392,7 +13396,8 @@ values indicating the condition, and two values of the same {ref}`first class <t
 
 If the condition is an i1 and it evaluates to 1, the instruction returns
 the first value argument; otherwise, it returns the second value
-argument.
+argument. If the condition evaluates to `poison`, the instruction returns `poison`.
+If it evaluates to `undef`, the result is an `undef` representing the union of two value arguments (i.e., each use of this value can pick either value argument).
 
 If the condition is a vector of i1, then the value arguments must be
 vectors of the same size, and the selection is done element by element.
