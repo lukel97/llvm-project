@@ -4,16 +4,17 @@
 define void @hoist_const_splats(ptr %p, i32 zeroext %n) {
 ; CHECK-LABEL: hoist_const_splats:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vsetvli a2, zero, e32, m2, ta, ma
+; CHECK-NEXT:    vmv.v.i v8, 1
 ; CHECK-NEXT:    li a2, 0
 ; CHECK-NEXT:  .LBB0_1: # %loop
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vsetvli a3, a1, e32, m2, ta, ma
-; CHECK-NEXT:    vmv.v.i v8, 1
+; CHECK-NEXT:    vsetvli a3, a1, e8, mf2, ta, ma
 ; CHECK-NEXT:    slli a4, a2, 2
 ; CHECK-NEXT:    add a4, a0, a4
 ; CHECK-NEXT:    sub a1, a1, a3
-; CHECK-NEXT:    vse32.v v8, (a4)
 ; CHECK-NEXT:    addw a2, a2, a3
+; CHECK-NEXT:    vse32.v v8, (a4)
 ; CHECK-NEXT:    bnez a1, .LBB0_1
 ; CHECK-NEXT:  # %bb.2: # %exit
 ; CHECK-NEXT:    ret
