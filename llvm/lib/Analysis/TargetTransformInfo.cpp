@@ -1040,6 +1040,15 @@ InstructionCost TargetTransformInfo::getAltInstrCost(
   return Cost;
 }
 
+InstructionCost TargetTransformInfo::getPtrAddCost(
+    Type *PtrTy, TTI::TargetCostKind CostKind, TTI::OperandValueInfo Opd1Info,
+    TTI::OperandValueInfo Opd2Info, Type *MemoryOpTy) const {
+  InstructionCost Cost =
+      TTIImpl->getPtrAddCost(PtrTy, CostKind, Opd1Info, Opd2Info, MemoryOpTy);
+  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  return Cost;
+}
+
 InstructionCost TargetTransformInfo::getShuffleCost(
     ShuffleKind Kind, VectorType *DstTy, VectorType *SrcTy, ArrayRef<int> Mask,
     TTI::TargetCostKind CostKind, int Index, VectorType *SubTp,

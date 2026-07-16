@@ -774,6 +774,15 @@ public:
     return InstructionCost::getInvalid();
   }
 
+  virtual InstructionCost getPtrAddCost(
+      Type *PtrTy, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      TTI::OperandValueInfo Opd1Info = {TTI::OK_AnyValue, TTI::OP_None},
+      TTI::OperandValueInfo Opd2Info = {TTI::OK_AnyValue, TTI::OP_None},
+      Type *MemoryOpTy = nullptr) const {
+    // Assume PtrAdds are folded into the addressing modes of memory ops.
+    return TTI::TCC_Free;
+  }
+
   virtual InstructionCost
   getShuffleCost(TTI::ShuffleKind Kind, VectorType *DstTy, VectorType *SrcTy,
                  ArrayRef<int> Mask, TTI::TargetCostKind CostKind, int Index,

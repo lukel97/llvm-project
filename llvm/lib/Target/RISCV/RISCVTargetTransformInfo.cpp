@@ -17,6 +17,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include <cmath>
 #include <optional>
@@ -2877,6 +2878,21 @@ InstructionCost RISCVTTIImpl::getArithmeticInstrCost(
   if (Ty->isFPOrFPVectorTy())
     InstrCost *= 2;
   return CastCost + ConstantMatCost + LT.first * InstrCost;
+}
+
+InstructionCost RISCVTTIImpl::getPtrAddCost(Type *PtrTy,
+                                            TTI::TargetCostKind CostKind,
+                                            TTI::OperandValueInfo Opd1Info,
+                                            TTI::OperandValueInfo Opd2Info,
+                                            Type *MemoryOpTy) const {
+  // If used by a scalar memory op, a constant add can be folded into the
+  // offset.
+  if (MemoryOpTy && !isa<VectorType>(MemoryOpTy) &&
+      (Opd1Info.isConstant() || Opd2Info.isConstant()))
+    return TTI::TCC_Free;
+
+  return getArithmeticInstrCost(Instruction::Add, PtrTy, CostKind, Opd1Info,
+                                Opd2Info);
 }
 
 // TODO: Deduplicate from TargetTransformInfoImplCRTPBase.

@@ -548,6 +548,9 @@ public:
     return mayReadFromMemory() || mayWriteToMemory();
   }
 
+  /// Return the scalar type this recipe accesses in memory, if any.
+  Type *getScalarAccessType() const;
+
   /// Returns the debug location of the recipe.
   DebugLoc getDebugLoc() const { return DL; }
 

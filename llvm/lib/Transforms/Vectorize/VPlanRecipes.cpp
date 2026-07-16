@@ -259,6 +259,28 @@ bool VPRecipeBase::isSafeToSpeculativelyExecute() const {
   }
 }
 
+Type *VPRecipeBase::getScalarAccessType() const {
+  switch (getVPRecipeID()) {
+  case VPWidenMemIntrinsicSC:
+    assert(cast<VPWidenMemIntrinsicRecipe>(this)->getVectorIntrinsicID() ==
+               Intrinsic::experimental_vp_strided_load &&
+           "Unexpected intrinsic ID");
+    [[fallthrough]];
+  case VPWidenLoadSC:
+  case VPWidenLoadEVLSC:
+    return getVPSingleValue()->getScalarType();
+  case VPWidenStoreSC:
+  case VPWidenStoreEVLSC:
+    return getOperand(1)->getScalarType();
+  case VPInterleaveSC:
+  case VPInterleaveEVLSC:
+    return getNumDefinedValues() > 0 ? getVPValue(0)->getScalarType()
+                                     : getOperand(1)->getScalarType();
+  default:
+    return nullptr;
+  }
+}
+
 void VPRecipeBase::insertBefore(VPRecipeBase *InsertPos) {
   assert(!Parent && "Recipe already in some VPBasicBlock");
   assert(InsertPos->getParent() &&
@@ -1330,6 +1352,18 @@ InstructionCost VPInstruction::computeCost(ElementCount VF,
   }
 
   switch (getOpcode()) {
+  case VPInstruction::PtrAdd: {
+    const VPUser *U = getSingleUser();
+    if (isa_and_nonnull<VPVectorPointerRecipe, VPVectorEndPointerRecipe>(U))
+      U = cast<VPSingleDefRecipe>(U)->getSingleUser();
+    Type *MemoryOpTy = nullptr;
+    if (U)
+      if (Type *AccessTy = cast<VPRecipeBase>(U)->getScalarAccessType())
+        MemoryOpTy = toVectorTy(AccessTy, VF);
+    return Ctx.TTI.getPtrAddCost(getScalarType(), Ctx.CostKind,
+                                 Ctx.getOperandInfo(getOperand(0)),
+                                 Ctx.getOperandInfo(getOperand(1)), MemoryOpTy);
+  }
   case Instruction::Select: {
     llvm::CmpPredicate Pred = CmpInst::BAD_ICMP_PREDICATE;
     match(getOperand(0), m_Cmp(Pred, m_VPValue(), m_VPValue()));
