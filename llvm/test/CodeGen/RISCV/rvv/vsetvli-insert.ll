@@ -819,10 +819,11 @@ define void @coalesce_vl_clobber(ptr %p) {
 ; CHECK-NEXT:    vsetivli zero, 0, e8, mf2, ta, ma
 ; CHECK-NEXT:    vmclr.m v8
 ; CHECK-NEXT:    vmv.v.i v9, 0
-; CHECK-NEXT:    vmv1r.v v0, v8
-; CHECK-NEXT:    vmerge.vim v9, v9, 1, v0
 ; CHECK-NEXT:    vsetvli a2, zero, e32, m2, ta, ma
 ; CHECK-NEXT:    vmv.v.i v10, 0
+; CHECK-NEXT:    vmv1r.v v0, v8
+; CHECK-NEXT:    vsetivli zero, 0, e8, mf2, ta, ma
+; CHECK-NEXT:    vmerge.vim v9, v9, 1, v0
 ; CHECK-NEXT:    li a2, 0
 ; CHECK-NEXT:  .LBB43_1: # %vector.body
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1

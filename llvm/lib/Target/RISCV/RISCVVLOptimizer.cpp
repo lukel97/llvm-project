@@ -32,6 +32,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;
@@ -65,6 +66,7 @@ struct DemandedVL {
 class RISCVVLOptimizer : public MachineFunctionPass {
   MachineRegisterInfo *MRI;
   const MachineDominatorTree *MDT;
+  const MachineLoopInfo *MLI;
   const TargetInstrInfo *TII;
 
 public:
@@ -77,6 +79,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<MachineDominatorTreeWrapperPass>();
+    AU.addRequired<MachineLoopInfoWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -90,6 +93,7 @@ private:
   bool isSupportedInstr(const MachineInstr &MI) const;
   bool isCandidate(const MachineInstr &MI) const;
   void transfer(const MachineInstr &MI);
+  bool hoistVMV_V_I(MachineFunction &MF);
 
   /// For a given instruction, records what elements of it are demanded by
   /// downstream users.
@@ -152,6 +156,7 @@ struct OperandInfo {
 char RISCVVLOptimizer::ID = 0;
 INITIALIZE_PASS_BEGIN(RISCVVLOptimizer, DEBUG_TYPE, PASS_NAME, false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
 INITIALIZE_PASS_END(RISCVVLOptimizer, DEBUG_TYPE, PASS_NAME, false, false)
 
 FunctionPass *llvm::createRISCVVLOptimizerPass() {
@@ -1305,12 +1310,43 @@ void RISCVVLOptimizer::transfer(const MachineInstr &MI) {
   }
 }
 
+/// The VL optimizer can propagate loop-variant VLs to previously loop-invariant
+/// pseudos, which prevents vmv.v.is from being hoisted out by MachineLICM.
+/// Hoist them out of any loops early.
+bool RISCVVLOptimizer::hoistVMV_V_I(MachineFunction &MF) {
+  bool MadeChange = false;
+  for (MachineBasicBlock &MBB : MF) {
+    MachineLoop *Loop = MLI->getLoopFor(&MBB);
+    if (!Loop)
+      continue;
+    MachineBasicBlock *Preheader = Loop->getLoopPreheader();
+    if (!Preheader)
+      continue;
+    for (MachineInstr &MI : make_early_inc_range(MBB)) {
+      bool SawStore = true;
+      if (RISCV::getRVVMCOpcode(MI.getOpcode()) != RISCV::VMV_V_I ||
+          !MI.isSafeToMove(SawStore) || !Loop->isLoopInvariant(MI))
+        continue;
+
+      Preheader->splice(Preheader->getFirstTerminator(), MI.getParent(), MI);
+
+      // Clear kill flags now that it's live throughout the whole loop.
+      for (MachineOperand &MO : MI.all_defs())
+        if (!MO.isDead())
+          MRI->clearKillFlags(MO.getReg());
+      MadeChange = true;
+    }
+  }
+  return MadeChange;
+}
+
 bool RISCVVLOptimizer::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
 
   MRI = &MF.getRegInfo();
   MDT = &getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
+  MLI = &getAnalysis<MachineLoopInfoWrapperPass>().getLI();
 
   const RISCVSubtarget &ST = MF.getSubtarget<RISCVSubtarget>();
   if (!ST.hasVInstructions())
@@ -1319,6 +1355,9 @@ bool RISCVVLOptimizer::runOnMachineFunction(MachineFunction &MF) {
   TII = ST.getInstrInfo();
 
   assert(DemandedVLs.empty());
+
+  bool MadeChange = false;
+  MadeChange |= hoistVMV_V_I(MF);
 
   // For each instruction that defines a vector, propagate the VL it
   // uses to its inputs.
@@ -1337,7 +1376,6 @@ bool RISCVVLOptimizer::runOnMachineFunction(MachineFunction &MF) {
 
   // Then go through and see if we can reduce the VL of any instructions to
   // only what's demanded.
-  bool MadeChange = false;
   for (auto &[MI, VL] : DemandedVLs) {
     assert(MDT->isReachableFromEntry(MI->getParent()));
     if (!isCandidate(*MI))
