@@ -69,9 +69,8 @@ struct GraphTraits<const VPDomTreeNode *>
     : public DomTreeGraphTraitsBase<const VPDomTreeNode,
                                     VPDomTreeNode::const_iterator> {};
 
-class VPPostDominanceFrontier
+struct VPPostDominanceFrontier
     : public DominanceFrontierBase<VPBlockBase, true> {
-public:
   explicit VPPostDominanceFrontier(const DomTreeT &VPDT);
 };
 } // namespace llvm

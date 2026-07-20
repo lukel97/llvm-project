@@ -294,6 +294,8 @@ VPPredicator::computeBlendEdges(VPPhi *Phi) {
       Edges.erase(Edge);
 
     // Iterate up through the post dominance frontier.
+    assert(VPPDF.find(VPBB) != VPPDF.end() &&
+           "VPBB must have a post-dominance frontier entry");
     for (const VPBlockBase *Frontier : VPPDF.find(VPBB)->second) {
       for (const VPBlockBase *FrontierSucc : Frontier->getSuccessors())
         if (VPPDT.dominates(VPBB, FrontierSucc))
