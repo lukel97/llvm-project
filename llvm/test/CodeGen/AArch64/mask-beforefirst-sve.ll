@@ -45,16 +45,11 @@ define <16 x i1> @v16i1(<16 x i1> %m) {
 ; CHECK-LABEL: v16i1:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    shl v0.16b, v0.16b, #7
-; CHECK-NEXT:    mov w8, #16 // =0x10
-; CHECK-NEXT:    index z1.b, w8, #-1
-; CHECK-NEXT:    cmlt v0.16b, v0.16b, #0
-; CHECK-NEXT:    and v0.16b, v0.16b, v1.16b
-; CHECK-NEXT:    umaxv b0, v0.16b
-; CHECK-NEXT:    fmov w9, s0
-; CHECK-NEXT:    index z0.b, #0, #1
-; CHECK-NEXT:    sub w8, w8, w9, uxtb
-; CHECK-NEXT:    dup v1.16b, w8
-; CHECK-NEXT:    cmhi v0.16b, v1.16b, v0.16b
+; CHECK-NEXT:    ptrue p0.b, vl16
+; CHECK-NEXT:    cmpne p1.b, p0/z, z0.b, #0
+; CHECK-NEXT:    brkb p1.b, p0/z, p1.b
+; CHECK-NEXT:    mov z0.b, p1/z, #-1 // =0xffffffffffffffff
+; CHECK-NEXT:    // kill: def $q0 killed $q0 killed $z0
 ; CHECK-NEXT:    ret
   %x = call <16 x i1> @llvm.mask.beforefirst(<16 x i1> %m)
   ret <16 x i1> %x
@@ -64,16 +59,11 @@ define <8 x i1> @v8i1(<8 x i1> %m) {
 ; CHECK-LABEL: v8i1:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    shl v0.8b, v0.8b, #7
-; CHECK-NEXT:    index z1.b, #8, #-1
-; CHECK-NEXT:    mov w9, #8 // =0x8
-; CHECK-NEXT:    cmlt v0.8b, v0.8b, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
-; CHECK-NEXT:    index z1.b, #0, #1
-; CHECK-NEXT:    umaxv b0, v0.8b
-; CHECK-NEXT:    fmov w8, s0
-; CHECK-NEXT:    sub w8, w9, w8, uxtb
-; CHECK-NEXT:    dup v0.8b, w8
-; CHECK-NEXT:    cmhi v0.8b, v0.8b, v1.8b
+; CHECK-NEXT:    ptrue p0.b, vl8
+; CHECK-NEXT:    cmpne p1.b, p0/z, z0.b, #0
+; CHECK-NEXT:    brkb p1.b, p0/z, p1.b
+; CHECK-NEXT:    mov z0.b, p1/z, #-1 // =0xffffffffffffffff
+; CHECK-NEXT:    // kill: def $d0 killed $d0 killed $z0
 ; CHECK-NEXT:    ret
   %x = call <8 x i1> @llvm.mask.beforefirst(<8 x i1> %m)
   ret <8 x i1> %x
@@ -83,17 +73,11 @@ define <4 x i1> @v4i1(<4 x i1> %m) {
 ; CHECK-LABEL: v4i1:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    shl v0.4h, v0.4h, #15
-; CHECK-NEXT:    index z1.h, #4, #-1
-; CHECK-NEXT:    mov w9, #4 // =0x4
-; CHECK-NEXT:    cmlt v0.4h, v0.4h, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
-; CHECK-NEXT:    index z1.h, #0, #1
-; CHECK-NEXT:    umaxv h0, v0.4h
-; CHECK-NEXT:    fmov w8, s0
-; CHECK-NEXT:    sub w8, w9, w8
-; CHECK-NEXT:    dup v0.4h, w8
-; CHECK-NEXT:    bic v0.4h, #255, lsl #8
-; CHECK-NEXT:    cmhi v0.4h, v0.4h, v1.4h
+; CHECK-NEXT:    ptrue p0.h, vl4
+; CHECK-NEXT:    cmpne p1.h, p0/z, z0.h, #0
+; CHECK-NEXT:    brkb p1.b, p0/z, p1.b
+; CHECK-NEXT:    mov z0.h, p1/z, #-1 // =0xffffffffffffffff
+; CHECK-NEXT:    // kill: def $d0 killed $d0 killed $z0
 ; CHECK-NEXT:    ret
   %x = call <4 x i1> @llvm.mask.beforefirst(<4 x i1> %m)
   ret <4 x i1> %x
@@ -103,18 +87,11 @@ define <2 x i1> @v2i1(<2 x i1> %m) {
 ; CHECK-LABEL: v2i1:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    shl v0.2s, v0.2s, #31
-; CHECK-NEXT:    index z1.s, #2, #-1
-; CHECK-NEXT:    mov w9, #2 // =0x2
-; CHECK-NEXT:    index z2.s, #0, #1
-; CHECK-NEXT:    cmlt v0.2s, v0.2s, #0
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
-; CHECK-NEXT:    movi d1, #0x0000ff000000ff
-; CHECK-NEXT:    umaxp v0.2s, v0.2s, v0.2s
-; CHECK-NEXT:    fmov w8, s0
-; CHECK-NEXT:    sub w8, w9, w8
-; CHECK-NEXT:    dup v0.2s, w8
-; CHECK-NEXT:    and v0.8b, v0.8b, v1.8b
-; CHECK-NEXT:    cmhi v0.2s, v0.2s, v2.2s
+; CHECK-NEXT:    ptrue p0.s, vl2
+; CHECK-NEXT:    cmpne p1.s, p0/z, z0.s, #0
+; CHECK-NEXT:    brkb p1.b, p0/z, p1.b
+; CHECK-NEXT:    mov z0.s, p1/z, #-1 // =0xffffffffffffffff
+; CHECK-NEXT:    // kill: def $d0 killed $d0 killed $z0
 ; CHECK-NEXT:    ret
   %x = call <2 x i1> @llvm.mask.beforefirst(<2 x i1> %m)
   ret <2 x i1> %x

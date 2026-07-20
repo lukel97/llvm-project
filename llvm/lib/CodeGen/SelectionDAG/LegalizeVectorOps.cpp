@@ -1941,11 +1941,22 @@ SDValue VectorLegalizer::ExpandMASK_BEFOREFIRST(SDNode *N) {
   SDLoc DL(N);
   EVT VT = N->getValueType(0);
 
+  // Try to expand via get_active_lane_mask if supported.
+  EVT BoolVT = VT.changeVectorElementType(*DAG.getContext(), MVT::i1);
+  EVT VecIdxVT = TLI.getVectorIdxTy(DAG.getDataLayout());
+  if (!TLI.shouldExpandGetActiveLaneMask(BoolVT, VecIdxVT)) {
+    // Perform cttz_elts in bool VT to get the custom target lowering.
+    SDValue CttzElts =
+        DAG.getNode(ISD::CTTZ_ELTS, DL, VecIdxVT,
+                    DAG.getNode(ISD::TRUNCATE, DL, BoolVT, N->getOperand(0)));
+    return DAG.getNode(ISD::GET_ACTIVE_LANE_MASK, DL, VT,
+                       DAG.getConstant(0, DL, VecIdxVT), CttzElts);
+  }
+
   // Compute the type for the cttz_elts.
   ConstantRange VScaleRange(1, /*isFullSet=*/true); // Fixed length default.
   if (VT.isScalableVector())
     VScaleRange = getVScaleRange(&DAG.getMachineFunction().getFunction(), 64);
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   uint64_t EltWidth = TLI.getBitWidthForCttzElements(
       EVT(TLI.getVectorIdxTy(DAG.getDataLayout())), VT.getVectorElementCount(),
       /*ZeroIsPoison=*/false, &VScaleRange);
