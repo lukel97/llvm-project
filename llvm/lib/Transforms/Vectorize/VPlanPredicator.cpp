@@ -84,7 +84,7 @@ class VPPredicator {
   using EdgeTy = std::pair<const VPBasicBlock *, const VPBasicBlock *>;
 
   /// Compute the set of edges that are "furthest up" in the CFG for each
-  /// incoming value of \Phi.
+  /// incoming value of \p Phi.
   MapVector<EdgeTy, VPValue *> computeBlendEdges(VPPhi *Phi);
 
   /// Given a set of \p Edges that each can reach \p VPBB, return the OR of all
