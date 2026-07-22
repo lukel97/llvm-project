@@ -1498,8 +1498,6 @@ def LIFETIME_START : StandardPseudoInstruction {
   let AsmString = "LIFETIME_START";
   let hasSideEffects = false;
   let isMeta = true;
-  let mayLoad = true;
-  let mayStore = true;
 }
 def LIFETIME_END : StandardPseudoInstruction {
   let OutOperandList = (outs);
@@ -1507,8 +1505,6 @@ def LIFETIME_END : StandardPseudoInstruction {
   let AsmString = "LIFETIME_END";
   let hasSideEffects = false;
   let isMeta = true;
-  let mayLoad = true;
-  let mayStore = true;
 }
 def PSEUDO_PROBE : StandardPseudoInstruction {
   let OutOperandList = (outs);

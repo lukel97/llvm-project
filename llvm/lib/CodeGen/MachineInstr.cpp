@@ -1360,7 +1360,7 @@ bool MachineInstr::isSafeToMove(bool &SawStore) const {
   // Don't touch instructions that have non-trivial invariants.  For example,
   // terminators have to be at the end of a basic block.
   if (isPosition() || isDebugInstr() || isTerminator() ||
-      isJumpTableDebugInfo())
+      isJumpTableDebugInfo() || isLifetimeMarker())
     return false;
 
   // Don't touch instructions which can have non-load/store effects.
