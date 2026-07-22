@@ -1403,11 +1403,6 @@ bool MachineInstr::wouldBeTriviallyDead() const {
   if (isFakeUse())
     return false;
 
-  // LIFETIME markers should be preserved.
-  // FIXME: Why are LIFETIME markers not considered in MachineInstr::isPosition?
-  if (isLifetimeMarker())
-    return false;
-
   // If we can move an instruction, we can remove it.  Otherwise, it has
   // a side-effect of some sort.
   bool SawStore = false;
