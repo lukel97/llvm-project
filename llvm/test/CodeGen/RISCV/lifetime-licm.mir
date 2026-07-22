@@ -12,14 +12,14 @@ body: |
   ; CHECK-NEXT:   successors: %bb.1(0x80000000)
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT:   %start:gpr = ADDI $x0, 10
-  ; CHECK-NEXT:   LIFETIME_START %stack.0
-  ; CHECK-NEXT:   LIFETIME_END %stack.0
   ; CHECK-NEXT:   PseudoBR %bb.1
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT: bb.1:
   ; CHECK-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT:   %iv:gpr = PHI %start, %bb.0, %ivnext, %bb.1
+  ; CHECK-NEXT:   LIFETIME_START %stack.0
+  ; CHECK-NEXT:   LIFETIME_END %stack.0
   ; CHECK-NEXT:   %ivnext:gpr = ADDI %iv, -1
   ; CHECK-NEXT:   BNE %ivnext, $x0, %bb.1
   ; CHECK-NEXT:   PseudoBR %bb.2
