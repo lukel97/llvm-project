@@ -1018,14 +1018,11 @@ void VPlanTransforms::optimizeInductionLiveOutUsers(
       [VectorPHBuilder = VPBuilder(VectorPH, VectorPH->begin()),
        EndValues = DenseMap<std::pair<VPValue *, VPValue *>, VPValue *>()](
           VPWidenInductionRecipe *WideIV, VPValue *IVEnd) mutable -> VPValue * {
-    if (EndValues.contains({WideIV, IVEnd}))
-      return EndValues[{WideIV, IVEnd}];
-    VPValue *EndValue =
-        tryToComputeEndValueForInduction(WideIV, VectorPHBuilder, IVEnd);
-    if (!EndValue)
-      return nullptr;
-    EndValues[{WideIV, IVEnd}] = EndValue;
-    return EndValue;
+    auto [It, Inserted] = EndValues.try_emplace({WideIV, IVEnd});
+    if (Inserted)
+      It->second =
+          tryToComputeEndValueForInduction(WideIV, VectorPHBuilder, IVEnd);
+    return It->second;
   };
 
   VPBasicBlock *MiddleVPBB = Plan.getMiddleBlock();
