@@ -14693,10 +14693,6 @@ SDValue RISCVTargetLowering::lowerToScalableOp(SDValue Op,
   const auto &TSInfo =
       static_cast<const RISCVSelectionDAGInfo &>(DAG.getSelectionDAGInfo());
 
-  unsigned NewOpc = getRISCVVLOp(Op);
-  bool HasPassthruOp = TSInfo.hasPassthruOp(NewOpc);
-  bool HasMask = TSInfo.hasMaskOp(NewOpc);
-
   MVT VT = Op.getSimpleValueType();
   MVT ContainerVT = getContainerForFixedLengthVector(VT);
 
@@ -14720,16 +14716,19 @@ SDValue RISCVTargetLowering::lowerToScalableOp(SDValue Op,
   }
 
   SDLoc DL(Op);
-  auto [Mask, VL] = getDefaultVLOps(VT, ContainerVT, DL, DAG, Subtarget);
-  if (HasPassthruOp)
-    Ops.push_back(DAG.getUNDEF(ContainerVT));
-  if (HasMask)
-    Ops.push_back(Mask);
-  Ops.push_back(VL);
 
   // StrictFP operations have two result values. Their lowered result should
   // have same result count.
   if (Op->isStrictFPOpcode()) {
+    unsigned NewOpc = getRISCVVLOp(Op);
+    bool HasPassthruOp = TSInfo.hasPassthruOp(NewOpc);
+    bool HasMask = TSInfo.hasMaskOp(NewOpc);
+    auto [Mask, VL] = getDefaultVLOps(VT, ContainerVT, DL, DAG, Subtarget);
+    if (HasPassthruOp)
+      Ops.push_back(DAG.getUNDEF(ContainerVT));
+    if (HasMask)
+      Ops.push_back(Mask);
+    Ops.push_back(VL);
     SDValue ScalableRes =
         DAG.getNode(NewOpc, DL, DAG.getVTList(ContainerVT, MVT::Other), Ops,
                     Op->getFlags());
@@ -14738,7 +14737,7 @@ SDValue RISCVTargetLowering::lowerToScalableOp(SDValue Op,
   }
 
   SDValue ScalableRes =
-      DAG.getNode(NewOpc, DL, ContainerVT, Ops, Op->getFlags());
+      DAG.getNode(Op.getOpcode(), DL, ContainerVT, Ops, Op->getFlags());
   return convertFromScalableVector(VT, ScalableRes, DAG, Subtarget);
 }
 
@@ -26585,7 +26584,24 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
       RetOps.push_back(DAG.getRegister(RegHi, MVT::i32));
     } else {
       // Handle a 'normal' return.
+      std::optional<EVT> FixedVT;
+      if (Val.getValueType().isFixedLengthVector())
+        FixedVT = Val.getValueType();
       Val = convertValVTToLocVT(DAG, Val, VA, DL, Subtarget);
+      if (FixedVT) {
+        SDValue VL = DAG.getConstant(FixedVT->getVectorNumElements(), DL,
+                                     Subtarget.getXLenVT());
+        if (FixedVT->getVectorElementType() == MVT::i1)
+          Val = DAG.getNode(RISCVISD::VMAND_VL, DL, Val.getValueType(), Val,
+                            Val, VL);
+        else
+          Val = DAG.getNode(RISCVISD::VMERGE_VL, DL, Val.getValueType(),
+                            DAG.getAllOnesConstant(
+                                DL, getMaskTypeFor(Val.getSimpleValueType())),
+                            Val, DAG.getUNDEF(Val.getValueType()),
+                            DAG.getUNDEF(Val.getValueType()), VL);
+      }
+
       Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), Val, Glue);
 
       if (Subtarget.isRegisterReservedByUser(VA.getLocReg()))
