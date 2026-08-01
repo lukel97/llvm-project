@@ -273,17 +273,11 @@ define ptr @loop_inv_select_condition_issue_185682(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[INV_COND:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    br label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.ph:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i1> poison, i1 [[INV_COND]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i1> [[BROADCAST_SPLATINSERT]], <4 x i1> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = xor <4 x i1> [[BROADCAST_SPLAT]], splat (i1 true)
-; CHECK-NEXT:    [[TMP1:%.*]] = freeze <4 x i1> [[TMP0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[TMP2]], <4 x i1> [[TMP0]], <4 x i1> zeroinitializer
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ; CHECK:       middle.block:
-; CHECK-NEXT:    [[TMP6:%.*]] = call ptr @llvm.experimental.vector.extract.last.active.v4p0(<4 x ptr> splat (ptr null), <4 x i1> [[TMP3]], ptr null)
+; CHECK-NEXT:    [[TMP6:%.*]] = call ptr @llvm.experimental.vector.extract.last.active.v4p0(<4 x ptr> splat (ptr null), <4 x i1> zeroinitializer, ptr null)
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret ptr [[TMP6]]

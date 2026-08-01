@@ -1202,7 +1202,7 @@ static bool simplifyLogicalRecipe(VPSingleDefRecipe *Def, VPBuilder &Builder,
   }
 
   // x && !x -> 0
-  if (match(Def, m_LogicalAnd(m_VPValue(X), m_Not(m_Deferred(X))))) {
+  if (match(Def, m_LogicalAnd(m_Deferred(X), m_Not(m_VPValue(X))))) {
     Def->replaceAllUsesWith(Plan->getFalse());
     return true;
   }
