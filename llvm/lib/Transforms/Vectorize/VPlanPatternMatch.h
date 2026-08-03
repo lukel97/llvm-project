@@ -296,7 +296,8 @@ private:
     // Check for recipes that do not have opcodes.
     if constexpr (std::is_same_v<RecipeTy, VPScalarIVStepsRecipe> ||
                   std::is_same_v<RecipeTy, VPDerivedIVRecipe> ||
-                  std::is_same_v<RecipeTy, VPVectorEndPointerRecipe>)
+                  std::is_same_v<RecipeTy, VPVectorEndPointerRecipe> ||
+                  std::is_same_v<RecipeTy, VPReductionPHIRecipe>)
       return DefR;
     else
       return DefR && DefR->getOpcode() == Opcode;
@@ -1139,6 +1140,12 @@ template <typename T> inline OneUse_match<T> m_OneUse(const T &SubPattern) {
 inline match_bind<VPReductionPHIRecipe>
 m_ReductionPhi(VPReductionPHIRecipe *&V) {
   return V;
+}
+
+template <typename Op0_t, typename Op1_t>
+inline auto m_ReductionPhi(const Op0_t &Op0, const Op1_t &Op1) {
+  return Recipe_match<std::tuple<Op0_t, Op1_t>, 0,
+                      /*Commutative*/ false, VPReductionPHIRecipe>({Op0, Op1});
 }
 
 template <typename Op0_t, typename Op1_t>
