@@ -20,6 +20,8 @@
 #include "VPlanTransforms.h"
 #include "VPlanUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/ScalarEvolutionPatternMatch.h"
 #include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
@@ -379,13 +381,15 @@ static void fixupVFUsersForEVL(VPlan &Plan, VPValue &EVL) {
                 match_fn(m_CombineOr(
                     m_c_Add(m_Specific(LoopRegion->getCanonicalIV()),
                             m_Specific(&Plan.getVFxUF())),
+                    m_VPInstruction<Instruction::Mul>(),
                     m_Isa<VPWidenPointerInductionRecipe>()))) &&
          "Only users of VFxUF should be VPWidenPointerInductionRecipe and the "
          "increment of the canonical induction.");
   Plan.getVFxUF().replaceUsesWithIf(EVLAsIdx, [](VPUser &U, unsigned Idx) {
     // Only replace uses in VPWidenPointerInductionRecipe; The increment of the
     // canonical induction must not be updated.
-    return isa<VPWidenPointerInductionRecipe>(U);
+    return isa<VPWidenPointerInductionRecipe>(U) ||
+           match(&U, m_VPInstruction<Instruction::Mul>());
   });
 
   // Create a scalar phi to track the previous EVL if fixed-order recurrence is
@@ -448,6 +452,42 @@ static void fixupVFUsersForEVL(VPlan &Plan, VPValue &EVL) {
       CmpInst::ICMP_ULT,
       Builder.createNaryOp(VPInstruction::StepVector, {}, EVLType), &EVL);
   HeaderMask->replaceAllUsesWith(EVLMask);
+}
+
+void VPlanTransforms::strengthReduceIV(VPlan &Plan,
+                                       PredicatedScalarEvolution &PSE, Loop &L,
+                                       VPCostContext &Ctx) {
+  using namespace SCEVPatternMatch;
+  //  TODO: Just collect getelementptrs?
+  SmallSetVector<VPValue *, 8> Addrs;
+  for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
+           vp_depth_first_deep(Plan.getVectorLoopRegion()->getEntry())))
+    for (VPRecipeBase &R : *VPBB)
+      if (auto *VecPtr = dyn_cast<VPVectorPointerRecipe>(&R))
+        Addrs.insert(VecPtr->getOperand(0));
+
+  VPBuilder Builder(Plan.getVectorLoopRegion()->getEntryBasicBlock(), Plan.getVectorLoopRegion()->getEntryBasicBlock()->begin());
+  VPBuilder LatchBuilder(Plan.getVectorLoopRegion()->getExitingBasicBlock());
+  LatchBuilder.setInsertPoint(Plan.getVectorLoopRegion()->getExitingBasicBlock()->getTerminator());
+  for (VPValue *Addr : Addrs) {
+    const SCEV *AddrSCEV = vputils::getSCEVExprForVPValue(Addr, PSE, &L);
+    const SCEV *Start;
+    const SCEV *Step;
+    if (!match(AddrSCEV,
+               m_scev_AffineAddRec(m_SCEV(Start), m_SCEV(Step),
+                                   m_SpecificLoop(&L))))
+      continue;
+    VPValue *StartV = vputils::getOrCreateVPValueForSCEVExpr(Plan, Start);
+    VPPhi *Phi = Builder.createScalarPhi({StartV});
+    VPValue *StepV = vputils::getOrCreateVPValueForSCEVExpr(Plan, Step);
+    StepV = LatchBuilder.createScalarSExtOrTrunc(StepV, Plan.getVFxUF().getScalarType(), {});
+    StepV = LatchBuilder.createOverflowingOp(Instruction::Mul, {StepV, &Plan.getVFxUF()});
+    VPValue *Next =
+      LatchBuilder.createPtrAdd(Phi, StepV);
+    Phi->addIncoming(Next);
+    Addr->replaceAllUsesWith(Phi);
+  }
+  
 }
 
 /// Converts a tail folded vector loop region to step by

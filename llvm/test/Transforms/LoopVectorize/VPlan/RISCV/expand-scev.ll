@@ -17,18 +17,20 @@ define void @scev_ptradd_strided(ptr noalias %a, ptr noalias %dst, i64 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    EMIT-SCALAR vp<%index> = phi [ ir<0>, vector.ph ], [ vp<%current.iteration.next>, vector.body ]
+; CHECK-NEXT:    EMIT-SCALAR vp<[[VP3:%[0-9]+]]> = phi [ ir<%dst>, vector.ph ], [ vp<[[VP9:%[0-9]+]]>, vector.body ]
 ; CHECK-NEXT:    EMIT-SCALAR vp<%avl> = phi [ ir<%n>, vector.ph ], [ vp<%avl.next>, vector.body ]
 ; CHECK-NEXT:    EMIT-SCALAR vp<%evl> = EXPLICIT-VECTOR-LENGTH vp<%avl>
-; CHECK-NEXT:    EMIT vp<[[VP3:%[0-9]+]]> = shl nuw vp<%index>, ir<4>
-; CHECK-NEXT:    EMIT vp<[[VP4:%[0-9]+]]> = ptradd nuw vp<[[VP2]]>, vp<[[VP3]]>
-; CHECK-NEXT:    WIDEN-INTRINSIC vp<[[VP5:%[0-9]+]]> = call llvm.experimental.vp.strided.load(vp<[[VP4]]>, ir<16>, ir<true>, vp<%evl>)
-; CHECK-NEXT:    CLONE ir<%gd> = getelementptr inbounds ir<%dst>, vp<%index>
-; CHECK-NEXT:    WIDEN vp.store ir<%gd>, vp<[[VP5]]>, vp<%evl>
-; CHECK-NEXT:    EMIT-SCALAR vp<[[VP6:%[0-9]+]]> = zext vp<%evl> to i64
-; CHECK-NEXT:    EMIT vp<%current.iteration.next> = add vp<[[VP6]]>, vp<%index>
-; CHECK-NEXT:    EMIT vp<%avl.next> = sub nuw vp<%avl>, vp<[[VP6]]>
-; CHECK-NEXT:    EMIT vp<[[VP7:%[0-9]+]]> = icmp eq vp<%avl.next>, ir<0>
-; CHECK-NEXT:    EMIT branch-on-cond vp<[[VP7]]>
+; CHECK-NEXT:    EMIT-SCALAR vp<[[VP4:%[0-9]+]]> = zext vp<%evl> to i64
+; CHECK-NEXT:    EMIT vp<[[VP5:%[0-9]+]]> = shl nuw vp<%index>, ir<4>
+; CHECK-NEXT:    EMIT vp<[[VP6:%[0-9]+]]> = ptradd nuw vp<[[VP2]]>, vp<[[VP5]]>
+; CHECK-NEXT:    WIDEN-INTRINSIC vp<[[VP7:%[0-9]+]]> = call llvm.experimental.vp.strided.load(vp<[[VP6]]>, ir<16>, ir<true>, vp<%evl>)
+; CHECK-NEXT:    WIDEN vp.store vp<[[VP3]]>, vp<[[VP7]]>, vp<%evl>
+; CHECK-NEXT:    EMIT vp<%current.iteration.next> = add vp<[[VP4]]>, vp<%index>
+; CHECK-NEXT:    EMIT vp<%avl.next> = sub nuw vp<%avl>, vp<[[VP4]]>
+; CHECK-NEXT:    EMIT vp<[[VP8:%[0-9]+]]> = shl vp<[[VP4]]>, ir<2>
+; CHECK-NEXT:    EMIT vp<[[VP9]]> = ptradd vp<[[VP3]]>, vp<[[VP8]]>
+; CHECK-NEXT:    EMIT vp<[[VP10:%[0-9]+]]> = icmp eq vp<%avl.next>, ir<0>
+; CHECK-NEXT:    EMIT branch-on-cond vp<[[VP10]]>
 ; CHECK-NEXT:  Successor(s): middle.block, vector.body
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
@@ -71,18 +73,20 @@ define void @scev_ptradd_strided_var_offset(ptr noalias %a, ptr noalias %dst, i6
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    EMIT-SCALAR vp<%index> = phi [ ir<0>, vector.ph ], [ vp<%current.iteration.next>, vector.body ]
+; CHECK-NEXT:    EMIT-SCALAR vp<[[VP5:%[0-9]+]]> = phi [ ir<%dst>, vector.ph ], [ vp<[[VP11:%[0-9]+]]>, vector.body ]
 ; CHECK-NEXT:    EMIT-SCALAR vp<%avl> = phi [ ir<%n>, vector.ph ], [ vp<%avl.next>, vector.body ]
 ; CHECK-NEXT:    EMIT-SCALAR vp<%evl> = EXPLICIT-VECTOR-LENGTH vp<%avl>
-; CHECK-NEXT:    EMIT vp<[[VP5:%[0-9]+]]> = shl vp<%index>, ir<4>
-; CHECK-NEXT:    EMIT vp<[[VP6:%[0-9]+]]> = ptradd vp<[[VP4]]>, vp<[[VP5]]>
-; CHECK-NEXT:    WIDEN-INTRINSIC vp<[[VP7:%[0-9]+]]> = call llvm.experimental.vp.strided.load(vp<[[VP6]]>, ir<16>, ir<true>, vp<%evl>)
-; CHECK-NEXT:    CLONE ir<%gd> = getelementptr inbounds ir<%dst>, vp<%index>
-; CHECK-NEXT:    WIDEN vp.store ir<%gd>, vp<[[VP7]]>, vp<%evl>
-; CHECK-NEXT:    EMIT-SCALAR vp<[[VP8:%[0-9]+]]> = zext vp<%evl> to i64
-; CHECK-NEXT:    EMIT vp<%current.iteration.next> = add vp<[[VP8]]>, vp<%index>
-; CHECK-NEXT:    EMIT vp<%avl.next> = sub nuw vp<%avl>, vp<[[VP8]]>
-; CHECK-NEXT:    EMIT vp<[[VP9:%[0-9]+]]> = icmp eq vp<%avl.next>, ir<0>
-; CHECK-NEXT:    EMIT branch-on-cond vp<[[VP9]]>
+; CHECK-NEXT:    EMIT-SCALAR vp<[[VP6:%[0-9]+]]> = zext vp<%evl> to i64
+; CHECK-NEXT:    EMIT vp<[[VP7:%[0-9]+]]> = shl vp<%index>, ir<4>
+; CHECK-NEXT:    EMIT vp<[[VP8:%[0-9]+]]> = ptradd vp<[[VP4]]>, vp<[[VP7]]>
+; CHECK-NEXT:    WIDEN-INTRINSIC vp<[[VP9:%[0-9]+]]> = call llvm.experimental.vp.strided.load(vp<[[VP8]]>, ir<16>, ir<true>, vp<%evl>)
+; CHECK-NEXT:    WIDEN vp.store vp<[[VP5]]>, vp<[[VP9]]>, vp<%evl>
+; CHECK-NEXT:    EMIT vp<%current.iteration.next> = add vp<[[VP6]]>, vp<%index>
+; CHECK-NEXT:    EMIT vp<%avl.next> = sub nuw vp<%avl>, vp<[[VP6]]>
+; CHECK-NEXT:    EMIT vp<[[VP10:%[0-9]+]]> = shl vp<[[VP6]]>, ir<2>
+; CHECK-NEXT:    EMIT vp<[[VP11]]> = ptradd vp<[[VP5]]>, vp<[[VP10]]>
+; CHECK-NEXT:    EMIT vp<[[VP12:%[0-9]+]]> = icmp eq vp<%avl.next>, ir<0>
+; CHECK-NEXT:    EMIT branch-on-cond vp<[[VP12]]>
 ; CHECK-NEXT:  Successor(s): middle.block, vector.body
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:

@@ -331,6 +331,9 @@ struct VPlanTransforms {
   ///  * Such a widen memory load/store is masked, but not with the header mask.
   static void dropPoisonGeneratingRecipes(VPlan &Plan);
 
+  static void strengthReduceIV(VPlan &Plan, PredicatedScalarEvolution &PSE, Loop &L,
+                   VPCostContext &Ctx);
+
   /// Add a VPCurrentIterationPHIRecipe and related recipes to \p Plan and
   /// replaces all uses of the canonical IV except for the canonical IV
   /// increment with a VPCurrentIterationPHIRecipe. The canonical IV is only

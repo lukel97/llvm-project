@@ -15,8 +15,10 @@ define void @interleave(ptr noalias %a, ptr noalias %b, i64 %N) {
 ; IF-EVL-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; IF-EVL:       vector.body:
 ; IF-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[CURRENT_ITERATION_NEXT:%.*]], [[VECTOR_BODY]] ]
+; IF-EVL-NEXT:    [[TMP5:%.*]] = phi ptr [ [[A:%.*]], [[VECTOR_PH]] ], [ [[TMP8:%.*]], [[VECTOR_BODY]] ]
 ; IF-EVL-NEXT:    [[AVL:%.*]] = phi i64 [ [[N:%.*]], [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; IF-EVL-NEXT:    [[TMP0:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
+; IF-EVL-NEXT:    [[TMP6:%.*]] = zext i32 [[TMP0]] to i64
 ; IF-EVL-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [2 x i32], ptr [[B:%.*]], i64 [[INDEX]], i32 0
 ; IF-EVL-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP0]], 2
 ; IF-EVL-NEXT:    [[WIDE_VP_LOAD:%.*]] = call <vscale x 8 x i32> @llvm.vp.load.nxv8i32.p0(ptr align 4 [[TMP1]], <vscale x 8 x i1> splat (i1 true), i32 [[INTERLEAVE_EVL]])
@@ -24,11 +26,11 @@ define void @interleave(ptr noalias %a, ptr noalias %b, i64 %N) {
 ; IF-EVL-NEXT:    [[TMP2:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 0
 ; IF-EVL-NEXT:    [[TMP3:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 1
 ; IF-EVL-NEXT:    [[TMP4:%.*]] = add nsw <vscale x 4 x i32> [[TMP3]], [[TMP2]]
-; IF-EVL-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[A:%.*]], i64 [[INDEX]]
 ; IF-EVL-NEXT:    call void @llvm.vp.store.nxv4i32.p0(<vscale x 4 x i32> [[TMP4]], ptr align 4 [[TMP5]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP0]])
-; IF-EVL-NEXT:    [[TMP6:%.*]] = zext i32 [[TMP0]] to i64
 ; IF-EVL-NEXT:    [[CURRENT_ITERATION_NEXT]] = add i64 [[TMP6]], [[INDEX]]
 ; IF-EVL-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP6]]
+; IF-EVL-NEXT:    [[TMP9:%.*]] = shl i64 [[TMP6]], 2
+; IF-EVL-NEXT:    [[TMP8]] = getelementptr i8, ptr [[TMP5]], i64 [[TMP9]]
 ; IF-EVL-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
 ; IF-EVL-NEXT:    br i1 [[TMP7]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; IF-EVL:       middle.block:

@@ -1424,8 +1424,10 @@ define void @combine_load_factor2_i32(ptr noalias %p, ptr noalias %q) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP11:%.*]] = phi ptr [ [[Q:%.*]], [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
+; CHECK-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; CHECK-NEXT:    [[TMP13:%.*]] = shl i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr i32, ptr [[P:%.*]], i64 [[TMP13]]
 ; CHECK-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP7]], 2
@@ -1434,11 +1436,11 @@ define void @combine_load_factor2_i32(ptr noalias %p, ptr noalias %q) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <vscale x 4 x i32> [[TMP8]], [[TMP9]]
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i32, ptr [[Q:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.vp.store.nxv4i32.p0(<vscale x 4 x i32> [[TMP10]], ptr align 4 [[TMP11]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP7]])
-; CHECK-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[TMP16]], [[INDEX]]
 ; CHECK-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP16]]
+; CHECK-NEXT:    [[TMP17:%.*]] = shl i64 [[TMP16]], 2
+; CHECK-NEXT:    [[TMP12]] = getelementptr i8, ptr [[TMP11]], i64 [[TMP17]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP11:![0-9]+]]
 ; CHECK:       middle.block:
@@ -1476,8 +1478,10 @@ define void @combine_load_factor2_i32(ptr noalias %p, ptr noalias %q) {
 ; SCALABLE-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; SCALABLE:       vector.body:
 ; SCALABLE-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; SCALABLE-NEXT:    [[TMP11:%.*]] = phi ptr [ [[Q:%.*]], [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
 ; SCALABLE-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; SCALABLE-NEXT:    [[TMP7:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
+; SCALABLE-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; SCALABLE-NEXT:    [[TMP13:%.*]] = shl i64 [[INDEX]], 1
 ; SCALABLE-NEXT:    [[TMP15:%.*]] = getelementptr i32, ptr [[P:%.*]], i64 [[TMP13]]
 ; SCALABLE-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP7]], 2
@@ -1486,11 +1490,11 @@ define void @combine_load_factor2_i32(ptr noalias %p, ptr noalias %q) {
 ; SCALABLE-NEXT:    [[TMP8:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 0
 ; SCALABLE-NEXT:    [[TMP9:%.*]] = extractvalue { <vscale x 4 x i32>, <vscale x 4 x i32> } [[STRIDED_VEC]], 1
 ; SCALABLE-NEXT:    [[TMP10:%.*]] = add <vscale x 4 x i32> [[TMP8]], [[TMP9]]
-; SCALABLE-NEXT:    [[TMP11:%.*]] = getelementptr i32, ptr [[Q:%.*]], i64 [[INDEX]]
 ; SCALABLE-NEXT:    call void @llvm.vp.store.nxv4i32.p0(<vscale x 4 x i32> [[TMP10]], ptr align 4 [[TMP11]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP7]])
-; SCALABLE-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; SCALABLE-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[TMP16]], [[INDEX]]
 ; SCALABLE-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP16]]
+; SCALABLE-NEXT:    [[TMP17:%.*]] = shl i64 [[TMP16]], 2
+; SCALABLE-NEXT:    [[TMP12]] = getelementptr i8, ptr [[TMP11]], i64 [[TMP17]]
 ; SCALABLE-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
 ; SCALABLE-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP11:![0-9]+]]
 ; SCALABLE:       middle.block:
@@ -1531,8 +1535,10 @@ define void @combine_load_factor2_i64(ptr noalias %p, ptr noalias %q) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP11:%.*]] = phi ptr [ [[Q:%.*]], [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
+; CHECK-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; CHECK-NEXT:    [[TMP13:%.*]] = shl i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr i64, ptr [[P:%.*]], i64 [[TMP13]]
 ; CHECK-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP7]], 2
@@ -1541,11 +1547,11 @@ define void @combine_load_factor2_i64(ptr noalias %p, ptr noalias %q) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = extractvalue { <vscale x 2 x i64>, <vscale x 2 x i64> } [[STRIDED_VEC]], 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = extractvalue { <vscale x 2 x i64>, <vscale x 2 x i64> } [[STRIDED_VEC]], 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <vscale x 2 x i64> [[TMP8]], [[TMP9]]
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i64, ptr [[Q:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[TMP10]], ptr align 8 [[TMP11]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP7]])
-; CHECK-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[TMP16]], [[INDEX]]
 ; CHECK-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP16]]
+; CHECK-NEXT:    [[TMP17:%.*]] = shl i64 [[TMP16]], 3
+; CHECK-NEXT:    [[TMP12]] = getelementptr i8, ptr [[TMP11]], i64 [[TMP17]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP12:![0-9]+]]
 ; CHECK:       middle.block:
@@ -1583,8 +1589,10 @@ define void @combine_load_factor2_i64(ptr noalias %p, ptr noalias %q) {
 ; SCALABLE-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; SCALABLE:       vector.body:
 ; SCALABLE-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; SCALABLE-NEXT:    [[TMP11:%.*]] = phi ptr [ [[Q:%.*]], [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
 ; SCALABLE-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; SCALABLE-NEXT:    [[TMP7:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
+; SCALABLE-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; SCALABLE-NEXT:    [[TMP13:%.*]] = shl i64 [[INDEX]], 1
 ; SCALABLE-NEXT:    [[TMP15:%.*]] = getelementptr i64, ptr [[P:%.*]], i64 [[TMP13]]
 ; SCALABLE-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP7]], 2
@@ -1593,11 +1601,11 @@ define void @combine_load_factor2_i64(ptr noalias %p, ptr noalias %q) {
 ; SCALABLE-NEXT:    [[TMP8:%.*]] = extractvalue { <vscale x 2 x i64>, <vscale x 2 x i64> } [[STRIDED_VEC]], 0
 ; SCALABLE-NEXT:    [[TMP9:%.*]] = extractvalue { <vscale x 2 x i64>, <vscale x 2 x i64> } [[STRIDED_VEC]], 1
 ; SCALABLE-NEXT:    [[TMP10:%.*]] = add <vscale x 2 x i64> [[TMP8]], [[TMP9]]
-; SCALABLE-NEXT:    [[TMP11:%.*]] = getelementptr i64, ptr [[Q:%.*]], i64 [[INDEX]]
 ; SCALABLE-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[TMP10]], ptr align 8 [[TMP11]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP7]])
-; SCALABLE-NEXT:    [[TMP16:%.*]] = zext i32 [[TMP7]] to i64
 ; SCALABLE-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[TMP16]], [[INDEX]]
 ; SCALABLE-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP16]]
+; SCALABLE-NEXT:    [[TMP17:%.*]] = shl i64 [[TMP16]], 3
+; SCALABLE-NEXT:    [[TMP12]] = getelementptr i8, ptr [[TMP11]], i64 [[TMP17]]
 ; SCALABLE-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
 ; SCALABLE-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP12:![0-9]+]]
 ; SCALABLE:       middle.block:
