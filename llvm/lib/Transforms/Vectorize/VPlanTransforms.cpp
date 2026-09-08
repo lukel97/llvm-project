@@ -1391,20 +1391,18 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
   // TODO: We should also not replace non-VPInstructions like VPWidenRecipe with
   // VPInstructions without underlying values, as those will get skipped during
   // cost computation.
-  bool CanCreateNewRecipe =
-      !isa<VPInstruction>(Def) || !Def->getUnderlyingValue();
+  if (isa<VPInstruction>(Def) && Def->getUnderlyingValue())
+    return nullptr;
 
   VPValue *A, *X, *Y, *Z;
 
   // x && (y && x) -> x && y
-  if (CanCreateNewRecipe &&
-      match(Def, m_LogicalAnd(m_VPValue(X),
+  if (match(Def, m_LogicalAnd(m_VPValue(X),
                               m_LogicalAnd(m_VPValue(Y), m_Deferred(X)))))
     return Builder.createLogicalAnd(X, Y);
 
   // (x && y) | (x && z) -> x && (y | z)
-  if (CanCreateNewRecipe &&
-      match(Def, m_c_BinaryOr(m_LogicalAnd(m_VPValue(X), m_VPValue(Y)),
+  if (match(Def, m_c_BinaryOr(m_LogicalAnd(m_VPValue(X), m_VPValue(Y)),
                               m_LogicalAnd(m_Deferred(X), m_VPValue(Z)))) &&
       // Simplify only if one of the operands has one use to avoid creating an
       // extra recipe.
@@ -1413,16 +1411,14 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
     return Builder.createLogicalAnd(X, Builder.createOr(Y, Z));
 
   // (x && y) | !x -> !x || y
-  if (CanCreateNewRecipe &&
-      match(Def,
+  if (match(Def,
             m_c_BinaryOr(m_OneUse(m_LogicalAnd(m_VPValue(X), m_VPValue(Y))),
                          m_VPValue(Z, m_Not(m_Deferred(X))))))
     return Builder.createLogicalOr(Z, Y);
 
   // select c, false, true -> not c
   VPValue *C;
-  if (CanCreateNewRecipe &&
-      match(Def, m_Select(m_VPValue(C), m_False(), m_True())))
+  if (match(Def, m_Select(m_VPValue(C), m_False(), m_True())))
     return Builder.createNot(C);
 
   // select !c, x, y -> select c, y, x
@@ -1434,8 +1430,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
   }
 
   // select x, (i1 y | z), y -> y | (x && z)
-  if (CanCreateNewRecipe &&
-      match(Def, m_Select(m_VPValue(X),
+  if (match(Def, m_Select(m_VPValue(X),
                           m_OneUse(m_c_BinaryOr(m_VPValue(Y), m_VPValue(Z))),
                           m_Deferred(Y))) &&
       Y->getScalarType()->isIntegerTy(1))
@@ -1443,8 +1438,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
 
   // select %M0, (select %M1, %X, %Y), %Y -> select (%M0 && %M1), %X, %Y
   VPValue *Mask0, *Mask1;
-  if (CanCreateNewRecipe &&
-      match(Def,
+  if (match(Def,
             m_SelectLike(m_VPValue(Mask0),
                          m_OneUse(m_SelectLike(m_VPValue(Mask1), m_VPValue(X),
                                                m_VPValue(Y))),
@@ -1475,7 +1469,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
     }
   }
 
-  if (CanCreateNewRecipe && match(Def, m_c_Mul(m_VPValue(A), m_AllOnes()))) {
+  if (match(Def, m_c_Mul(m_VPValue(A), m_AllOnes()))) {
     // Preserve nsw from the Mul on the new Sub.
     VPIRFlags::WrapFlagsTy NW = {
         false, cast<VPRecipeWithIRFlags>(Def)->hasNoSignedWrap()};
@@ -1483,8 +1477,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
                              Def->getDebugLoc(), "", NW);
   }
 
-  if (CanCreateNewRecipe &&
-      match(Def, m_c_Add(m_VPValue(X),
+  if (match(Def, m_c_Add(m_VPValue(X),
                          m_VPValue(Z, m_Sub(m_ZeroInt(), m_VPValue(Y)))))) {
     // Preserve nsw from the Add and the Sub, if it's present on both, on the
     // new Sub.
@@ -1495,13 +1488,11 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
   }
 
   const APInt *APC;
-  if (CanCreateNewRecipe && match(Def, m_URem(m_VPValue(X), m_APInt(APC))) &&
-      APC->isPowerOf2())
+  if (match(Def, m_URem(m_VPValue(X), m_APInt(APC))) && APC->isPowerOf2())
     return Builder.createAnd(X, Plan.getConstantInt(*APC - 1),
                              Def->getDebugLoc());
 
-  if (CanCreateNewRecipe && match(Def, m_c_Mul(m_VPValue(A), m_APInt(APC))) &&
-      APC->isPowerOf2()) {
+  if (match(Def, m_c_Mul(m_VPValue(A), m_APInt(APC))) && APC->isPowerOf2()) {
     auto *MulR = cast<VPRecipeWithIRFlags>(Def);
     unsigned ShiftAmt = APC->exactLogBase2();
     VPIRFlags::WrapFlagsTy NW(MulR->hasNoUnsignedWrap(),
@@ -1513,8 +1504,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
         Def->getDebugLoc());
   }
 
-  if (CanCreateNewRecipe && match(Def, m_UDiv(m_VPValue(A), m_APInt(APC))) &&
-      APC->isPowerOf2())
+  if (match(Def, m_UDiv(m_VPValue(A), m_APInt(APC))) && APC->isPowerOf2())
     return Builder.createNaryOp(
         Instruction::LShr,
         {A, Plan.getConstantInt(APC->getBitWidth(), APC->exactLogBase2())},
@@ -1585,8 +1575,7 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
   // Fold (fcmp uno %X, %X) or (fcmp uno %Y, %Y) -> fcmp uno %X, %Y
   // This is useful for fmax/fmin without fast-math flags, where we need to
   // check if any operand is NaN.
-  if (CanCreateNewRecipe &&
-      match(Def,
+  if (match(Def,
             m_BinaryOr(
                 m_SpecificCmp(CmpInst::FCMP_UNO, m_VPValue(X), m_Deferred(X)),
                 m_SpecificCmp(CmpInst::FCMP_UNO, m_VPValue(Y), m_Deferred(Y)))))
