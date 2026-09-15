@@ -289,6 +289,11 @@ public:
                                Name);
   }
 
+  VPInstruction *createFreeze(VPValue *Op, DebugLoc DL = DebugLoc::getUnknown(),
+                              const Twine &Name = "") {
+    return createNaryOp(Instruction::Freeze, Op, DL, Name);
+  }
+
   VPInstruction *createLogicalAnd(VPValue *LHS, VPValue *RHS,
                                   DebugLoc DL = DebugLoc::getUnknown(),
                                   const Twine &Name = "") {
