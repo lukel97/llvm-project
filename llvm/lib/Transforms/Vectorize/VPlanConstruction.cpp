@@ -1217,47 +1217,42 @@ void VPlanTransforms::createInLoopReductionRecipes(VPlan &Plan,
     R->eraseFromParent();
 }
 
-bool VPlanTransforms::areAllLoadsDereferenceable(VPBasicBlock *HeaderVPBB,
-                                                 Loop *TheLoop,
-                                                 PredicatedScalarEvolution &PSE,
-                                                 DominatorTree &DT,
-                                                 AssumptionCache *AC) {
+bool VPlanTransforms::isDereferenceableLoad(const VPRecipeBase &R,
+                                            Loop *TheLoop,
+                                            PredicatedScalarEvolution &PSE,
+                                            DominatorTree &DT,
+                                            AssumptionCache *AC) {
+
   ScalarEvolution &SE = *PSE.getSE();
   const DataLayout &DL = TheLoop->getHeader()->getDataLayout();
-  for (VPBasicBlock *VPBB : vp_rpo_plain_cfg_loop_body(HeaderVPBB)) {
-    for (VPRecipeBase &R : *VPBB) {
-      auto *VPI = dyn_cast<VPInstruction>(&R);
-      if (!VPI || VPI->getOpcode() != Instruction::Load) {
-        assert(!R.mayReadFromMemory() && "unexpected recipe reading memory");
-        continue;
-      }
-
-      // Get the pointer SCEV for dereferenceability checking.
-      VPValue *Ptr = VPI->getOperand(0);
-      const SCEV *PtrSCEV = vputils::getSCEVExprForVPValue(Ptr, PSE, TheLoop);
-      if (isa<SCEVCouldNotCompute>(PtrSCEV)) {
-        LLVM_DEBUG(dbgs() << "LV: Not vectorizing: Found non-dereferenceable "
-                             "load with SCEVCouldNotCompute pointer\n");
-        return false;
-      }
-
-      // Check dereferenceability using the SCEV-based version.
-      Type *LoadTy = VPI->getScalarType();
-      const SCEV *SizeSCEV =
-          SE.getStoreSizeOfExpr(DL.getIndexType(PtrSCEV->getType()), LoadTy);
-      auto *Load = cast<LoadInst>(VPI->getUnderlyingValue());
-      SmallVector<const SCEVPredicate *> Preds;
-      if (isDereferenceableAndAlignedInLoop(PtrSCEV, Load->getAlign(), SizeSCEV,
-                                            TheLoop, SE, DT, AC, &Preds))
-        continue;
-
-      LLVM_DEBUG(
-          dbgs() << "LV: Not vectorizing: Auto-vectorization of loops with "
-                    "potentially faulting load is not supported.\n");
-      return false;
-    }
+  auto *VPI = dyn_cast<VPInstruction>(&R);
+  if (!VPI || VPI->getOpcode() != Instruction::Load) {
+    assert(!R.mayReadFromMemory() && "unexpected recipe reading memory");
+    return false;
   }
-  return true;
+
+  // Get the pointer SCEV for dereferenceability checking.
+  VPValue *Ptr = VPI->getOperand(0);
+  const SCEV *PtrSCEV = vputils::getSCEVExprForVPValue(Ptr, PSE, TheLoop);
+  if (isa<SCEVCouldNotCompute>(PtrSCEV)) {
+    LLVM_DEBUG(dbgs() << "LV: Not vectorizing: Found non-dereferenceable "
+                         "load with SCEVCouldNotCompute pointer\n");
+    return false;
+  }
+
+  // Check dereferenceability using the SCEV-based version.
+  Type *LoadTy = VPI->getScalarType();
+  const SCEV *SizeSCEV =
+      SE.getStoreSizeOfExpr(DL.getIndexType(PtrSCEV->getType()), LoadTy);
+  auto *Load = cast<LoadInst>(VPI->getUnderlyingValue());
+  SmallVector<const SCEVPredicate *> Preds;
+  if (isDereferenceableAndAlignedInLoop(PtrSCEV, Load->getAlign(), SizeSCEV,
+                                        TheLoop, SE, DT, AC, &Preds))
+    return true;
+
+  LLVM_DEBUG(dbgs() << "LV: Not vectorizing: Auto-vectorization of loops with "
+                       "potentially faulting load is not supported.\n");
+  return false;
 }
 
 void VPlanTransforms::handleCountableEarlyExits(VPlan &Plan) {

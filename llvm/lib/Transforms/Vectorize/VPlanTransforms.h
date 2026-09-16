@@ -369,14 +369,9 @@ struct VPlanTransforms {
   /// Remove dead recipes from \p Plan.
   static void removeDeadRecipes(VPlan &Plan);
 
-  /// Check if all loads in the loop are dereferenceable. Iterates over the
-  /// loop body blocks reachable from \p HeaderVPBB. Returns false if any
-  /// non-dereferenceable load is found.
-  static bool areAllLoadsDereferenceable(VPBasicBlock *HeaderVPBB,
-                                         Loop *TheLoop,
-                                         PredicatedScalarEvolution &PSE,
-                                         DominatorTree &DT,
-                                         AssumptionCache *AC);
+  static bool isDereferenceableLoad(const VPRecipeBase &R, Loop *TheLoop,
+                                    PredicatedScalarEvolution &PSE,
+                                    DominatorTree &DT, AssumptionCache *AC);
 
   /// Update \p Plan to account for uncountable early exits by introducing
   /// appropriate branching logic in the latch that handles early exits and the
@@ -385,7 +380,8 @@ struct VPlanTransforms {
   LLVM_ABI_FOR_TEST static bool
   handleUncountableEarlyExits(VPlan &Plan, Loop *TheLoop,
                               PredicatedScalarEvolution &PSE, DominatorTree &DT,
-                              AssumptionCache *AC, UncountableExitStyle Style);
+                              AssumptionCache *AC, UncountableExitStyle Style,
+                              function_ref<bool()> CanMoveConditionLoad);
 
   /// Disconnect countable early exits from the loop.
   LLVM_ABI_FOR_TEST static void handleCountableEarlyExits(VPlan &Plan);

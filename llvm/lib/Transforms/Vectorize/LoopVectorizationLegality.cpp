@@ -1390,8 +1390,9 @@ bool LoopVectorizationLegality::blockNeedsPredication(
   // For a single early exit, it must be a direct predecessor of the latch.
   // For multiple early exits, they form a chain where each exiting block
   // dominates all subsequent blocks up to the latch.
-  if (hasUncountableEarlyExit())
-    return BB == Latch;
+  // if (hasUncountableEarlyExit())
+  //   return true;
+  //   return BB == Latch;
   return LoopAccessInfo::blockNeedsPredication(BB, TheLoop, DT);
 }
 
@@ -1671,7 +1672,6 @@ bool LoopVectorizationLegality::isVectorizableEarlyExitLoop() {
 
   // Keep a record of all the exiting blocks.
   SmallVector<const SCEVPredicate *, 4> Predicates;
-  SmallVector<BasicBlock *> UncountableExitingBlocks;
   for (BasicBlock *BB : ExitingBlocks) {
     const SCEV *EC =
         PSE.getSE()->getPredicatedExitCount(TheLoop, BB, &Predicates);
@@ -1766,10 +1766,13 @@ bool LoopVectorizationLegality::isVectorizableEarlyExitLoop() {
       return false;
     }
   } else {
-    // Check all uncountable exiting blocks for movable loads.
-    for (BasicBlock *ExitingBB : UncountableExitingBlocks) {
-      if (!canUncountableExitConditionLoadBeMoved(ExitingBB))
-        return false;
+    // Mask memory ops
+    for (auto *BB : TheLoop->blocks()) {
+      for (auto &I : *BB) {
+	if (I.mayReadOrWriteMemory()) {
+          ConditionallyExecutedOps.insert(&I);
+	}
+      }
     }
   }
 
@@ -1799,6 +1802,12 @@ bool LoopVectorizationLegality::isVectorizableEarlyExitLoop() {
   UncountableExitType = HasSideEffects ? UncountableExitTrait::ReadWrite
                                        : UncountableExitTrait::ReadOnly;
   return true;
+}
+
+bool LoopVectorizationLegality::canUncountableExitConditionLoadBeMoved() {
+  return all_of(UncountableExitingBlocks, [this](BasicBlock *ExitingBB) {
+    return canUncountableExitConditionLoadBeMoved(ExitingBB);
+  });
 }
 
 bool LoopVectorizationLegality::canUncountableExitConditionLoadBeMoved(
@@ -1961,6 +1970,11 @@ bool LoopVectorizationLegality::canVectorize(bool UseVPlanNativePath) {
         else
           return false;
       }
+      // isVectorizableEarlyExitLoop will have predicated some instructions when
+      // they previously weren't. Call canVectorizeWithIfConvert again to
+      // repopulate MaskedOp with any new instructions.
+      if (!canVectorizeWithIfConvert())
+        return false;
     }
   }
 

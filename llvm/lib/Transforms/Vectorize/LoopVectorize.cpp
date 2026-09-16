@@ -6433,10 +6433,13 @@ VPlanPtr LoopVectorizationPlanner::tryToBuildVPlan1() {
   //       presence of an uncountable exit.
   if (Legal->hasUncountableEarlyExit()) {
     // TODO: Check target preference for style.
-    UncountableExitStyle EEStyle = UncountableExitStyle::ReadOnly;
+    UncountableExitStyle EEStyle = UncountableExitStyle::Masked;
+    auto CanMoveConditionLoad = [this]() {
+      return Legal->canUncountableExitConditionLoadBeMoved();
+    };
     if (!RUN_VPLAN_PASS(VPlanTransforms::handleUncountableEarlyExits, *VPlan0,
                         OrigLoop, PSE, *DT, Legal->getAssumptionCache(),
-                        EEStyle))
+                        EEStyle, CanMoveConditionLoad))
       return nullptr;
   } else {
     RUN_VPLAN_PASS(VPlanTransforms::handleCountableEarlyExits, *VPlan0);

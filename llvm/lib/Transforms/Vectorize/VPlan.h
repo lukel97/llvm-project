@@ -82,7 +82,7 @@ enum class UncountableExitStyle {
   /// No side effects to worry about, so we can process any uncountable exits
   /// in the loop and branch either to the middle block if the trip count was
   /// reached, or an early exitblock to determine which exit was taken.
-  ReadOnly,
+  Masked,
   /// All memory operations other than the load(s) required to determine whether
   /// an uncountable exit occurre will be masked based on that condition. If an
   /// uncountable exit is taken, then all lanes before the exiting lane will
@@ -344,6 +344,14 @@ public:
     assert(count(Predecessors, Pred) == 1 &&
            "must have Pred exactly once in Predecessors");
     return std::distance(Predecessors.begin(), find(Predecessors, Pred));
+  }
+
+  /// Returns the last index for \p Pred in the blocks predecessors list.
+  unsigned getLastIndexForPredecessor(const VPBlockBase *Pred) const {
+    assert(is_contained(Predecessors, Pred) && "Pred must be in Predecessors");
+    return std::distance(find(reverse(Predecessors), Pred),
+                         Predecessors.rend()) -
+           1;
   }
 
   /// Returns the index for \p Succ in the blocks successor list.

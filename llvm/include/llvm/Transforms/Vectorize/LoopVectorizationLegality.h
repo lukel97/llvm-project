@@ -430,6 +430,12 @@ public:
   /// potentially-faulting operations and the condition for the uncountable
   /// exit must be determined before any of the state changes or potentially
   /// faulting operations take place.
+  /// Returns true if the load feeding every uncountable exit condition can be
+  /// hoisted to run an iteration ahead, which the scalar-tail style needs to
+  /// build its mask. Not a legality requirement: the other styles mask the
+  /// loop differently and don't move the load.
+  bool canUncountableExitConditionLoadBeMoved();
+
   bool hasUncountableExitWithSideEffects() const {
     return getUncountableExitTrait() == UncountableExitTrait::ReadWrite;
   }
@@ -714,6 +720,9 @@ private:
   /// The assumption cache analysis is used to compute the minimum type size in
   /// which a reduction can be computed.
   AssumptionCache *AC;
+
+  /// The exiting blocks whose exit count could not be computed.
+  SmallVector<BasicBlock *, 4> UncountableExitingBlocks;
 
   /// Instructions that require masking because they are in source-level
   /// conditionally executed blocks.

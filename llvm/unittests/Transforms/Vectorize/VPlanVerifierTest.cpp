@@ -581,7 +581,7 @@ TEST_F(VPIRVerifierTest, BranchOnTwoCondsLatchHeaderVerification) {
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   // Build a plain CFG VPlan with BranchOnTwoConds as the latch terminator
   // (3 successors), without wrapping blocks in loop regions.
-  auto Plan = buildVPlan(LoopHeader, UncountableExitStyle::ReadOnly,
+  auto Plan = buildVPlan(LoopHeader, UncountableExitStyle::Masked,
                          /*CreateLoopRegions=*/false);
 
   auto *MiddleVPBB =
