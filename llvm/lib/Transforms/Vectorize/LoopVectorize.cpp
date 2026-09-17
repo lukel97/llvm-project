@@ -6556,12 +6556,8 @@ VPlanPtr LoopVectorizationPlanner::tryToBuildVPlan(VPlanPtr Plan,
   VPRegionBlock *LoopRegion = Plan->getVectorLoopRegion();
   bool HasNUW = !IVUpdateMayOverflow || Style == TailFoldingStyle::None;
   if (!HasNUW) {
-    auto *IVInc =
-        LoopRegion->getExitingBasicBlock()->getTerminator()->getOperand(0);
-    assert(match(IVInc,
-                 m_VPInstruction<Instruction::Add>(
-                     m_Specific(LoopRegion->getCanonicalIV()), m_VPValue())) &&
-           "Did not find the canonical IV increment");
+    auto *IVInc = vputils::findCanonicalIVIncrement(*Plan);
+    assert(IVInc && "Did not find the canonical IV increment");
     LoopRegion->clearCanonicalIVNUW(cast<VPInstruction>(IVInc));
   }
 

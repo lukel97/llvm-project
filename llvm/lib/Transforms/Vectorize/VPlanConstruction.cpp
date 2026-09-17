@@ -1321,13 +1321,13 @@ void VPlanTransforms::createLoopRegions(VPlan &Plan, DebugLoc DL) {
 void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
   assert(Plan.getExitBlocks().size() == 1 &&
          "only a single-exit block is supported currently");
-  assert(Plan.getExitBlocks().front()->getSinglePredecessor() ==
-             Plan.getMiddleBlock() &&
-         "the exit block must have middle block as single predecessor");
+  assert(is_contained(Plan.getExitBlocks().front()->predecessors(),
+		      Plan.getMiddleBlock()) &&
+         "the exit block must have the middle block as a predecessor");
 
   VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
-  assert(LoopRegion->getSingleSuccessor() == Plan.getMiddleBlock() &&
-         "The vector loop region must have the middle block as its single "
+  assert(LoopRegion->getSuccessors().back() == Plan.getMiddleBlock() &&
+         "The vector loop region must have the middle block as its last "
          "successor for now");
   VPBasicBlock *Header = LoopRegion->getEntryBasicBlock();
 
@@ -1339,36 +1339,38 @@ void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
   Builder.createNaryOp(VPInstruction::BranchOnCond, HeaderMask);
 
   VPBasicBlock *OrigLatch = LoopRegion->getExitingBasicBlock();
-  VPValue *IVInc;
-  [[maybe_unused]] bool TermBranchOnCount =
-      match(OrigLatch->getTerminator(),
-            m_BranchOnCount(m_VPValue(IVInc),
-                            m_Specific(&Plan.getVectorTripCount())));
-  assert(TermBranchOnCount &&
-         match(IVInc, m_Add(m_Specific(LoopRegion->getCanonicalIV()),
-                            m_Specific(&Plan.getVFxUF()))) &&
-         std::next(IVInc->getDefiningRecipe()->getIterator()) ==
-             OrigLatch->getTerminator()->getIterator() &&
-         "Unexpected canonical iv increment");
+  VPInstruction *IVInc = vputils::findCanonicalIVIncrement(Plan);
+  VPSingleDefRecipe *EarlyExitCond = nullptr;
+  [[maybe_unused]] bool ExpectedTerm = match(
+      OrigLatch->getTerminator(),
+      m_CombineOr(m_BranchOnCount(m_Specific(IVInc),
+                                  m_Specific(&Plan.getVectorTripCount())),
+                  m_BranchOnTwoConds(
+                      m_CombineAnd(m_VPSingleDefRecipe(EarlyExitCond),
+                                   m_AnyOf(m_VPValue())),
+                      m_SpecificICmp(CmpInst::ICMP_EQ, m_Specific(IVInc),
+                                     m_Specific(&Plan.getVectorTripCount())))));
+  assert(ExpectedTerm && "Unexpected latch terminator");
 
   // Split the latch at the IV update, and branch to it from the header mask.
-  VPBasicBlock *Latch =
-      OrigLatch->splitAt(IVInc->getDefiningRecipe()->getIterator());
+  VPBasicBlock *Latch = OrigLatch->splitAt(IVInc->getIterator());
   Latch->setName("vector.latch");
   VPBlockUtils::connectBlocks(Header, Latch);
 
   // Collect any values defined in the loop that need a phi. Currently this
   // includes header phi backedges and live-outs extracted in the middle block.
-  // TODO: Handle early exits via Plan.getExitBlocks()
   MapVector<VPValue *, SmallVector<VPUser *>> NeedsPhi;
   for (VPRecipeBase &R : Header->phis())
     if (!isa<VPWidenInductionRecipe>(R))
       NeedsPhi[cast<VPHeaderPHIRecipe>(R).getBackedgeValue()].push_back(&R);
 
   VPValue *V;
-  for (VPRecipeBase &R : *Plan.getMiddleBlock())
-    if (match(&R, m_ExtractLastPart(m_VPValue(V))))
-      NeedsPhi[V].push_back(&R);
+  for (VPBasicBlock *VPBB :
+       VPBlockUtils::blocksOnly<VPBasicBlock>(vp_depth_first_deep(Latch)))
+    for (VPRecipeBase &R : *cast<VPBasicBlock>(VPBB))
+      if (match(&R, m_CombineOr(m_ExtractLastPart(m_VPValue(V)),
+                                m_ExtractLane(m_VPValue(), m_VPValue(V)))))
+        NeedsPhi[V].push_back(&R);
 
   // Insert phis for values coming past the end of the tail.
   Builder.setInsertPoint(Latch, Latch->begin());
@@ -1390,6 +1392,15 @@ void VPlanTransforms::foldTailByMasking(VPlan &Plan) {
     VPInstruction *Phi = Builder.createScalarPhi({V, TailVal}, {}, "", Flags);
     for (VPUser *U : Users)
       U->replaceUsesOfWith(V, Phi);
+  }
+
+  // The early exiting condition is false on tail lanes. Sink it to the new latch.
+  if (EarlyExitCond) {
+    VPValue *AllExitConds = EarlyExitCond->getOperand(0);
+    VPPhi *Phi = Builder.createScalarPhi({AllExitConds, Plan.getFalse()});
+    AllExitConds->replaceUsesWithIf(
+        Phi, [&](VPUser &U, unsigned) { return &U != Phi; });
+    EarlyExitCond->moveBefore(*Latch, IVInc->getIterator());
   }
 
   // Any extract of the last element must be updated to extract from the last

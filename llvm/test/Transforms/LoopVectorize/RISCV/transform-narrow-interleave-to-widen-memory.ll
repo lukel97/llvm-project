@@ -99,13 +99,9 @@ exit:
 define void @interleave_group_with_countable_early_exit(i64 %n, ptr %dst) vscale_range(2, 1024) {
 ; CHECK-LABEL: define void @interleave_group_with_countable_early_exit(
 ; CHECK-SAME: i64 [[N:%.*]], ptr [[DST:%.*]]) #[[ATTR0]] {
-; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[N]], 1
-; CHECK-NEXT:    [[TMP1:%.*]] = call i64 @llvm.vscale.i64()
-; CHECK-NEXT:    [[TMP2:%.*]] = shl nuw nsw i64 [[TMP1]], 1
-; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP2]], i64 26)
-; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ule i64 [[TMP0]], [[UMAX]]
-; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label %[[SCALAR_PH:.*]], label %[[VECTOR_SCEVCHECK:.*]]
+; CHECK-NEXT:    br label %[[VECTOR_SCEVCHECK:.*]]
 ; CHECK:       [[VECTOR_SCEVCHECK]]:
 ; CHECK-NEXT:    [[MUL1:%.*]] = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 16, i64 [[N]])
 ; CHECK-NEXT:    [[MUL_RESULT:%.*]] = extractvalue { i64, i1 } [[MUL1]], 0
@@ -118,27 +114,28 @@ define void @interleave_group_with_countable_early_exit(i64 %n, ptr %dst) vscale
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult ptr [[TMP6]], [[SCEVGEP]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP7]], [[MUL_OVERFLOW]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = or i1 [[TMP5]], [[TMP8]]
-; CHECK-NEXT:    br i1 [[TMP9]], label %[[SCALAR_PH]], label %[[VECTOR_PH:.*]]
+; CHECK-NEXT:    br i1 [[TMP9]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
-; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[TMP0]], [[TMP1]]
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i64 [[N_MOD_VF]], 0
-; CHECK-NEXT:    [[TMP13:%.*]] = select i1 [[TMP12]], i64 [[TMP1]], i64 [[N_MOD_VF]]
-; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[TMP0]], [[TMP13]]
 ; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; CHECK:       [[VECTOR_BODY]]:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[CURRENT_ITERATION_NEXT:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ [[TMP0]], %[[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr { i64, i64 }, ptr [[DST]], i64 [[INDEX]]
-; CHECK-NEXT:    store <vscale x 2 x i64> zeroinitializer, ptr [[TMP14]], align 8
-; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], [[TMP1]]
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP15]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP3:![0-9]+]]
+; CHECK-NEXT:    [[INTERLEAVE_EVL:%.*]] = mul nuw nsw i32 [[TMP12]], 2
+; CHECK-NEXT:    [[INTERLEAVED_VEC:%.*]] = call <vscale x 4 x i64> @llvm.vector.interleave2.nxv4i64(<vscale x 2 x i64> zeroinitializer, <vscale x 2 x i64> zeroinitializer)
+; CHECK-NEXT:    call void @llvm.vp.store.nxv4i64.p0(<vscale x 4 x i64> [[INTERLEAVED_VEC]], ptr align 8 [[TMP14]], <vscale x 4 x i1> splat (i1 true), i32 [[INTERLEAVE_EVL]])
+; CHECK-NEXT:    [[TMP10:%.*]] = zext i32 [[TMP12]] to i64
+; CHECK-NEXT:    [[CURRENT_ITERATION_NEXT]] = add i64 [[TMP10]], [[INDEX]]
+; CHECK-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP10]]
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[AVL_NEXT]], 0
+; CHECK-NEXT:    br i1 [[TMP11]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       [[MIDDLE_BLOCK]]:
-; CHECK-NEXT:    br label %[[SCALAR_PH]]
+; CHECK-NEXT:    br label %[[EXIT2:.*]]
 ; CHECK:       [[SCALAR_PH]]:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC]], %[[MIDDLE_BLOCK]] ], [ 0, %[[ENTRY]] ], [ 0, %[[VECTOR_SCEVCHECK]] ]
 ; CHECK-NEXT:    br label %[[LOOP_HEADER:.*]]
 ; CHECK:       [[LOOP_HEADER]]:
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP_LATCH:.*]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP_LATCH:.*]] ]
 ; CHECK-NEXT:    [[COND:%.*]] = icmp ugt i64 [[IV]], [[N]]
 ; CHECK-NEXT:    br i1 [[COND]], label %[[EXIT1:.*]], label %[[LOOP_LATCH]]
 ; CHECK:       [[EXIT1]]:
@@ -150,7 +147,7 @@ define void @interleave_group_with_countable_early_exit(i64 %n, ptr %dst) vscale
 ; CHECK-NEXT:    store i64 0, ptr [[GEP2]], align 8
 ; CHECK-NEXT:    [[IV_NEXT]] = add i64 [[IV]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i64 [[N]], [[IV]]
-; CHECK-NEXT:    br i1 [[CMP]], label %[[EXIT2:.*]], label %[[LOOP_HEADER]], !llvm.loop [[LOOP4:![0-9]+]]
+; CHECK-NEXT:    br i1 [[CMP]], label %[[EXIT2]], label %[[LOOP_HEADER]], !llvm.loop [[LOOP4:![0-9]+]]
 ; CHECK:       [[EXIT2]]:
 ; CHECK-NEXT:    ret void
 ;

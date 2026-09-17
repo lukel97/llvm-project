@@ -637,11 +637,14 @@ void VPlanTransforms::convertEVLExitCond(VPlan &Plan) {
   if (match(LatchBr, m_BranchOnCond(m_True())))
     return;
 
-  VPValue *CanIVInc;
-  [[maybe_unused]] bool FoundIncrement = match(
-      LatchBr,
-      m_BranchOnCond(m_SpecificCmp(CmpInst::ICMP_EQ, m_VPValue(CanIVInc),
-                                   m_Specific(&Plan.getVectorTripCount()))));
+  // TODO: use findCanonicalIVInc and find the latch exit condition from that
+  VPValue *ExitCond, *CanIVInc;
+  [[maybe_unused]] bool FoundIncrement =
+      match(LatchBr, m_CombineOr(m_BranchOnTwoConds(m_VPValue(),
+                                                    m_VPValue(ExitCond)),
+                                 m_BranchOnCond(m_VPValue(ExitCond)))) &&
+      match(ExitCond, m_SpecificCmp(CmpInst::ICMP_EQ, m_VPValue(CanIVInc),
+                                    m_Specific(&Plan.getVectorTripCount())));
   assert(FoundIncrement &&
          match(CanIVInc, m_Add(m_Specific(LoopRegion->getCanonicalIV()),
                                m_Specific(&Plan.getVFxUF()))) &&
@@ -650,6 +653,5 @@ void VPlanTransforms::convertEVLExitCond(VPlan &Plan) {
 
   Type *AVLTy = AVLNext->getScalarType();
   VPBuilder Builder(LatchBr);
-  LatchBr->setOperand(
-      0, Builder.createICmp(CmpInst::ICMP_EQ, AVLNext, Plan.getZero(AVLTy)));
+  ExitCond->replaceAllUsesWith(Builder.createICmp(CmpInst::ICMP_EQ, AVLNext, Plan.getZero(AVLTy)));
 }

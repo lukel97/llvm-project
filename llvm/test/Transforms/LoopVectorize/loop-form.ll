@@ -340,18 +340,45 @@ define void @multiple_unique_exit(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_unique_exit(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[TMP2:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[TRIP_COUNT_MINUS_1:%.*]] = sub i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TRIP_COUNT_MINUS_1]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE2:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF1:%.*]], label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.if1:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.continue2:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP3:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END1:%.*]]
 ; TAILFOLD:       if.end:
 ; TAILFOLD-NEXT:    ret void
 ;
@@ -420,20 +447,46 @@ define i32 @multiple_unique_exit2(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_unique_exit2(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[TMP2:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[I_LCSSA:%.*]] = sub i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[I_LCSSA]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE2:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF1:%.*]], label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.if1:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.continue2:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP4:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END1:%.*]]
 ; TAILFOLD:       if.end:
-; TAILFOLD-NEXT:    [[I_LCSSA:%.*]] = phi i32 [ [[I]], [[FOR_BODY]] ], [ [[I]], [[FOR_COND]] ]
 ; TAILFOLD-NEXT:    ret i32 [[I_LCSSA]]
 ;
 entry:
@@ -501,21 +554,47 @@ define i32 @multiple_unique_exit3(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_unique_exit3(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[TMP2:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[TRIP_COUNT_MINUS_1:%.*]] = sub i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TRIP_COUNT_MINUS_1]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE2:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF1:%.*]], label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.if1:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.continue2:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP5:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END1:%.*]]
 ; TAILFOLD:       if.end:
-; TAILFOLD-NEXT:    [[EXIT:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ 1, [[FOR_BODY]] ]
-; TAILFOLD-NEXT:    ret i32 [[EXIT]]
+; TAILFOLD-NEXT:    ret i32 1
 ;
 entry:
   br label %for.cond
@@ -584,18 +663,45 @@ define i32 @multiple_exit_blocks(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_exit_blocks(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[TMP2:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[TRIP_COUNT_MINUS_1:%.*]] = sub i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TRIP_COUNT_MINUS_1]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE2:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END2:%.*]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF1:%.*]], label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.if1:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE2]]
+; TAILFOLD:       pred.store.continue2:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP6:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END2:%.*]]
 ; TAILFOLD:       if.end:
 ; TAILFOLD-NEXT:    ret i32 0
 ; TAILFOLD:       if.end2:
@@ -672,23 +778,48 @@ define i32 @multiple_exit_blocks2(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_exit_blocks2(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[TMP2:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[I_LCSSA1:%.*]] = sub i32 [[TMP2]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[I_LCSSA1]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE3:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE3]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END2:%.*]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF2:%.*]], label [[PRED_STORE_CONTINUE3]]
+; TAILFOLD:       pred.store.if2:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE3]]
+; TAILFOLD:       pred.store.continue3:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP7:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END2:%.*]]
 ; TAILFOLD:       if.end:
-; TAILFOLD-NEXT:    [[I_LCSSA:%.*]] = phi i32 [ [[I]], [[FOR_COND]] ]
-; TAILFOLD-NEXT:    ret i32 [[I_LCSSA]]
+; TAILFOLD-NEXT:    ret i32 poison
 ; TAILFOLD:       if.end2:
-; TAILFOLD-NEXT:    [[I_LCSSA1:%.*]] = phi i32 [ [[I]], [[FOR_BODY]] ]
 ; TAILFOLD-NEXT:    ret i32 [[I_LCSSA1]]
 ;
 entry:
@@ -762,23 +893,48 @@ define i32 @multiple_exit_blocks3(ptr %p, i32 %n) {
 ;
 ; TAILFOLD-LABEL: @multiple_exit_blocks3(
 ; TAILFOLD-NEXT:  entry:
+; TAILFOLD-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smax.i32(i32 [[N:%.*]], i32 0)
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 2096)
+; TAILFOLD-NEXT:    [[INC_LCSSA:%.*]] = add nuw nsw i32 [[TMP1]], 1
 ; TAILFOLD-NEXT:    br label [[FOR_COND:%.*]]
-; TAILFOLD:       for.cond:
-; TAILFOLD-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY:%.*]] ]
-; TAILFOLD-NEXT:    [[CMP:%.*]] = icmp slt i32 [[I]], [[N:%.*]]
-; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[IF_END:%.*]]
-; TAILFOLD:       for.body:
-; TAILFOLD-NEXT:    [[IPROM:%.*]] = sext i32 [[I]] to i64
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    [[N_RND_UP:%.*]] = add i32 [[INC_LCSSA]], 1
+; TAILFOLD-NEXT:    [[TMP3:%.*]] = and i32 [[N_RND_UP]], 1
+; TAILFOLD-NEXT:    [[N_VEC:%.*]] = sub i32 [[N_RND_UP]], [[TMP3]]
+; TAILFOLD-NEXT:    [[TRIP_COUNT_MINUS_1:%.*]] = sub i32 [[INC_LCSSA]], 1
+; TAILFOLD-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TRIP_COUNT_MINUS_1]], i64 0
+; TAILFOLD-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[FOR_COND]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE3:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[FOR_COND]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE3]] ]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = icmp ule <2 x i32> [[VEC_IND]], [[BROADCAST_SPLAT]]
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = sext <2 x i32> [[VEC_IND]] to <2 x i64>
+; TAILFOLD-NEXT:    [[CMP:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
+; TAILFOLD-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[IF_END:%.*]]
+; TAILFOLD:       pred.store.if:
+; TAILFOLD-NEXT:    [[IPROM:%.*]] = extractelement <2 x i64> [[TMP5]], i64 0
 ; TAILFOLD-NEXT:    [[B:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 [[IPROM]]
 ; TAILFOLD-NEXT:    store i16 0, ptr [[B]], align 4
-; TAILFOLD-NEXT:    [[INC]] = add nsw i32 [[I]], 1
-; TAILFOLD-NEXT:    [[CMP2:%.*]] = icmp slt i32 [[I]], 2096
-; TAILFOLD-NEXT:    br i1 [[CMP2]], label [[FOR_COND]], label [[IF_END2:%.*]]
+; TAILFOLD-NEXT:    br label [[IF_END]]
+; TAILFOLD:       pred.store.continue:
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP9]], label [[PRED_STORE_IF2:%.*]], label [[PRED_STORE_CONTINUE3]]
+; TAILFOLD:       pred.store.if2:
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP5]], i64 1
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[P]], i64 [[TMP10]]
+; TAILFOLD-NEXT:    store i16 0, ptr [[TMP11]], align 4
+; TAILFOLD-NEXT:    br label [[PRED_STORE_CONTINUE3]]
+; TAILFOLD:       pred.store.continue3:
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i32 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add <2 x i32> [[VEC_IND]], splat (i32 2)
+; TAILFOLD-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
+; TAILFOLD-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP8:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    br label [[IF_END2:%.*]]
 ; TAILFOLD:       if.end:
-; TAILFOLD-NEXT:    [[I_LCSSA:%.*]] = phi i32 [ [[I]], [[FOR_COND]] ]
-; TAILFOLD-NEXT:    ret i32 [[I_LCSSA]]
+; TAILFOLD-NEXT:    ret i32 poison
 ; TAILFOLD:       if.end2:
-; TAILFOLD-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[INC]], [[FOR_BODY]] ]
 ; TAILFOLD-NEXT:    ret i32 [[INC_LCSSA]]
 ;
 entry:
@@ -1183,20 +1339,42 @@ define i32 @me_reduction(ptr %addr) {
 ; TAILFOLD-LABEL: @me_reduction(
 ; TAILFOLD-NEXT:  entry:
 ; TAILFOLD-NEXT:    br label [[LOOP_HEADER:%.*]]
-; TAILFOLD:       loop.header:
-; TAILFOLD-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP_LATCH:%.*]] ]
-; TAILFOLD-NEXT:    [[ACCUM:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[ACCUM_NEXT:%.*]], [[LOOP_LATCH]] ]
-; TAILFOLD-NEXT:    [[GEP:%.*]] = getelementptr i32, ptr [[ADDR:%.*]], i64 [[IV]]
-; TAILFOLD-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV]], 200
-; TAILFOLD-NEXT:    br i1 [[EXITCOND_NOT]], label [[EXIT:%.*]], label [[LOOP_LATCH]]
-; TAILFOLD:       loop.latch:
+; TAILFOLD:       vector.ph:
+; TAILFOLD-NEXT:    br label [[VECTOR_BODY:%.*]]
+; TAILFOLD:       vector.body:
+; TAILFOLD-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[LOOP_HEADER]] ], [ [[INDEX_NEXT:%.*]], [[PRED_LOAD_CONTINUE2:%.*]] ]
+; TAILFOLD-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ zeroinitializer, [[LOOP_HEADER]] ], [ [[TMP12:%.*]], [[PRED_LOAD_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[VEC_IND:%.*]] = phi <2 x i8> [ <i8 0, i8 1>, [[LOOP_HEADER]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_LOAD_CONTINUE2]] ]
+; TAILFOLD-NEXT:    [[TMP1:%.*]] = icmp ule <2 x i8> [[VEC_IND]], splat (i8 -56)
+; TAILFOLD-NEXT:    [[EXITCOND_NOT:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
+; TAILFOLD-NEXT:    br i1 [[EXITCOND_NOT]], label [[EXIT:%.*]], label [[LOOP_LATCH:%.*]]
+; TAILFOLD:       pred.load.if:
+; TAILFOLD-NEXT:    [[GEP:%.*]] = getelementptr i32, ptr [[ADDR:%.*]], i64 [[INDEX]]
 ; TAILFOLD-NEXT:    [[TMP0:%.*]] = load i32, ptr [[GEP]], align 4
-; TAILFOLD-NEXT:    [[ACCUM_NEXT]] = add i32 [[ACCUM]], [[TMP0]]
-; TAILFOLD-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
-; TAILFOLD-NEXT:    [[EXITCOND2_NOT:%.*]] = icmp eq i64 [[IV]], 400
-; TAILFOLD-NEXT:    br i1 [[EXITCOND2_NOT]], label [[EXIT]], label [[LOOP_HEADER]]
+; TAILFOLD-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32> poison, i32 [[TMP0]], i64 0
+; TAILFOLD-NEXT:    br label [[LOOP_LATCH]]
+; TAILFOLD:       pred.load.continue:
+; TAILFOLD-NEXT:    [[TMP5:%.*]] = phi <2 x i32> [ poison, [[VECTOR_BODY]] ], [ [[TMP4]], [[EXIT]] ]
+; TAILFOLD-NEXT:    [[TMP6:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
+; TAILFOLD-NEXT:    br i1 [[TMP6]], label [[PRED_LOAD_IF1:%.*]], label [[PRED_LOAD_CONTINUE2]]
+; TAILFOLD:       pred.load.if1:
+; TAILFOLD-NEXT:    [[TMP7:%.*]] = add i64 [[INDEX]], 1
+; TAILFOLD-NEXT:    [[TMP8:%.*]] = getelementptr i32, ptr [[ADDR]], i64 [[TMP7]]
+; TAILFOLD-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP8]], align 4
+; TAILFOLD-NEXT:    [[TMP10:%.*]] = insertelement <2 x i32> [[TMP5]], i32 [[TMP9]], i64 1
+; TAILFOLD-NEXT:    br label [[PRED_LOAD_CONTINUE2]]
+; TAILFOLD:       pred.load.continue2:
+; TAILFOLD-NEXT:    [[TMP11:%.*]] = phi <2 x i32> [ [[TMP5]], [[LOOP_LATCH]] ], [ [[TMP10]], [[PRED_LOAD_IF1]] ]
+; TAILFOLD-NEXT:    [[TMP12]] = add <2 x i32> [[VEC_PHI]], [[TMP11]]
+; TAILFOLD-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
+; TAILFOLD-NEXT:    [[VEC_IND_NEXT]] = add nuw <2 x i8> [[VEC_IND]], splat (i8 2)
+; TAILFOLD-NEXT:    [[TMP13:%.*]] = icmp eq i64 [[INDEX_NEXT]], 202
+; TAILFOLD-NEXT:    br i1 [[TMP13]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP9:![0-9]+]]
+; TAILFOLD:       middle.block:
+; TAILFOLD-NEXT:    [[TMP14:%.*]] = select <2 x i1> [[TMP1]], <2 x i32> [[TMP12]], <2 x i32> [[VEC_PHI]]
+; TAILFOLD-NEXT:    [[LCSSA:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[TMP14]])
+; TAILFOLD-NEXT:    br label [[EXIT1:%.*]]
 ; TAILFOLD:       exit:
-; TAILFOLD-NEXT:    [[LCSSA:%.*]] = phi i32 [ 0, [[LOOP_HEADER]] ], [ [[ACCUM_NEXT]], [[LOOP_LATCH]] ]
 ; TAILFOLD-NEXT:    ret i32 [[LCSSA]]
 ;
 entry:

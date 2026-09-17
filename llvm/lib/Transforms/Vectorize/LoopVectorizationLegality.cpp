@@ -2015,13 +2015,19 @@ bool LoopVectorizationLegality::canVectorize(bool UseVPlanNativePath) {
 
 bool LoopVectorizationLegality::canFoldTailByMasking() const {
   // The only loops we can vectorize without a scalar epilogue, are loops with
-  // a bottom-test and a single exiting block. We'd have to handle the fact
+  // a bottom-test and a single exit block. We'd have to handle the fact
   // that not every instruction executes on the last iteration.  This will
   // require a lane mask which varies through the vector loop body.  (TODO)
-  if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch()) {
+  if (!is_contained(getCountableExitingBlocks(), TheLoop->getLoopLatch())) {
+    LLVM_DEBUG(dbgs() << "LV: Cannot fold tail by masking. Requires latch to "
+                         "have a countable exit\n");
+    return false;
+  }
+
+  // TODO: Handle multiple exit blocks in foldTailByMasking
+  if (!TheLoop->getUniqueExitBlock()) {
     LLVM_DEBUG(
-        dbgs()
-        << "LV: Cannot fold tail by masking. Requires a singe latch exit\n");
+        dbgs() << "LV: Cannot fold tail by masking yet. Requires a single exit\n");
     return false;
   }
 
