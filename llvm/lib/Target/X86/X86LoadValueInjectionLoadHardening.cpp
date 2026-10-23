@@ -213,9 +213,6 @@ char X86LoadValueInjectionLoadHardeningLegacy::ID = 0;
 void X86LoadValueInjectionLoadHardeningLegacy::getAnalysisUsage(
     AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
-  AU.addRequired<MachineLoopInfoWrapperPass>();
-  AU.addRequired<MachineDominatorTreeWrapperPass>();
-  AU.addRequired<MachineDominanceFrontierWrapperPass>();
   AU.setPreservesCFG();
 }
 
@@ -778,9 +775,12 @@ bool X86LoadValueInjectionLoadHardeningLegacy::runOnMachineFunction(
     return false;
   }
 
-  const auto &MLI = getAnalysis<MachineLoopInfoWrapperPass>().getLI();
-  const auto &MDT = getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
-  const auto &MDF = getAnalysis<MachineDominanceFrontierWrapperPass>().getMDF();
+  // Compute these here rather than requiring them, otherwise the legacy pass
+  // manager computes them for every function even when hardening is disabled.
+  MachineDominatorTree MDT(MF);
+  MachineLoopInfo MLI(MDT);
+  MachineDominanceFrontier MDF;
+  MDF.analyze(MDT);
 
   X86LoadValueInjectionLoadHardeningImpl Impl;
   return Impl.run(MF, MLI, MDT, MDF);
@@ -804,13 +804,8 @@ PreservedAnalyses X86LoadValueInjectionLoadHardeningPass::run(
                   : PreservedAnalyses::all();
 }
 
-INITIALIZE_PASS_BEGIN(X86LoadValueInjectionLoadHardeningLegacy, PASS_KEY,
-                      "X86 LVI load hardening", false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineDominanceFrontierWrapperPass)
-INITIALIZE_PASS_END(X86LoadValueInjectionLoadHardeningLegacy, PASS_KEY,
-                    "X86 LVI load hardening", false, false)
+INITIALIZE_PASS(X86LoadValueInjectionLoadHardeningLegacy, PASS_KEY,
+                "X86 LVI load hardening", false, false)
 
 FunctionPass *llvm::createX86LoadValueInjectionLoadHardeningLegacyPass() {
   return new X86LoadValueInjectionLoadHardeningLegacy();
