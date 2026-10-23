@@ -40,7 +40,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<MachineDominatorTreeWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
@@ -146,8 +145,9 @@ bool X86CleanupLocalDynamicTLSLegacy::runOnMachineFunction(
   if (skipFunction(MF.getFunction()) || shouldSkipLocalDynamicTLS(MF))
     return false;
 
-  MachineDominatorTree &DT =
-      getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
+  // Compute this here rather than requiring it, otherwise the legacy pass
+  // manager computes it for every function even though most are skipped.
+  MachineDominatorTree DT(MF);
   return cleanupLocalDynamicTLS(DT);
 }
 
