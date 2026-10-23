@@ -51,6 +51,7 @@ private:
   const X86Subtarget *ST = nullptr;
   const MCSchedModel *SM = nullptr;
   const X86RegisterInfo *TRI = nullptr;
+  bool OptSize = false;
 };
 
 class X86FixupInstTuningLegacy : public MachineFunctionPass {
@@ -92,7 +93,6 @@ bool X86FixupInstTuningImpl::processInstruction(
   MachineInstr &MI = *I;
   unsigned Opc = MI.getOpcode();
   unsigned NumOperands = MI.getDesc().getNumOperands();
-  bool OptSize = MF.getFunction().hasOptSize();
 
   auto GetInstTput = [&](unsigned Opcode) -> std::optional<double> {
     // We already checked that SchedModel exists in `NewOpcPreferable`.
@@ -733,6 +733,7 @@ bool X86FixupInstTuningImpl::runOnMachineFunction(MachineFunction &MF) {
   TII = ST->getInstrInfo();
   TRI = ST->getRegisterInfo();
   SM = &ST->getSchedModel();
+  OptSize = MF.getFunction().hasOptSize();
 
   for (MachineBasicBlock &MBB : MF) {
     for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I) {

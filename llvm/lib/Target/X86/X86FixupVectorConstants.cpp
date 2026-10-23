@@ -40,6 +40,7 @@ private:
   const X86InstrInfo *TII = nullptr;
   const X86Subtarget *ST = nullptr;
   const MCSchedModel *SM = nullptr;
+  bool OptSize = false;
 };
 
 class X86FixupVectorConstantsLegacy : public MachineFunctionPass {
@@ -354,7 +355,6 @@ bool X86FixupVectorConstantsImpl::processInstruction(MachineFunction &MF,
   bool HasBWI = ST->hasBWI();
   bool HasVLX = ST->hasVLX();
   bool MultiDomain = ST->hasAVX512() || ST->hasNoDomainDelayMov();
-  bool OptSize = MF.getFunction().hasOptSize();
 
   struct FixupEntry {
     int Op;
@@ -788,6 +788,7 @@ bool X86FixupVectorConstantsImpl::runOnMachineFunction(MachineFunction &MF) {
   ST = &MF.getSubtarget<X86Subtarget>();
   TII = ST->getInstrInfo();
   SM = &ST->getSchedModel();
+  OptSize = MF.getFunction().hasOptSize();
 
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
