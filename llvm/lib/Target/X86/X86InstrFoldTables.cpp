@@ -177,6 +177,12 @@ struct X86MemUnfoldTable {
   std::vector<X86FoldTableEntry> Table;
 
   X86MemUnfoldTable() {
+    Table.reserve(std::size(Table2Addr) + std::size(Table0) +
+                  std::size(Table1) + std::size(Table2) + std::size(Table3) +
+                  std::size(Table4) + std::size(BroadcastTable1) +
+                  std::size(BroadcastTable2) + std::size(BroadcastTable3) +
+                  std::size(BroadcastTable4));
+
     for (const X86FoldTableEntry &Entry : Table2Addr)
       // Index 0, folded load and store, no alignment requirement.
       addTableEntry(Entry, TB_INDEX_0 | TB_FOLDED_LOAD | TB_FOLDED_STORE);
@@ -219,7 +225,7 @@ struct X86MemUnfoldTable {
       addTableEntry(Entry, TB_INDEX_4 | TB_FOLDED_LOAD);
 
     // Sort the memory->reg unfold table.
-    array_pod_sort(Table.begin(), Table.end());
+    llvm::sort(Table);
 
     // Now that it's sorted, ensure its unique.
     assert(std::adjacent_find(Table.begin(), Table.end()) == Table.end() &&
@@ -308,7 +314,7 @@ struct X86BroadcastFoldTable {
     }
 
     // Sort the memory->broadcast fold table.
-    array_pod_sort(Table.begin(), Table.end());
+    llvm::stable_sort(Table);
   }
 };
 } // namespace
