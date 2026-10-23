@@ -227,21 +227,14 @@ static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
   if (DiagID >= DIAG_UPPER_LIMIT || DiagID <= DIAG_START_COMMON)
     return nullptr;
 
-  // Compute the index of the requested diagnostic in the static table.
-  // 1. Add the number of diagnostics in each category preceding the
-  //    diagnostic and of the category the diagnostic is in. This gives us
-  //    the offset of the category in the table.
-  // 2. Subtract the number of IDs in each category from our ID. This gives us
-  //    the offset of the diagnostic in the category.
-  // This is cheaper than a binary search on the table as it doesn't touch
-  // memory at all.
-  unsigned Offset = 0;
-  unsigned ID = DiagID - DIAG_START_COMMON - 1;
-#define CATEGORY(NAME, PREV) \
-  if (DiagID > DIAG_START_##NAME) { \
-    Offset += NUM_BUILTIN_##PREV##_DIAGNOSTICS - DIAG_START_##PREV - 1; \
-    ID -= DIAG_START_##NAME - DIAG_START_##PREV; \
-  }
+  // Compute the index of the requested diagnostic in the static table by
+  // subtracting the number of unused IDs between each category preceding the
+  // diagnostic and the next one. This is cheaper than a binary search on the
+  // table as it doesn't touch memory at all.
+  unsigned Index = DiagID - DIAG_START_COMMON - 1;
+#define CATEGORY(NAME, PREV)                                                   \
+  if (DiagID > DIAG_START_##NAME)                                              \
+    Index -= DIAG_START_##NAME - NUM_BUILTIN_##PREV##_DIAGNOSTICS + 1;
 CATEGORY(DRIVER, COMMON)
 CATEGORY(FRONTEND, DRIVER)
 CATEGORY(CODEGEN, FRONTEND)
@@ -259,12 +252,10 @@ CATEGORY(TRAP, INSTALLAPI)
 #undef CATEGORY
 
   // Avoid out of bounds reads.
-  if (ID + Offset >= StaticDiagInfoSize)
+  if (Index >= StaticDiagInfoSize)
     return nullptr;
 
-  assert(ID < StaticDiagInfoSize && Offset < StaticDiagInfoSize);
-
-  const StaticDiagInfoRec *Found = &StaticDiagInfo[ID + Offset];
+  const StaticDiagInfoRec *Found = &StaticDiagInfo[Index];
   // If the diag id doesn't match we found a different diag, abort. This can
   // happen when this function is called with an ID that points into a hole in
   // the diagID space.
