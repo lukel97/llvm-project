@@ -3137,7 +3137,7 @@ IEEEFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode) {
     /* Overflow and round.  */
     fs = handleOverflow(rounding_mode);
   } else {
-    integerPart *decSignificand;
+    SmallVector<integerPart, 4> decSignificand;
     unsigned int partCount;
 
     /* A tight upper bound on number of bits required to hold an
@@ -3146,7 +3146,7 @@ IEEEFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode) {
        tcMultiplyPart.  */
     partCount = static_cast<unsigned int>(D.lastSigDigit - D.firstSigDigit) + 1;
     partCount = partCountForBits(1 + 196 * partCount / 59);
-    decSignificand = new integerPart[partCount + 1];
+    decSignificand.resize_for_overwrite(partCount + 1);
     partCount = 0;
 
     /* Convert to binary efficiently - we do almost all multiplication
@@ -3167,10 +3167,8 @@ IEEEFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode) {
           }
         }
         decValue = decDigitValue(*p++);
-        if (decValue >= 10U) {
-          delete[] decSignificand;
+        if (decValue >= 10U)
           return createError("Invalid character in significand");
-        }
         multiplier *= 10;
         val = val * 10 + decValue;
         /* The maximum number that can be multiplied by ten with any
@@ -3178,8 +3176,8 @@ IEEEFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode) {
       } while (p <= D.lastSigDigit && multiplier <= (~ (integerPart) 0 - 9) / 10);
 
       /* Multiply out the current part.  */
-      APInt::tcMultiplyPart(decSignificand, decSignificand, multiplier, val,
-                            partCount, partCount + 1, false);
+      APInt::tcMultiplyPart(decSignificand.data(), decSignificand.data(),
+                            multiplier, val, partCount, partCount + 1, false);
 
       /* If we used another part (likely but not guaranteed), increase
          the count.  */
@@ -3188,10 +3186,8 @@ IEEEFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode) {
     } while (p <= D.lastSigDigit);
 
     category = fcNormal;
-    fs = roundSignificandWithExponent(decSignificand, partCount,
+    fs = roundSignificandWithExponent(decSignificand.data(), partCount,
                                       D.exponent, rounding_mode);
-
-    delete [] decSignificand;
   }
 
   return fs;
