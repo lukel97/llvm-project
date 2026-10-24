@@ -40,11 +40,13 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerUnion.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/PassManager.h"
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -129,9 +131,11 @@ class ConstantHoistingPass
 public:
   LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
-  // Glue for old PM.
+  // Glue for old PM. GetBFI returns null if block frequencies shouldn't be
+  // used, and is only called if they are needed.
   LLVM_ABI bool runImpl(Function &F, TargetTransformInfo &TTI,
-                        DominatorTree &DT, BlockFrequencyInfo *BFI,
+                        DominatorTree &DT,
+                        function_ref<BlockFrequencyInfo *()> GetBFI,
                         BasicBlock &Entry, ProfileSummaryInfo *PSI);
 
   void cleanup() {
@@ -149,7 +153,8 @@ private:
   const ScalarOptions *Opts = nullptr;
   const TargetTransformInfo *TTI;
   DominatorTree *DT;
-  BlockFrequencyInfo *BFI;
+  function_ref<BlockFrequencyInfo *()> GetBFI;
+  std::optional<BlockFrequencyInfo *> BFI;
   LLVMContext *Ctx;
   const DataLayout *DL;
   BasicBlock *Entry;
@@ -176,9 +181,10 @@ private:
       SmallVectorImpl<BasicBlock::iterator> &MatInsertPts) const;
   BasicBlock::iterator findMatInsertPt(Instruction *Inst,
                                        unsigned Idx = ~0U) const;
-  SetVector<BasicBlock::iterator> findConstantInsertionPoint(
-      const consthoist::ConstantInfo &ConstInfo,
-      const ArrayRef<BasicBlock::iterator> MatInsertPts) const;
+  BlockFrequencyInfo *getBFI();
+  SetVector<BasicBlock::iterator>
+  findConstantInsertionPoint(const consthoist::ConstantInfo &ConstInfo,
+                             const ArrayRef<BasicBlock::iterator> MatInsertPts);
   void collectConstantCandidates(ConstCandMapType &ConstCandMap,
                                  Instruction *Inst, unsigned Idx,
                                  ConstantInt *ConstInt);
