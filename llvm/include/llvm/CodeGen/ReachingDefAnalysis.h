@@ -348,6 +348,8 @@ public:
 
 class LLVM_ABI ReachingDefInfoWrapperPass : public MachineFunctionPass {
   ReachingDefInfo RDI;
+  /// The function to compute RDI for on the first call to getRDI().
+  MachineFunction *PendingMF = nullptr;
 
 public:
   static char ID;
@@ -357,10 +359,20 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   MachineFunctionProperties getRequiredProperties() const override;
   bool runOnMachineFunction(MachineFunction &F) override;
-  void releaseMemory() override { RDI.releaseMemory(); }
+  void releaseMemory() override {
+    RDI.releaseMemory();
+    PendingMF = nullptr;
+  }
 
-  ReachingDefInfo &getRDI() { return RDI; }
-  const ReachingDefInfo &getRDI() const { return RDI; }
+  /// The analysis is expensive and many users only need it for a few
+  /// functions, so it is computed lazily on the first call.
+  ReachingDefInfo &getRDI() {
+    if (PendingMF) {
+      RDI.run(*PendingMF);
+      PendingMF = nullptr;
+    }
+    return RDI;
+  }
 };
 
 } // namespace llvm

@@ -346,7 +346,7 @@ void ReachingDefInfo::print(raw_ostream &OS) {
 }
 
 bool ReachingDefInfoWrapperPass::runOnMachineFunction(MachineFunction &mf) {
-  RDI.run(mf);
+  PendingMF = &mf;
   return false;
 }
 
