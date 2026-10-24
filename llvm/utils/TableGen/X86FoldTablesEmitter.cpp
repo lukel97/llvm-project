@@ -16,6 +16,7 @@
 #include "X86RecognizableInstr.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/X86FoldTablesUtils.h"
+#include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
 #include <set>
@@ -140,12 +141,19 @@ class X86FoldTablesEmitter {
                       const CodeGenInstruction *MemInst)
         : RegInst(RegInst), MemInst(MemInst) {}
 
-    void print(raw_ostream &OS) const {
+    const CodeGenInstruction *getMemInst() const { return MemInst; }
+
+    // If Unfold is set, print as an entry of the unfolding table, which maps
+    // the memory instruction back to the register instruction, with OpIdx as
+    // the index of the folded operand.
+    void print(raw_ostream &OS, bool Unfold = false, unsigned OpIdx = 0) const {
       OS.indent(2);
-      OS << "{X86::" << RegInst->getName() << ", ";
-      OS << "X86::" << MemInst->getName() << ", ";
+      OS << "{X86::" << (Unfold ? MemInst : RegInst)->getName() << ", ";
+      OS << "X86::" << (Unfold ? RegInst : MemInst)->getName() << ", ";
 
       std::string Attrs;
+      if (Unfold)
+        Attrs += "TB_INDEX_" + std::to_string(OpIdx) + "|";
       if (FoldLoad)
         Attrs += "TB_FOLDED_LOAD|";
       if (FoldStore)
@@ -283,6 +291,10 @@ private:
       OS << "  X86::" << Inst->getName() << ",\n";
     OS << "};\n\n";
   }
+
+  // Print the memory unfolding table, built from the reversible entries of all
+  // the fold tables and sorted by the memory instruction.
+  void printUnfoldTable(raw_ostream &OS) const;
 };
 } // namespace
 
@@ -810,6 +822,43 @@ void X86FoldTablesEmitter::run(raw_ostream &OS) {
   PRINT_TABLE(BroadcastTable3)
   PRINT_TABLE(BroadcastTable4)
   PRINT_TABLE(NonFoldableWithSameMaskTable)
+  printUnfoldTable(OS);
+}
+
+void X86FoldTablesEmitter::printUnfoldTable(raw_ostream &OS) const {
+  std::map<const CodeGenInstruction *, std::pair<X86FoldTableEntry, unsigned>,
+           CompareInstrsByEnum>
+      UnfoldTable;
+  auto AddTable = [&](const FoldTable &Table, unsigned OpIdx, bool FoldLoad,
+                      bool FoldStore) {
+    for (const auto &[RegInst, Entry] : Table) {
+      if (Entry.NoReverse)
+        continue;
+      X86FoldTableEntry UnfoldEntry = Entry;
+      UnfoldEntry.FoldLoad |= FoldLoad;
+      UnfoldEntry.FoldStore |= FoldStore;
+      if (!UnfoldTable.try_emplace(Entry.getMemInst(), UnfoldEntry, OpIdx)
+               .second)
+        PrintFatalError("Memory unfolding table is not unique: " +
+                        Entry.getMemInst()->getName());
+    }
+  };
+  // Table0 entries already say whether they fold a load or a store.
+  AddTable(Table2Addr, 0, /*FoldLoad=*/true, /*FoldStore=*/true);
+  AddTable(Table0, 0, /*FoldLoad=*/false, /*FoldStore=*/false);
+  AddTable(Table1, 1, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(Table2, 2, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(Table3, 3, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(Table4, 4, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(BroadcastTable1, 1, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(BroadcastTable2, 2, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(BroadcastTable3, 3, /*FoldLoad=*/true, /*FoldStore=*/false);
+  AddTable(BroadcastTable4, 4, /*FoldLoad=*/true, /*FoldStore=*/false);
+
+  OS << "static const X86FoldTableEntry MemUnfoldTable[] = {\n";
+  for (const auto &[MemInst, Entry] : UnfoldTable)
+    Entry.first.print(OS, /*Unfold=*/true, Entry.second);
+  OS << "};\n\n";
 }
 
 static TableGen::Emitter::OptClass<X86FoldTablesEmitter>
