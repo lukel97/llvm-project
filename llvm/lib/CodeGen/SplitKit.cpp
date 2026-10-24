@@ -179,7 +179,7 @@ void SplitAnalysis::analyzeUses() {
     if (!MO.isUndef())
       UseSlots.push_back(LIS.getInstructionIndex(*MO.getParent()).getRegSlot());
 
-  array_pod_sort(UseSlots.begin(), UseSlots.end());
+  std::sort(UseSlots.begin(), UseSlots.end());
 
   // Remove duplicates, keeping the smaller slot for each instruction.
   // That is what we want for early clobbers.

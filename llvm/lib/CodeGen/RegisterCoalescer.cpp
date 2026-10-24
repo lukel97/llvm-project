@@ -4106,25 +4106,25 @@ struct MBBPriorityInfo {
 /// block (the unsigned), and then on the MBB number.
 ///
 /// EnableGlobalCopies assumes that the primary sort key is loop depth.
-static int compareMBBPriority(const MBBPriorityInfo *LHS,
-                              const MBBPriorityInfo *RHS) {
+static bool compareMBBPriority(const MBBPriorityInfo &LHS,
+                               const MBBPriorityInfo &RHS) {
   // Deeper loops first
-  if (LHS->Depth != RHS->Depth)
-    return LHS->Depth > RHS->Depth ? -1 : 1;
+  if (LHS.Depth != RHS.Depth)
+    return LHS.Depth > RHS.Depth;
 
   // Try to unsplit critical edges next.
-  if (LHS->IsSplit != RHS->IsSplit)
-    return LHS->IsSplit ? -1 : 1;
+  if (LHS.IsSplit != RHS.IsSplit)
+    return LHS.IsSplit;
 
   // Prefer blocks that are more connected in the CFG. This takes care of
   // the most difficult copies first while intervals are short.
-  unsigned cl = LHS->MBB->pred_size() + LHS->MBB->succ_size();
-  unsigned cr = RHS->MBB->pred_size() + RHS->MBB->succ_size();
+  unsigned cl = LHS.MBB->pred_size() + LHS.MBB->succ_size();
+  unsigned cr = RHS.MBB->pred_size() + RHS.MBB->succ_size();
   if (cl != cr)
-    return cl > cr ? -1 : 1;
+    return cl > cr;
 
   // As a last resort, sort by block number.
-  return LHS->MBB->getNumber() < RHS->MBB->getNumber() ? -1 : 1;
+  return LHS.MBB->getNumber() < RHS.MBB->getNumber();
 }
 
 /// \returns true if the given copy uses or defines a local live range.
@@ -4323,7 +4323,7 @@ void RegisterCoalescer::joinAllIntervals() {
     MBBs.push_back(MBBPriorityInfo(&MBB, Loops->getLoopDepth(&MBB),
                                    JoinSplitEdges && isSplitEdge(&MBB)));
   }
-  array_pod_sort(MBBs.begin(), MBBs.end(), compareMBBPriority);
+  std::sort(MBBs.begin(), MBBs.end(), compareMBBPriority);
 
   // Coalesce intervals in MBB priority order.
   unsigned CurrDepth = std::numeric_limits<unsigned>::max();
@@ -4433,7 +4433,7 @@ bool RegisterCoalescer::run(MachineFunction &fn) {
   // After deleting a lot of copies, register classes may be less constrained.
   // Removing sub-register operands may allow GR32_ABCD -> GR32 and DPR_VFP2 ->
   // DPR inflation.
-  array_pod_sort(InflateRegs.begin(), InflateRegs.end());
+  std::sort(InflateRegs.begin(), InflateRegs.end());
   InflateRegs.erase(llvm::unique(InflateRegs), InflateRegs.end());
   LLVM_DEBUG(dbgs() << "Trying to inflate " << InflateRegs.size()
                     << " regs.\n");
