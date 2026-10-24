@@ -1490,13 +1490,29 @@ lostFraction IEEEFloat::divideSignificand(const IEEEFloat &rhs) {
   }
 
   /* Long division.  */
-  for (bit = precision; bit; bit -= 1) {
-    if (APInt::tcCompare(dividend, divisor, partsCount) >= 0) {
-      APInt::tcSubtract(dividend, divisor, 0, partsCount);
-      APInt::tcSetBit(lhsSignificand, bit - 1);
+  if (partsCount == 1) {
+    // Fast path for the common case, e.g. when converting decimal strings to
+    // single and double precision. The dividend is always less than twice the
+    // divisor, so this can't overflow.
+    integerPart Dividend = dividend[0], Divisor = divisor[0], Quotient = 0;
+    for (bit = precision; bit; bit -= 1) {
+      if (Dividend >= Divisor) {
+        Dividend -= Divisor;
+        Quotient |= integerPart(1) << (bit - 1);
+      }
+      Dividend <<= 1;
     }
+    dividend[0] = Dividend;
+    lhsSignificand[0] = Quotient;
+  } else {
+    for (bit = precision; bit; bit -= 1) {
+      if (APInt::tcCompare(dividend, divisor, partsCount) >= 0) {
+        APInt::tcSubtract(dividend, divisor, 0, partsCount);
+        APInt::tcSetBit(lhsSignificand, bit - 1);
+      }
 
-    APInt::tcShiftLeft(dividend, partsCount, 1);
+      APInt::tcShiftLeft(dividend, partsCount, 1);
+    }
   }
 
   /* Figure out the lost fraction.  */
