@@ -2803,6 +2803,11 @@ static Constant *computePointerICmp(CmpPredicate Pred, Value *LHS, Value *RHS,
     return ConstantInt::get(getCompareTy(LHS),
                             ICmpInst::compare(LHSOffset, RHSOffset, Pred));
 
+  // None of the reasoning below applies to null, and comparisons against null
+  // are common.
+  if (isa<ConstantPointerNull>(LHS) || isa<ConstantPointerNull>(RHS))
+    return nullptr;
+
   // Various optimizations for (in)equality comparisons.
   if (ICmpInst::isEquality(Pred)) {
     // Different non-empty allocations that exist at the same time have
