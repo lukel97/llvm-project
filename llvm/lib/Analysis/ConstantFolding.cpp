@@ -825,6 +825,18 @@ Constant *getConstantAtOffset(Constant *Base, APInt Offset,
   if (!isa<ConstantAggregate>(Base) && !isa<ConstantDataSequential>(Base))
     return nullptr;
 
+  // Fast path for arrays of scalars, avoiding the generic GEP index
+  // computation.
+  if (auto *CDA = dyn_cast<ConstantDataArray>(Base)) {
+    uint64_t EltSize = DL.getTypeAllocSize(CDA->getElementType());
+    if (Offset.isNegative() || Offset.uge(EltSize * CDA->getNumElements()))
+      return nullptr;
+    uint64_t Off = Offset.getZExtValue();
+    if (Off % EltSize != 0 || Off / EltSize > INT32_MAX)
+      return nullptr;
+    return CDA->getElementAsConstant(Off / EltSize);
+  }
+
   Type *ElemTy = Base->getType();
   SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
   if (!Offset.isZero() || !Indices[0].isZero())
