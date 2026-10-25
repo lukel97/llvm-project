@@ -807,23 +807,19 @@ static bool cmpExcludesZero(CmpInst::Predicate Pred, const Value *RHS) {
   if (Pred == ICmpInst::ICMP_NE)
     return match(RHS, m_Zero());
 
-  // All other predicates - rely on generic ConstantRange handling.
+  // All other predicates - check whether 0 satisfies the comparison.
   const APInt *C;
-  auto Zero = APInt::getZero(RHS->getType()->getScalarSizeInBits());
-  if (match(RHS, m_APInt(C))) {
-    ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(Pred, *C);
-    return !TrueValues.contains(Zero);
-  }
+  if (match(RHS, m_APInt(C)))
+    return !ICmpInst::compare(APInt::getZero(C->getBitWidth()), *C, Pred);
 
   auto *VC = dyn_cast<ConstantDataVector>(RHS);
   if (VC == nullptr)
     return false;
 
+  auto Zero = APInt::getZero(RHS->getType()->getScalarSizeInBits());
   for (unsigned ElemIdx = 0, NElem = VC->getNumElements(); ElemIdx < NElem;
        ++ElemIdx) {
-    ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(
-        Pred, VC->getElementAsAPInt(ElemIdx));
-    if (TrueValues.contains(Zero))
+    if (ICmpInst::compare(Zero, VC->getElementAsAPInt(ElemIdx), Pred))
       return false;
   }
   return true;
@@ -10074,8 +10070,8 @@ isImpliedCondICmps(CmpPredicate LPred, const Value *L0, const Value *L1,
   // (a - b) pred C -> a != b, if 0 pred C is false
   // (ptrtoint(a) - ptrtoint(b)) pred C -> a != b, if 0 pred C is false
   Value *A, *B;
-  if (ICmpInst::isEquality(RPred) && cmpExcludesZero(LPred, L1) &&
-      match(L0, m_Sub(m_Value(A), m_Value(B))) &&
+  if (ICmpInst::isEquality(RPred) && match(L0, m_Sub(m_Value(A), m_Value(B))) &&
+      cmpExcludesZero(LPred, L1) &&
       ((A == R0 && B == R1) || (A == R1 && B == R0) ||
        (match(A, m_PtrToIntOrAddr(m_Specific(R0))) &&
         match(B, m_PtrToIntOrAddr(m_Specific(R1)))) ||
