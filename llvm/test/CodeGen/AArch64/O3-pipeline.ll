@@ -125,7 +125,6 @@
 ; CHECK-NEXT:       Assignment Tracking Analysis
 ; CHECK-NEXT:       AArch64 Instruction Selection
 ; CHECK-NEXT:       Finalize ISel and expand pseudo-instructions
-; CHECK-NEXT:       MachineDominator Tree Construction
 ; CHECK-NEXT:       AArch64 Local Dynamic TLS Access Clean-up
 ; CHECK-NEXT:       Bundle Machine CFG Edges
 ; CHECK-NEXT:       Lazy Machine Block Frequency Analysis

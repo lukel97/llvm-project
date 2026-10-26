@@ -47,9 +47,10 @@ struct LDTLSCleanup : public MachineFunctionPass {
       return false;
     }
 
-    MachineDominatorTree *DT =
-        &getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
-    return VisitNode(DT->getRootNode(), 0);
+    // Most functions are skipped above, so build the dominator tree here
+    // instead of requiring it from the pass manager.
+    MachineDominatorTree DT(MF);
+    return VisitNode(DT.getRootNode(), 0);
   }
 
   // Visit the dominator subtree rooted at Node in pre-order.
@@ -136,7 +137,6 @@ struct LDTLSCleanup : public MachineFunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<MachineDominatorTreeWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
