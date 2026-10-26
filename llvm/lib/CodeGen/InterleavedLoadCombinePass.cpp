@@ -23,6 +23,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -68,10 +69,11 @@ struct VectorInfo;
 
 struct InterleavedLoadCombineImpl {
 public:
-  InterleavedLoadCombineImpl(Function &F, DominatorTree &DT, MemorySSA &MSSA,
+  InterleavedLoadCombineImpl(Function &F, DominatorTree &DT,
+                             function_ref<MemorySSA &()> GetMSSA,
                              const TargetTransformInfo &TTI,
                              const TargetMachine &TM)
-      : F(F), DT(DT), MSSA(MSSA),
+      : F(F), DT(DT), GetMSSA(GetMSSA),
         TLI(*TM.getSubtargetImpl(F)->getTargetLowering()), TTI(TTI) {}
 
   /// Scan the function for interleaved load candidates and execute the
@@ -85,8 +87,9 @@ private:
   /// Dominator Tree Analysis
   DominatorTree &DT;
 
-  /// Memory Alias Analyses
-  MemorySSA &MSSA;
+  /// Memory Alias Analyses. Only needed once a candidate group is found, so
+  /// it's computed on demand.
+  function_ref<MemorySSA &()> GetMSSA;
 
   /// Target Lowering Information
   const TargetLowering &TLI;
@@ -1176,6 +1179,7 @@ bool InterleavedLoadCombineImpl::combine(ArrayRef<VectorInfo *> InterleavedLoad,
   // To be safe that the loads can be combined, iterate over all loads and test
   // that the corresponding defining access dominates first LI. This guarantees
   // that there are no aliasing stores in between the loads.
+  MemorySSA &MSSA = GetMSSA();
   auto FMA = MSSA.getMemoryAccess(First);
   for (auto *LI : LIs) {
     auto MADef = MSSA.getMemoryAccess(LI)->getDefiningAccess();
@@ -1379,16 +1383,23 @@ struct InterleavedLoadCombine : public FunctionPass {
     LLVM_DEBUG(dbgs() << "*** " << getPassName() << ": " << F.getName()
                       << "\n");
 
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    std::unique_ptr<MemorySSA> MSSA;
+    auto GetMSSA = [&]() -> MemorySSA & {
+      if (!MSSA)
+        MSSA = std::make_unique<MemorySSA>(
+            F, &getAnalysis<AAResultsWrapperPass>().getAAResults(), &DT);
+      return *MSSA;
+    };
     return InterleavedLoadCombineImpl(
-               F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-               getAnalysis<MemorySSAWrapperPass>().getMSSA(),
+               F, DT, GetMSSA,
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
                TPC->getTM<TargetMachine>())
         .run();
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MemorySSAWrapperPass>();
+    AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     FunctionPass::getAnalysisUsage(AU);
@@ -1402,9 +1413,11 @@ PreservedAnalyses
 InterleavedLoadCombinePass::run(Function &F, FunctionAnalysisManager &FAM) {
 
   auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-  auto &MemSSA = FAM.getResult<MemorySSAAnalysis>(F).getMSSA();
+  auto GetMSSA = [&]() -> MemorySSA & {
+    return FAM.getResult<MemorySSAAnalysis>(F).getMSSA();
+  };
   auto &TTI = FAM.getResult<TargetIRAnalysis>(F);
-  bool Changed = InterleavedLoadCombineImpl(F, DT, MemSSA, TTI, *TM).run();
+  bool Changed = InterleavedLoadCombineImpl(F, DT, GetMSSA, TTI, *TM).run();
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
@@ -1415,7 +1428,7 @@ INITIALIZE_PASS_BEGIN(
     "Combine interleaved loads into wide loads and shufflevector instructions",
     false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(
     InterleavedLoadCombine, DEBUG_TYPE,
