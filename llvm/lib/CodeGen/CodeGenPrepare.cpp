@@ -28,6 +28,7 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/FloatingPointPredicateUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -178,8 +179,8 @@ class CodeGenPrepare {
   const TargetLibraryInfo *TLInfo = nullptr;
   DomTreeUpdater *DTU = nullptr;
   LoopInfo *LI = nullptr;
-  BlockFrequencyInfo *BFI;
-  BranchProbabilityInfo *BPI;
+  BlockFrequencyInfo *BFI = nullptr;
+  BranchProbabilityInfo *BPI = nullptr;
   ProfileSummaryInfo *PSI = nullptr;
 
   /// As we scan instructions optimizing them, this is the next instruction
@@ -335,6 +336,7 @@ private:
   bool combineToUAddWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
   bool unfoldPowerOf2Test(CmpInst *Cmp);
   void verifyBFIUpdates(Function &F);
+  bool needsBPIAndBFI(const Function &F) const;
   bool _run(Function &F);
 };
 
@@ -356,8 +358,7 @@ public:
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<BranchProbabilityInfoWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
+    LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AU);
     AU.addUsedIfAvailable<BasicBlockSectionsProfileReaderWrapperPass>();
   }
 };
@@ -378,9 +379,11 @@ bool CodeGenPrepareLegacyPass::runOnFunction(Function &F) {
   CGP.TLInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   CGP.TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   CGP.LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  CGP.BPI = &getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
-  CGP.BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
   CGP.PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+  if (CGP.needsBPIAndBFI(F)) {
+    CGP.BPI = &getAnalysis<LazyBranchProbabilityInfoPass>().getBPI();
+    CGP.BFI = &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI();
+  }
   auto BBSPRWP =
       getAnalysisIfAvailable<BasicBlockSectionsProfileReaderWrapperPass>();
   CGP.BBSectionsProfileReader = BBSPRWP ? &BBSPRWP->getBBSPR() : nullptr;
@@ -396,6 +399,7 @@ INITIALIZE_PASS_BEGIN(CodeGenPrepareLegacyPass, DEBUG_TYPE,
                       "Optimize for code generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(BasicBlockSectionsProfileReaderWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LazyBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -430,19 +434,33 @@ bool CodeGenPrepare::run(Function &F, FunctionAnalysisManager &AM) {
   TLInfo = &AM.getResult<TargetLibraryAnalysis>(F);
   TTI = &AM.getResult<TargetIRAnalysis>(F);
   LI = &AM.getResult<LoopAnalysis>(F);
-  BPI = &AM.getResult<BranchProbabilityAnalysis>(F);
-  BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   if (!PSI)
     reportFatalUsageError("this pass requires the profile-summary module "
                           "analysis to be available");
+  if (needsBPIAndBFI(F)) {
+    BPI = &AM.getResult<BranchProbabilityAnalysis>(F);
+    BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
+  }
   BBSectionsProfileReader =
       AM.getCachedResult<BasicBlockSectionsProfileReaderAnalysis>(F);
   DomTreeUpdater DTUpdater(&AM.getResult<DominatorTreeAnalysis>(F),
                            DomTreeUpdater::UpdateStrategy::Lazy);
   DTU = &DTUpdater;
   return _run(F);
+}
+
+/// Without a profile, BPI and BFI are only read when deciding whether to merge
+/// an empty block whose predecessor ends in a switch or indirectbr, and when
+/// splitting the critical edges of an indirectbr. Otherwise they're only kept
+/// up to date, so skip computing them.
+bool CodeGenPrepare::needsBPIAndBFI(const Function &F) const {
+  if (PSI->hasProfileSummary() || Opts.cgp_verify_bfi_updates)
+    return true;
+  return any_of(F, [](const BasicBlock &BB) {
+    return isa<SwitchInst, IndirectBrInst>(BB.getTerminator());
+  });
 }
 
 bool CodeGenPrepare::_run(Function &F) {
@@ -459,12 +477,12 @@ bool CodeGenPrepare::_run(Function &F) {
     // counts based hotness overwrite the cold attribute.
     // This is a conservative behabvior.
     if (F.hasFnAttribute(Attribute::Hot) ||
-        PSI->isFunctionHotInCallGraph(&F, *BFI))
+        (BFI && PSI->isFunctionHotInCallGraph(&F, *BFI)))
       (void)F.setSectionPrefix("hot");
     // If PSI shows this function is not hot, we will placed the function
     // into unlikely section if (1) PSI shows this is a cold function, or
     // (2) the function has a attribute of cold.
-    else if (PSI->isFunctionColdInCallGraph(&F, *BFI) ||
+    else if ((BFI && PSI->isFunctionColdInCallGraph(&F, *BFI)) ||
              F.hasFnAttribute(Attribute::Cold))
       (void)F.setSectionPrefix("unlikely");
     else if (Opts.profile_unknown_in_special_section &&
@@ -906,6 +924,7 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
   if (SameIncomingValueBBs.count(Pred))
     return true;
 
+  assert(BFI && "BFI should be computed for functions with a switch");
   BlockFrequency PredFreq = BFI->getBlockFreq(Pred);
   BlockFrequency BBFreq = BFI->getBlockFreq(BB);
 
@@ -3020,10 +3039,12 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
 
     // Duplicate the return into TailCallBB.
     (void)FoldReturnIntoUncondBranch(RetI, BB, TailCallBB, DTU);
-    assert(!Opts.cgp_verify_bfi_updates ||
-           BFI->getBlockFreq(BB) >= BFI->getBlockFreq(TailCallBB));
-    BFI->setBlockFreq(BB,
-                      (BFI->getBlockFreq(BB) - BFI->getBlockFreq(TailCallBB)));
+    if (BFI) {
+      assert(!Opts.cgp_verify_bfi_updates ||
+             BFI->getBlockFreq(BB) >= BFI->getBlockFreq(TailCallBB));
+      BFI->setBlockFreq(
+          BB, (BFI->getBlockFreq(BB) - BFI->getBlockFreq(TailCallBB)));
+    }
     ModifiedDT = ModifyDT::ModifyBBDT;
     Changed = true;
     ++NumRetsDup;
@@ -7748,7 +7769,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
     FreshBBs.insert(EndBlock);
   }
 
-  BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock));
+  if (BFI)
+    BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock));
 
   static const unsigned MD[] = {
       LLVMContext::MD_prof, LLVMContext::MD_unpredictable,

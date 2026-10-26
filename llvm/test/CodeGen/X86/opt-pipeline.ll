@@ -72,9 +72,8 @@
 ; CHECK-NEXT:       Expand indirectbr instructions 
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Cycle Info Analysis
-; CHECK-NEXT:       Post-Dominator Tree Construction
-; CHECK-NEXT:       Branch Probability Analysis
-; CHECK-NEXT:       Block Frequency Analysis
+; CHECK-NEXT:       Lazy Branch Probability Analysis
+; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       CodeGen Prepare
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Exception handling preparation
