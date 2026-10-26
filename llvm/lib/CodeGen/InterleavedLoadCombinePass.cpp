@@ -1391,6 +1391,7 @@ struct InterleavedLoadCombine : public FunctionPass {
     AU.addRequired<MemorySSAWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.setPreservesCFG();
     FunctionPass::getAnalysisUsage(AU);
   }
 
@@ -1405,7 +1406,11 @@ InterleavedLoadCombinePass::run(Function &F, FunctionAnalysisManager &FAM) {
   auto &MemSSA = FAM.getResult<MemorySSAAnalysis>(F).getMSSA();
   auto &TTI = FAM.getResult<TargetIRAnalysis>(F);
   bool Changed = InterleavedLoadCombineImpl(F, DT, MemSSA, TTI, *TM).run();
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  if (!Changed)
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  return PA;
 }
 
 char InterleavedLoadCombine::ID = 0;
