@@ -22,6 +22,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/CodeGen/LazyMachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineDomTreeUpdater.h"
@@ -128,7 +129,6 @@ namespace {
     const RegisterClassInfo *RegClassInfo = nullptr;
     TargetSchedModel SchedModel;
     bool PreRegAlloc = false;
-    bool HasProfileData = false;
     Pass *LegacyPass;
     MachineFunctionAnalysisManager *MFAM;
 
@@ -303,7 +303,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<MachineLoopInfoWrapperPass>();
       if (DisableHoistingToHotterBlocks != UseBFI::None)
-        AU.addRequired<MachineBlockFrequencyInfoWrapperPass>();
+        AU.addRequired<LazyMachineBlockFrequencyInfoPass>();
       AU.addRequired<MachineDominatorTreeWrapperPass>();
       AU.addRequired<MachineRegisterClassInfoWrapperPass>();
       AU.addRequired<AAResultsWrapperPass>();
@@ -336,7 +336,7 @@ char &llvm::EarlyMachineLICMID = EarlyMachineLICM::ID;
 INITIALIZE_PASS_BEGIN(MachineLICM, DEBUG_TYPE,
                       "Machine Loop Invariant Code Motion", false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineBlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LazyMachineBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineRegisterClassInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
@@ -346,7 +346,7 @@ INITIALIZE_PASS_END(MachineLICM, DEBUG_TYPE,
 INITIALIZE_PASS_BEGIN(EarlyMachineLICM, "early-machinelicm",
                       "Early Machine Loop Invariant Code Motion", false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineBlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LazyMachineBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineRegisterClassInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
@@ -383,9 +383,17 @@ bool MachineLICMImpl::run(MachineFunction &MF) {
                             MachineDomTreeUpdater::UpdateStrategy::Lazy);
   MDTU = &DTU;
   MLI = GET_RESULT(MachineLoop, getLI, Info);
-  MBFI = DisableHoistingToHotterBlocks != UseBFI::None
-             ? GET_RESULT(MachineBlockFrequency, getMBFI, Info)
-             : nullptr;
+
+  // MBFI is only used to avoid hoisting into hotter blocks, so only compute it
+  // if that's enabled for this function.
+  MBFI = nullptr;
+  if (DisableHoistingToHotterBlocks == UseBFI::All ||
+      (DisableHoistingToHotterBlocks == UseBFI::PGO &&
+       MF.getFunction().hasProfileData()))
+    MBFI = LegacyPass
+               ? &LegacyPass->getAnalysis<LazyMachineBlockFrequencyInfoPass>()
+                      .getBFI()
+               : &MFAM->getResult<MachineBlockFrequencyAnalysis>(MF);
 
   Changed = FirstInLoop = false;
   const TargetSubtargetInfo &ST = MF.getSubtarget();
@@ -395,8 +403,6 @@ bool MachineLICMImpl::run(MachineFunction &MF) {
   MFI = &MF.getFrameInfo();
   MRI = &MF.getRegInfo();
   SchedModel.init(&ST);
-
-  HasProfileData = MF.getFunction().hasProfileData();
 
   if (PreRegAlloc)
     LLVM_DEBUG(dbgs() << "******** Pre-regalloc Machine LICM: ");
@@ -1613,9 +1619,7 @@ unsigned MachineLICMImpl::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader,
   MachineBasicBlock *SrcBlock = MI->getParent();
 
   // Disable the instruction hoisting due to block hotness
-  if ((DisableHoistingToHotterBlocks == UseBFI::All ||
-      (DisableHoistingToHotterBlocks == UseBFI::PGO && HasProfileData)) &&
-      isTgtHotterThanSrc(SrcBlock, Preheader)) {
+  if (MBFI && isTgtHotterThanSrc(SrcBlock, Preheader)) {
     ++NumNotHoistedDueToHotness;
     return HoistResult::NotHoisted;
   }
