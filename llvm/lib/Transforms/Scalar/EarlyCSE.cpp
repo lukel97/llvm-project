@@ -508,6 +508,9 @@ public:
   DominatorTree &DT;
   AssumptionCache &AC;
   const SimplifyQuery SQ;
+  /// MemorySSA is only queried when looking through a change in memory
+  /// generation, which most functions never do, so it's built on demand.
+  function_ref<MemorySSA *()> GetMSSA;
   MemorySSA *MSSA;
   std::unique_ptr<MemorySSAUpdater> MSSAUpdater;
 
@@ -595,11 +598,15 @@ public:
   /// Set up the EarlyCSE runner for a particular function.
   EarlyCSE(const ScalarOptions &Opts, const DataLayout &DL,
            const TargetLibraryInfo &TLI, const TargetTransformInfo &TTI,
-           DominatorTree &DT, AssumptionCache &AC, MemorySSA *MSSA)
+           DominatorTree &DT, AssumptionCache &AC, MemorySSA *MSSA,
+           function_ref<MemorySSA *()> GetMSSA = nullptr)
       : Opts(Opts), TLI(TLI), TTI(TTI), DT(DT), AC(AC), SQ(DL, &TLI, &DT, &AC),
-        MSSA(MSSA), MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)) {}
+        GetMSSA(GetMSSA), MSSA(MSSA),
+        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)) {}
 
   bool run();
+
+  bool hasMemorySSA() const { return MSSA; }
 
 private:
   unsigned ClobberCounter = 0;
@@ -1001,6 +1008,10 @@ bool EarlyCSE::isSameMemGeneration(unsigned EarlierGeneration,
   if (EarlierGeneration == LaterGeneration)
     return true;
 
+  if (!MSSA && GetMSSA) {
+    MSSA = GetMSSA();
+    MSSAUpdater = std::make_unique<MemorySSAUpdater>(MSSA);
+  }
   if (!MSSA)
     return false;
 
@@ -1742,18 +1753,24 @@ PreservedAnalyses EarlyCSEPass::run(Function &F,
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
-  auto *MSSA =
-      UseMemorySSA ? &AM.getResult<MemorySSAAnalysis>(F).getMSSA() : nullptr;
+  MemorySSA *MSSA = nullptr;
+  if (UseMemorySSA)
+    if (auto *Cached = AM.getCachedResult<MemorySSAAnalysis>(F))
+      MSSA = &Cached->getMSSA();
+  auto GetMSSA = [&]() {
+    return &AM.getResult<MemorySSAAnalysis>(F).getMSSA();
+  };
 
   EarlyCSE CSE(F.getContext().getLibraryOptions().get<ScalarOptions>(),
-               F.getDataLayout(), TLI, TTI, DT, AC, MSSA);
+               F.getDataLayout(), TLI, TTI, DT, AC, MSSA,
+               UseMemorySSA ? function_ref<MemorySSA *()>(GetMSSA) : nullptr);
 
   if (!CSE.run())
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  if (UseMemorySSA)
+  if (CSE.hasMemorySSA())
     PA.preserve<MemorySSAAnalysis>();
   return PA;
 }
