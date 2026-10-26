@@ -16,6 +16,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -108,7 +109,8 @@ class SelectOptimizeImpl {
   const TargetLowering *TLI = nullptr;
   const TargetTransformInfo *TTI = nullptr;
   const LoopInfo *LI = nullptr;
-  BlockFrequencyInfo *BFI;
+  function_ref<BlockFrequencyInfo &()> GetBFI;
+  BlockFrequencyInfo *BFI = nullptr;
   ProfileSummaryInfo *PSI = nullptr;
   OptimizationRemarkEmitter *ORE = nullptr;
   TargetSchedModel TSchedModel;
@@ -245,6 +247,12 @@ private:
   // profitable-to-convert.
   void convertProfitableSIGroups(SelectGroups &ProfSIGroups);
 
+  BlockFrequencyInfo &getBFI() {
+    if (!BFI)
+      BFI = &GetBFI();
+    return *BFI;
+  }
+
   // Splits selects of a given basic block into select groups.
   void collectSelectGroups(BasicBlock &BB, SelectGroups &SIGroups);
 
@@ -326,7 +334,7 @@ public:
     AU.addRequired<TargetPassConfig>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
+    AU.addRequired<LazyBlockFrequencyInfoPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
 };
@@ -347,7 +355,7 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LazyBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(SelectOptimize, DEBUG_TYPE, "Optimize selects", false,
                     false)
@@ -376,10 +384,15 @@ PreservedAnalyses SelectOptimizeImpl::run(Function &F,
   if (!PSI)
     reportFatalUsageError("this pass requires the profile-summary module "
                           "analysis to be available");
-  BFI = &FAM.getResult<BlockFrequencyAnalysis>(F);
+  auto GetBFIFromFAM = [&]() -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+  GetBFI = GetBFIFromFAM;
+  BFI = nullptr;
 
   // When optimizing for size, selects are preferable over branches.
-  if (llvm::shouldOptimizeForSize(&F, PSI, BFI))
+  if (PSI->hasProfileSummary() &&
+      llvm::shouldOptimizeForSize(&F, PSI, &getBFI()))
     return PreservedAnalyses::all();
 
   LI = &FAM.getResult<LoopAnalysis>(F);
@@ -409,13 +422,18 @@ bool SelectOptimizeImpl::runOnFunction(Function &F, Pass &P) {
     return false;
 
   LI = &P.getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  BFI = &P.getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
+  auto GetBFIFromPass = [&]() -> BlockFrequencyInfo & {
+    return P.getAnalysis<LazyBlockFrequencyInfoPass>().getBFI();
+  };
+  GetBFI = GetBFIFromPass;
+  BFI = nullptr;
   PSI = &P.getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   ORE = &P.getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
   TSchedModel.init(TSI);
 
   // When optimizing for size, selects are preferable over branches.
-  if (llvm::shouldOptimizeForSize(&F, PSI, BFI))
+  if (PSI->hasProfileSummary() &&
+      llvm::shouldOptimizeForSize(&F, PSI, &getBFI()))
     return false;
 
   return optimizeSelects(F);
@@ -636,7 +654,8 @@ void SelectOptimizeImpl::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
     // attached to SplitPt in the splice.
     SplitPt.setHeadBit(true);
     BasicBlock *EndBlock = StartBlock->splitBasicBlock(SplitPt, "select.end");
-    BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock));
+    if (BFI)
+      BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock));
     // Delete the unconditional branch that was just created by the split.
     StartBlock->getTerminator()->eraseFromParent();
 
@@ -1036,7 +1055,8 @@ bool SelectOptimizeImpl::isConvertToBranchProfitableBase(
   OptimizationRemarkMissed ORmiss(DEBUG_TYPE, "SelectOpti", SI.getI());
 
   // Skip cold basic blocks. Better to optimize for size for cold blocks.
-  if (PSI->isColdBlock(SI.getI()->getParent(), BFI)) {
+  if (PSI->hasProfileSummary() &&
+      PSI->isColdBlock(SI.getI()->getParent(), &getBFI())) {
     ++NumSelectColdBB;
     ORmiss << "Not converted to branch because of cold basic block. ";
     EmitAndPrintRemark(ORE, ORmiss);
@@ -1206,7 +1226,9 @@ void SelectOptimizeImpl::getExclBackwardsSlice(Instruction *I,
 
     // Avoid considering instructions with less frequency than the source
     // instruction (i.e., avoid colder code regions of the dependence slice).
-    if (BFI->getBlockFreq(II->getParent()) < BFI->getBlockFreq(I->getParent()))
+    if (II->getParent() != I->getParent() &&
+        getBFI().getBlockFreq(II->getParent()) <
+            getBFI().getBlockFreq(I->getParent()))
       continue;
 
     // Eligible one-use instruction added to the dependence slice.
