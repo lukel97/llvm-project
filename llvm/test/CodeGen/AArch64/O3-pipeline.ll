@@ -84,7 +84,6 @@
 ; CHECK-NEXT:         SVE Shuffle Optimizations
 ; CHECK-NEXT:       Complex Deinterleaving Pass
 ; CHECK-NEXT:       Function Alias Analysis Results
-; CHECK-NEXT:       Memory SSA
 ; CHECK-NEXT:       Interleaved Load Combine Pass
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Interleaved Access Pass
