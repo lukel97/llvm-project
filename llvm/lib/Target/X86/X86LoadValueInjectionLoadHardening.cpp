@@ -215,7 +215,6 @@ void X86LoadValueInjectionLoadHardeningLegacy::getAnalysisUsage(
   MachineFunctionPass::getAnalysisUsage(AU);
   AU.addRequired<MachineLoopInfoWrapperPass>();
   AU.addRequired<MachineDominatorTreeWrapperPass>();
-  AU.addRequired<MachineDominanceFrontierWrapperPass>();
   AU.setPreservesCFG();
 }
 
@@ -780,7 +779,11 @@ bool X86LoadValueInjectionLoadHardeningLegacy::runOnMachineFunction(
 
   const auto &MLI = getAnalysis<MachineLoopInfoWrapperPass>().getLI();
   const auto &MDT = getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
-  const auto &MDF = getAnalysis<MachineDominanceFrontierWrapperPass>().getMDF();
+  // Compute the dominance frontier here rather than requiring it, since the
+  // legacy pass manager would otherwise compute it even when hardening is
+  // disabled.
+  MachineDominanceFrontier MDF;
+  MDF.analyze(MDT);
 
   X86LoadValueInjectionLoadHardeningImpl Impl;
   return Impl.run(MF, MLI, MDT, MDF);
@@ -808,7 +811,6 @@ INITIALIZE_PASS_BEGIN(X86LoadValueInjectionLoadHardeningLegacy, PASS_KEY,
                       "X86 LVI load hardening", false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineDominanceFrontierWrapperPass)
 INITIALIZE_PASS_END(X86LoadValueInjectionLoadHardeningLegacy, PASS_KEY,
                     "X86 LVI load hardening", false, false)
 

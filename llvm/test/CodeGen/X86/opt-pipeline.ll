@@ -169,7 +169,6 @@
 ; CHECK-NEXT:       Bundle Machine CFG Edges
 ; CHECK-NEXT:       X86 FP Stackifier
 ; CHECK-NEXT:       MachineDominator Tree Construction
-; CHECK-NEXT:       Machine Dominance Frontier Construction
 ; CHECK-NEXT:       X86 Load Value Injection (LVI) Load Hardening
 ; CHECK-NEXT:       Remove Redundant DEBUG_VALUE analysis
 ; CHECK-NEXT:       Fixup Statepoint Caller Saved
