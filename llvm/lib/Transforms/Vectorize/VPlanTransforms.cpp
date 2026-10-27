@@ -1515,9 +1515,8 @@ static VPSingleDefRecipe *combineRecipe(VPlan &Plan, VPSingleDefRecipe *Def,
 
   // (X && Y) | !X -> !X || Y
   if (CanCreateNewRecipe &&
-      match(Def,
-            m_c_BinaryOr(m_OneUse(m_LogicalAnd(m_VPValue(X), m_VPValue(Y))),
-                         m_VPValue(Z, m_Not(m_Deferred(X))))))
+      match(Def, m_c_BinaryOr(m_LogicalAnd(m_VPValue(X), m_VPValue(Y)),
+                              m_VPValue(Z, m_Not(m_Deferred(X))))))
     return Builder.createLogicalOr(Z, Y);
 
   // select C, false, true -> not C

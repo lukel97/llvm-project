@@ -427,7 +427,7 @@ define i64 @hoisted_replicate_urem_outside_replicate_region(i64 %x, i1 %c) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = xor <8 x i1> [[TMP0]], splat (i1 true)
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <8 x i1> [[BROADCAST_SPLAT]], splat (i1 true)
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP0]], <8 x i1> [[TMP2]], <8 x i1> zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = or <8 x i1> [[TMP1]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = select <8 x i1> [[TMP1]], <8 x i1> splat (i1 true), <8 x i1> [[TMP2]]
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <8 x i1> [[TMP3]], <8 x i32> zeroinitializer, <8 x i32> splat (i32 1)
 ; CHECK-NEXT:    [[TMP5:%.*]] = urem <8 x i32> [[PREDPHI]], splat (i32 51)
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq <8 x i32> [[TMP5]], zeroinitializer
