@@ -295,9 +295,11 @@ VPPredicator::computeBlendEdges(VPPhi *Phi) {
   auto AddEdge = [&Edges](const VPBlockBase *From, const VPBlockBase *To,
                           VPValue *V) {
     EdgeTy Edge = {cast<VPBasicBlock>(From), cast<VPBasicBlock>(To)};
-    assert((!Edges.contains(Edge) || Edges.lookup(Edge) == V) &&
-           "Clobbering an edge?");
-    Edges[Edge] = V;
+    VPValue *&Old = Edges[Edge];
+    if (Old && match(V, m_Poison()))
+      return;
+    assert(!Old || Old == V || match(Old, m_Poison()) && "Clobbering an edge?");
+    Old = V;
   };
 
   for (auto [InVal, InVPBB] : Phi->incoming_values_and_blocks())
@@ -358,6 +360,8 @@ VPPredicator::computeBlendEdges(VPPhi *Phi) {
       Worklist.insert(cast<VPBasicBlock>(Frontier));
     }
   }
+
+  Edges.remove_if([](auto X) { return match(X.second, m_Poison()); });
 
   return Edges;
 }
