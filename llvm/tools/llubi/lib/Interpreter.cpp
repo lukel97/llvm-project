@@ -825,6 +825,47 @@ class InstExecutor : public InstVisitor<InstExecutor, void>,
     return Mask.asAggregate()[I].asBoolean();
   }
 
+  /// Applies \p ScalarFn to each lane of a VP binary intrinsic that is enabled
+  /// by both the mask and the explicit vector length. Disabled lanes are
+  /// poison.
+  AnyValue callVPBinOp(
+      Type *RetTy, ArrayRef<AnyValue> Args,
+      function_ref<AnyValue(const AnyValue &, const AnyValue &)> ScalarFn) {
+    const auto &LHS = Args[0].asAggregate();
+    const auto &RHS = Args[1].asAggregate();
+    const AnyValue &Mask = Args[2];
+    const AnyValue &EVLArg = Args[3];
+
+    if (EVLArg.isPoison()) {
+      reportImmediateUB() << "VP intrinsic with poison explicit vector length.";
+      return AnyValue::getPoisonValue(Ctx, RetTy);
+    }
+    const APInt &EVL = EVLArg.asInteger();
+    if (EVL.ugt(LHS.size())) {
+      reportImmediateUB() << "VP intrinsic with explicit vector length "
+                          << EVL.getZExtValue()
+                          << " greater than the number of elements "
+                          << LHS.size() << ".";
+      return AnyValue::getPoisonValue(Ctx, RetTy);
+    }
+
+    std::vector<AnyValue> Res(LHS.size(), AnyValue::poison());
+    for (size_t I = 0, E = EVL.getZExtValue(); I != E; ++I) {
+      switch (getMaskLane(Mask, I)) {
+      case BooleanKind::True:
+        Res[I] = ScalarFn(LHS[I], RHS[I]);
+        break;
+      case BooleanKind::False:
+        break;
+      case BooleanKind::Poison:
+        // The lane may be refined to enabled, so it is UB if ScalarFn is.
+        (void)ScalarFn(LHS[I], RHS[I]);
+        break;
+      }
+    }
+    return std::move(Res);
+  }
+
   AnyValue callExperimentalVectorHistogramIntrinsic(CallBase &CB,
                                                     ArrayRef<AnyValue> Args,
                                                     Intrinsic::ID IID) {
@@ -1992,6 +2033,26 @@ public:
     case Intrinsic::experimental_vector_histogram_umax:
     case Intrinsic::experimental_vector_histogram_umin:
       return callExperimentalVectorHistogramIntrinsic(CB, Args, IID);
+    case Intrinsic::vp_sdiv:
+      return callVPBinOp(RetTy, Args,
+                         [&](const AnyValue &LHS, const AnyValue &RHS) {
+                           return computeSDiv(LHS, RHS, /*IsExact=*/false);
+                         });
+    case Intrinsic::vp_srem:
+      return callVPBinOp(RetTy, Args,
+                         [&](const AnyValue &LHS, const AnyValue &RHS) {
+                           return computeSRem(LHS, RHS);
+                         });
+    case Intrinsic::vp_udiv:
+      return callVPBinOp(RetTy, Args,
+                         [&](const AnyValue &LHS, const AnyValue &RHS) {
+                           return computeUDiv(LHS, RHS, /*IsExact=*/false);
+                         });
+    case Intrinsic::vp_urem:
+      return callVPBinOp(RetTy, Args,
+                         [&](const AnyValue &LHS, const AnyValue &RHS) {
+                           return computeURem(LHS, RHS);
+                         });
     default:
       Handler.onUnrecognizedInstruction(CB);
       setFailed();
@@ -2317,115 +2378,131 @@ public:
     });
   }
 
-  void visitSDiv(BinaryOperator &I) {
-    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) -> AnyValue {
-      // Priority: Immediate UB > poison > normal value
-      if (RHS.isPoison()) {
-        reportImmediateUB() << "Division by zero (refine RHS to 0).";
-        return AnyValue::poison();
-      }
-      const APInt &RHSVal = RHS.asInteger();
-      if (RHSVal.isZero()) {
-        reportImmediateUB() << "Division by zero.";
-        return AnyValue::poison();
-      }
-      if (LHS.isPoison()) {
-        if (RHSVal.isAllOnes())
-          reportImmediateUB()
-              << "Signed division overflow (refine LHS to INT_MIN).";
-        return AnyValue::poison();
-      }
-      const APInt &LHSVal = LHS.asInteger();
-      if (LHSVal.isMinSignedValue() && RHSVal.isAllOnes()) {
-        reportImmediateUB() << "Signed division overflow.";
-        return AnyValue::poison();
-      }
+  AnyValue computeSDiv(const AnyValue &LHS, const AnyValue &RHS, bool IsExact) {
+    // Priority: Immediate UB > poison > normal value
+    if (RHS.isPoison()) {
+      reportImmediateUB() << "Division by zero (refine RHS to 0).";
+      return AnyValue::poison();
+    }
+    const APInt &RHSVal = RHS.asInteger();
+    if (RHSVal.isZero()) {
+      reportImmediateUB() << "Division by zero.";
+      return AnyValue::poison();
+    }
+    if (LHS.isPoison()) {
+      if (RHSVal.isAllOnes())
+        reportImmediateUB()
+            << "Signed division overflow (refine LHS to INT_MIN).";
+      return AnyValue::poison();
+    }
+    const APInt &LHSVal = LHS.asInteger();
+    if (LHSVal.isMinSignedValue() && RHSVal.isAllOnes()) {
+      reportImmediateUB() << "Signed division overflow.";
+      return AnyValue::poison();
+    }
 
-      if (I.isExact()) {
-        APInt Q, R;
-        APInt::sdivrem(LHSVal, RHSVal, Q, R);
-        if (!R.isZero())
-          return AnyValue::poison();
-        return Q;
-      } else {
-        return LHSVal.sdiv(RHSVal);
-      }
+    if (IsExact) {
+      APInt Q, R;
+      APInt::sdivrem(LHSVal, RHSVal, Q, R);
+      if (!R.isZero())
+        return AnyValue::poison();
+      return Q;
+    } else {
+      return LHSVal.sdiv(RHSVal);
+    }
+  }
+
+  AnyValue computeSRem(const AnyValue &LHS, const AnyValue &RHS) {
+    // Priority: Immediate UB > poison > normal value
+    if (RHS.isPoison()) {
+      reportImmediateUB() << "Division by zero (refine RHS to 0).";
+      return AnyValue::poison();
+    }
+    const APInt &RHSVal = RHS.asInteger();
+    if (RHSVal.isZero()) {
+      reportImmediateUB() << "Division by zero.";
+      return AnyValue::poison();
+    }
+    if (LHS.isPoison()) {
+      if (RHSVal.isAllOnes())
+        reportImmediateUB()
+            << "Signed division overflow (refine LHS to INT_MIN).";
+      return AnyValue::poison();
+    }
+    const APInt &LHSVal = LHS.asInteger();
+    if (LHSVal.isMinSignedValue() && RHSVal.isAllOnes()) {
+      reportImmediateUB() << "Signed division overflow. LHS: " << LHSVal
+                          << ", RHS: " << RHSVal;
+      return AnyValue::poison();
+    }
+
+    return LHSVal.srem(RHSVal);
+  }
+
+  AnyValue computeUDiv(const AnyValue &LHS, const AnyValue &RHS, bool IsExact) {
+    // Priority: Immediate UB > poison > normal value
+    if (RHS.isPoison()) {
+      reportImmediateUB() << "Division by zero (refine RHS to 0).";
+      return AnyValue::poison();
+    }
+    const APInt &RHSVal = RHS.asInteger();
+    if (RHSVal.isZero()) {
+      reportImmediateUB() << "Division by zero.";
+      return AnyValue::poison();
+    }
+    if (LHS.isPoison())
+      return AnyValue::poison();
+    const APInt &LHSVal = LHS.asInteger();
+
+    if (IsExact) {
+      APInt Q, R;
+      APInt::udivrem(LHSVal, RHSVal, Q, R);
+      if (!R.isZero())
+        return AnyValue::poison();
+      return Q;
+    } else {
+      return LHSVal.udiv(RHSVal);
+    }
+  }
+
+  AnyValue computeURem(const AnyValue &LHS, const AnyValue &RHS) {
+    // Priority: Immediate UB > poison > normal value
+    if (RHS.isPoison()) {
+      reportImmediateUB() << "Division by zero (refine RHS to 0).";
+      return AnyValue::poison();
+    }
+    const APInt &RHSVal = RHS.asInteger();
+    if (RHSVal.isZero()) {
+      reportImmediateUB() << "Division by zero.";
+      return AnyValue::poison();
+    }
+    if (LHS.isPoison())
+      return AnyValue::poison();
+    const APInt &LHSVal = LHS.asInteger();
+    return LHSVal.urem(RHSVal);
+  }
+
+  void visitSDiv(BinaryOperator &I) {
+    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) {
+      return computeSDiv(LHS, RHS, I.isExact());
     });
   }
 
   void visitSRem(BinaryOperator &I) {
-    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) -> AnyValue {
-      // Priority: Immediate UB > poison > normal value
-      if (RHS.isPoison()) {
-        reportImmediateUB() << "Division by zero (refine RHS to 0).";
-        return AnyValue::poison();
-      }
-      const APInt &RHSVal = RHS.asInteger();
-      if (RHSVal.isZero()) {
-        reportImmediateUB() << "Division by zero.";
-        return AnyValue::poison();
-      }
-      if (LHS.isPoison()) {
-        if (RHSVal.isAllOnes())
-          reportImmediateUB()
-              << "Signed division overflow (refine LHS to INT_MIN).";
-        return AnyValue::poison();
-      }
-      const APInt &LHSVal = LHS.asInteger();
-      if (LHSVal.isMinSignedValue() && RHSVal.isAllOnes()) {
-        reportImmediateUB() << "Signed division overflow. LHS: " << LHSVal
-                            << ", RHS: " << RHSVal;
-        return AnyValue::poison();
-      }
-
-      return LHSVal.srem(RHSVal);
+    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) {
+      return computeSRem(LHS, RHS);
     });
   }
 
   void visitUDiv(BinaryOperator &I) {
-    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) -> AnyValue {
-      // Priority: Immediate UB > poison > normal value
-      if (RHS.isPoison()) {
-        reportImmediateUB() << "Division by zero (refine RHS to 0).";
-        return AnyValue::poison();
-      }
-      const APInt &RHSVal = RHS.asInteger();
-      if (RHSVal.isZero()) {
-        reportImmediateUB() << "Division by zero.";
-        return AnyValue::poison();
-      }
-      if (LHS.isPoison())
-        return AnyValue::poison();
-      const APInt &LHSVal = LHS.asInteger();
-
-      if (I.isExact()) {
-        APInt Q, R;
-        APInt::udivrem(LHSVal, RHSVal, Q, R);
-        if (!R.isZero())
-          return AnyValue::poison();
-        return Q;
-      } else {
-        return LHSVal.udiv(RHSVal);
-      }
+    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) {
+      return computeUDiv(LHS, RHS, I.isExact());
     });
   }
 
   void visitURem(BinaryOperator &I) {
-    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) -> AnyValue {
-      // Priority: Immediate UB > poison > normal value
-      if (RHS.isPoison()) {
-        reportImmediateUB() << "Division by zero (refine RHS to 0).";
-        return AnyValue::poison();
-      }
-      const APInt &RHSVal = RHS.asInteger();
-      if (RHSVal.isZero()) {
-        reportImmediateUB() << "Division by zero.";
-        return AnyValue::poison();
-      }
-      if (LHS.isPoison())
-        return AnyValue::poison();
-      const APInt &LHSVal = LHS.asInteger();
-      return LHSVal.urem(RHSVal);
+    visitBinOp(I, [&](const AnyValue &LHS, const AnyValue &RHS) {
+      return computeURem(LHS, RHS);
     });
   }
 
