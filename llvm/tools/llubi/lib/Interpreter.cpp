@@ -19,6 +19,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
@@ -825,6 +826,49 @@ class InstExecutor : public InstVisitor<InstExecutor, void>,
     return Mask.asAggregate()[I].asBoolean();
   }
 
+  // Reports an immediate UB and returns std::nullopt if the explicit vector
+  // length is poison or greater than the number of vector elements.
+  std::optional<uint32_t> getVPEVL(const AnyValue &EVL, size_t NumElts) {
+    if (EVL.isPoison()) {
+      reportImmediateUB() << "VP intrinsic with poison explicit vector length.";
+      return std::nullopt;
+    }
+    const uint64_t Len = EVL.asInteger().getZExtValue();
+    if (Len > NumElts) {
+      reportImmediateUB() << "VP intrinsic with explicit vector length " << Len
+                          << " greater than the number of vector elements "
+                          << NumElts << '.';
+      return std::nullopt;
+    }
+    return Len;
+  }
+
+  static APInt computeIntReduction(Intrinsic::ID IID, const APInt &LHS,
+                                   const APInt &RHS) {
+    switch (IID) {
+    case Intrinsic::vector_reduce_add:
+      return LHS + RHS;
+    case Intrinsic::vector_reduce_mul:
+      return LHS * RHS;
+    case Intrinsic::vector_reduce_and:
+      return LHS & RHS;
+    case Intrinsic::vector_reduce_or:
+      return LHS | RHS;
+    case Intrinsic::vector_reduce_xor:
+      return LHS ^ RHS;
+    case Intrinsic::vector_reduce_smax:
+      return APIntOps::smax(LHS, RHS);
+    case Intrinsic::vector_reduce_smin:
+      return APIntOps::smin(LHS, RHS);
+    case Intrinsic::vector_reduce_umax:
+      return APIntOps::umax(LHS, RHS);
+    case Intrinsic::vector_reduce_umin:
+      return APIntOps::umin(LHS, RHS);
+    default:
+      llvm_unreachable("Unexpected intrinsic ID");
+    }
+  }
+
   AnyValue callExperimentalVectorHistogramIntrinsic(CallBase &CB,
                                                     ArrayRef<AnyValue> Args,
                                                     Intrinsic::ID IID) {
@@ -1409,43 +1453,43 @@ public:
           break;
         }
         const auto &IntV = V.asInteger();
-        if (!Res) {
-          Res = IntV;
-          continue;
-        }
-        switch (IID) {
-        case Intrinsic::vector_reduce_add:
-          *Res += IntV;
-          break;
-        case Intrinsic::vector_reduce_mul:
-          *Res *= IntV;
-          break;
-        case Intrinsic::vector_reduce_and:
-          *Res &= IntV;
-          break;
-        case Intrinsic::vector_reduce_or:
-          *Res |= IntV;
-          break;
-        case Intrinsic::vector_reduce_xor:
-          *Res ^= IntV;
-          break;
-        case Intrinsic::vector_reduce_smax:
-          *Res = APIntOps::smax(*Res, IntV);
-          break;
-        case Intrinsic::vector_reduce_smin:
-          *Res = APIntOps::smin(*Res, IntV);
-          break;
-        case Intrinsic::vector_reduce_umax:
-          *Res = APIntOps::umax(*Res, IntV);
-          break;
-        case Intrinsic::vector_reduce_umin:
-          *Res = APIntOps::umin(*Res, IntV);
-          break;
-        default:
-          llvm_unreachable("Unexpected intrinsic ID");
-        }
+        Res = Res ? computeIntReduction(IID, *Res, IntV) : IntV;
       }
       return Res ? *Res : AnyValue::poison();
+    }
+    case Intrinsic::vp_reduce_add:
+    case Intrinsic::vp_reduce_mul:
+    case Intrinsic::vp_reduce_and:
+    case Intrinsic::vp_reduce_or:
+    case Intrinsic::vp_reduce_xor:
+    case Intrinsic::vp_reduce_smax:
+    case Intrinsic::vp_reduce_smin:
+    case Intrinsic::vp_reduce_umax:
+    case Intrinsic::vp_reduce_umin: {
+      const auto &Vec = Args[1].asAggregate();
+      const AnyValue &Mask = Args[2];
+      const std::optional<uint32_t> EVL = getVPEVL(Args[3], Vec.size());
+      if (!EVL)
+        return AnyValue::poison();
+      if (Args[0].isPoison())
+        return AnyValue::poison();
+      const Intrinsic::ID ReductionID =
+          *VPIntrinsic::getFunctionalIntrinsicIDForVP(IID);
+      APInt Res = Args[0].asInteger();
+      for (uint32_t I = 0; I != *EVL; ++I) {
+        switch (getMaskLane(Mask, I)) {
+        case BooleanKind::False:
+          continue;
+        case BooleanKind::Poison:
+          return AnyValue::poison();
+        case BooleanKind::True:
+          break;
+        }
+        if (Vec[I].isPoison())
+          return AnyValue::poison();
+        Res = computeIntReduction(ReductionID, Res, Vec[I].asInteger());
+      }
+      return Res;
     }
     case Intrinsic::vector_insert: {
       assert(!Args[2].isPoison() &&

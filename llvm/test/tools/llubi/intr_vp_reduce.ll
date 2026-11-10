@@ -1,0 +1,115 @@
+; RUN: llubi --verbose --vscale=2 < %s 2>&1 | FileCheck %s
+
+define void @main() {
+  %add = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4)
+  %add_mask = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4)
+  %add_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 2)
+  %add_wrap = call i8 @llvm.vp.reduce.add.v4i8(i8 100, <4 x i8> <i8 100, i8 100, i8 0, i8 0>, <4 x i1> splat (i1 true), i32 4)
+
+  %mul = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> splat (i1 true), i32 4)
+  %mul_mask = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4)
+  %mul_evl = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> splat (i1 true), i32 2)
+
+  %and = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> splat (i1 true), i32 4)
+  %and_mask = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4)
+  %and_evl = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> splat (i1 true), i32 2)
+
+  %or = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> splat (i1 true), i32 4)
+  %or_mask = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4)
+  %or_evl = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> splat (i1 true), i32 2)
+
+  %xor = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> splat (i1 true), i32 4)
+  %xor_mask = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4)
+  %xor_evl = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> splat (i1 true), i32 2)
+
+  %smax = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 4)
+  %smax_mask = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> <i1 true, i1 true, i1 false, i1 true>, i32 4)
+  %smax_evl = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 2)
+  %smax_start = call i32 @llvm.vp.reduce.smax.v4i32(i32 100, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 4)
+
+  %smin = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 4)
+  %smin_mask = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> <i1 true, i1 true, i1 true, i1 false>, i32 4)
+  %smin_evl = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 1)
+  %smin_start = call i32 @llvm.vp.reduce.smin.v4i32(i32 -100, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 4)
+
+  %umax = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4)
+  %umax_mask = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> <i1 true, i1 false, i1 true, i1 true>, i32 4)
+  %umax_evl = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 1)
+  %umax_start = call i32 @llvm.vp.reduce.umax.v4i32(i32 -1, <4 x i32> <i32 5, i32 3, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4)
+
+  %umin = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4)
+  %umin_mask = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> <i1 true, i1 true, i1 true, i1 false>, i32 4)
+  %umin_evl = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 1)
+  %umin_start = call i32 @llvm.vp.reduce.umin.v4i32(i32 1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4)
+
+  %evl_zero = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 0)
+  %mask_none = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> zeroinitializer, i32 4)
+  %evl_zero_poison_ops = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> poison, <4 x i1> poison, i32 0)
+
+  %poison_start = call i32 @llvm.vp.reduce.add.v4i32(i32 poison, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4)
+  %poison_start_evl_zero = call i32 @llvm.vp.reduce.add.v4i32(i32 poison, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 0)
+  %poison_val = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 poison, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4)
+  %poison_val_masked_off = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 poison, i32 3, i32 4>, <4 x i1> <i1 true, i1 false, i1 true, i1 true>, i32 4)
+  %poison_val_past_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 poison, i32 poison>, <4 x i1> splat (i1 true), i32 2)
+  %poison_mask = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 poison, i1 true, i1 true>, i32 4)
+  %poison_mask_past_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 true, i1 poison, i1 poison>, i32 2)
+
+  %step = call <vscale x 2 x i32> @llvm.stepvector.nxv2i32()
+  %scalable_add = call i32 @llvm.vp.reduce.add.nxv2i32(i32 10, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 4)
+  %scalable_add_evl = call i32 @llvm.vp.reduce.add.nxv2i32(i32 10, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 3)
+  %scalable_umax = call i32 @llvm.vp.reduce.umax.nxv2i32(i32 0, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 4)
+  %scalable_umax_evl = call i32 @llvm.vp.reduce.umax.nxv2i32(i32 0, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 3)
+
+  ret void
+}
+
+; CHECK: Entering function: main
+; CHECK-NEXT:   %add = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4) => i32 20
+; CHECK-NEXT:   %add_mask = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4) => i32 14
+; CHECK-NEXT:   %add_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 10, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 2) => i32 13
+; CHECK-NEXT:   %add_wrap = call i8 @llvm.vp.reduce.add.v4i8(i8 100, <4 x i8> <i8 100, i8 100, i8 0, i8 0>, <4 x i1> splat (i1 true), i32 4) => i8 44
+; CHECK-NEXT:   %mul = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> splat (i1 true), i32 4) => i32 240
+; CHECK-NEXT:   %mul_mask = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4) => i32 16
+; CHECK-NEXT:   %mul_evl = call i32 @llvm.vp.reduce.mul.v4i32(i32 2, <4 x i32> <i32 2, i32 3, i32 4, i32 5>, <4 x i1> splat (i1 true), i32 2) => i32 12
+; CHECK-NEXT:   %and = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> splat (i1 true), i32 4) => i32 12
+; CHECK-NEXT:   %and_mask = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4) => i32 13
+; CHECK-NEXT:   %and_evl = call i32 @llvm.vp.reduce.and.v4i32(i32 -1, <4 x i32> <i32 15, i32 14, i32 13, i32 12>, <4 x i1> splat (i1 true), i32 2) => i32 14
+; CHECK-NEXT:   %or = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> splat (i1 true), i32 4) => i32 31
+; CHECK-NEXT:   %or_mask = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4) => i32 21
+; CHECK-NEXT:   %or_evl = call i32 @llvm.vp.reduce.or.v4i32(i32 16, <4 x i32> <i32 1, i32 2, i32 4, i32 8>, <4 x i1> splat (i1 true), i32 2) => i32 19
+; CHECK-NEXT:   %xor = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> splat (i1 true), i32 4) => i32 10
+; CHECK-NEXT:   %xor_mask = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> <i1 true, i1 false, i1 true, i1 false>, i32 4) => i32 6
+; CHECK-NEXT:   %xor_evl = call i32 @llvm.vp.reduce.xor.v4i32(i32 0, <4 x i32> <i32 1, i32 3, i32 7, i32 15>, <4 x i1> splat (i1 true), i32 2) => i32 2
+; CHECK-NEXT:   %smax = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 4) => i32 7
+; CHECK-NEXT:   %smax_mask = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> <i1 true, i1 true, i1 false, i1 true>, i32 4) => i32 3
+; CHECK-NEXT:   %smax_evl = call i32 @llvm.vp.reduce.smax.v4i32(i32 -10, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 2) => i32 -2
+; CHECK-NEXT:   %smax_start = call i32 @llvm.vp.reduce.smax.v4i32(i32 100, <4 x i32> <i32 -4, i32 -2, i32 7, i32 3>, <4 x i1> splat (i1 true), i32 4) => i32 100
+; CHECK-NEXT:   %smin = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 4) => i32 -8
+; CHECK-NEXT:   %smin_mask = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> <i1 true, i1 true, i1 true, i1 false>, i32 4) => i32 -2
+; CHECK-NEXT:   %smin_evl = call i32 @llvm.vp.reduce.smin.v4i32(i32 10, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 1) => i32 4
+; CHECK-NEXT:   %smin_start = call i32 @llvm.vp.reduce.smin.v4i32(i32 -100, <4 x i32> <i32 4, i32 -2, i32 7, i32 -8>, <4 x i1> splat (i1 true), i32 4) => i32 -100
+; CHECK-NEXT:   %umax = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4) => i32 -1
+; CHECK-NEXT:   %umax_mask = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> <i1 true, i1 false, i1 true, i1 true>, i32 4) => i32 9
+; CHECK-NEXT:   %umax_evl = call i32 @llvm.vp.reduce.umax.v4i32(i32 1, <4 x i32> <i32 5, i32 -1, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 1) => i32 5
+; CHECK-NEXT:   %umax_start = call i32 @llvm.vp.reduce.umax.v4i32(i32 -1, <4 x i32> <i32 5, i32 3, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4) => i32 -1
+; CHECK-NEXT:   %umin = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4) => i32 2
+; CHECK-NEXT:   %umin_mask = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> <i1 true, i1 true, i1 true, i1 false>, i32 4) => i32 5
+; CHECK-NEXT:   %umin_evl = call i32 @llvm.vp.reduce.umin.v4i32(i32 -1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 1) => i32 -2
+; CHECK-NEXT:   %umin_start = call i32 @llvm.vp.reduce.umin.v4i32(i32 1, <4 x i32> <i32 -2, i32 5, i32 9, i32 2>, <4 x i1> splat (i1 true), i32 4) => i32 1
+; CHECK-NEXT:   %evl_zero = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 0) => i32 7
+; CHECK-NEXT:   %mask_none = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> zeroinitializer, i32 4) => i32 7
+; CHECK-NEXT:   %evl_zero_poison_ops = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> poison, <4 x i1> poison, i32 0) => i32 7
+; CHECK-NEXT:   %poison_start = call i32 @llvm.vp.reduce.add.v4i32(i32 poison, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4) => poison
+; CHECK-NEXT:   %poison_start_evl_zero = call i32 @llvm.vp.reduce.add.v4i32(i32 poison, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 0) => poison
+; CHECK-NEXT:   %poison_val = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 poison, i32 3, i32 4>, <4 x i1> splat (i1 true), i32 4) => poison
+; CHECK-NEXT:   %poison_val_masked_off = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 poison, i32 3, i32 4>, <4 x i1> <i1 true, i1 false, i1 true, i1 true>, i32 4) => i32 15
+; CHECK-NEXT:   %poison_val_past_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 poison, i32 poison>, <4 x i1> splat (i1 true), i32 2) => i32 10
+; CHECK-NEXT:   %poison_mask = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 poison, i1 true, i1 true>, i32 4) => poison
+; CHECK-NEXT:   %poison_mask_past_evl = call i32 @llvm.vp.reduce.add.v4i32(i32 7, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i1> <i1 true, i1 true, i1 poison, i1 poison>, i32 2) => i32 10
+; CHECK-NEXT:   %step = call <vscale x 2 x i32> @llvm.stepvector.nxv2i32() => { i32 0, i32 1, i32 2, i32 3 }
+; CHECK-NEXT:   %scalable_add = call i32 @llvm.vp.reduce.add.nxv2i32(i32 10, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 4) => i32 16
+; CHECK-NEXT:   %scalable_add_evl = call i32 @llvm.vp.reduce.add.nxv2i32(i32 10, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 3) => i32 13
+; CHECK-NEXT:   %scalable_umax = call i32 @llvm.vp.reduce.umax.nxv2i32(i32 0, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 4) => i32 3
+; CHECK-NEXT:   %scalable_umax_evl = call i32 @llvm.vp.reduce.umax.nxv2i32(i32 0, <vscale x 2 x i32> %step, <vscale x 2 x i1> splat (i1 true), i32 3) => i32 2
+; CHECK-NEXT:   ret void
+; CHECK-NEXT: Exiting function: main
