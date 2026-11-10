@@ -919,6 +919,113 @@ class InstExecutor : public InstVisitor<InstExecutor, void>,
     return AnyValue();
   }
 
+  struct LaneAccess {
+    uint64_t Lane;
+    MemoryObject *MO;
+    uint64_t Offset;
+  };
+
+  /// Verifies the accesses of the enabled lanes of a vp.strided.load/store,
+  /// whose pointer, stride, mask and EVL arguments start at \p PtrArgNo.
+  /// Returns std::nullopt if immediate UB was reported.
+  std::optional<SmallVector<LaneAccess>>
+  verifyVPStridedAccesses(CallBase &CB, ArrayRef<AnyValue> Args,
+                          unsigned PtrArgNo, Type *ElemTy, bool IsStore) {
+    const AnyValue &Ptr = Args[PtrArgNo];
+    const AnyValue &Stride = Args[PtrArgNo + 1];
+    const AnyValue &Mask = Args[PtrArgNo + 2];
+    const AnyValue &EVL = Args[PtrArgNo + 3];
+    const StringRef Name = Intrinsic::getBaseName(CB.getIntrinsicID());
+
+    if (EVL.isPoison()) {
+      reportImmediateUB() << Name << " with poison explicit vector length.";
+      return std::nullopt;
+    }
+    const uint64_t EVLVal = EVL.asInteger().getZExtValue();
+    const uint64_t NumElts = Mask.asAggregate().size();
+    if (EVLVal > NumElts) {
+      reportImmediateUB() << Name << " explicit vector length " << EVLVal
+                          << " exceeds the number of vector elements "
+                          << NumElts << ".";
+      return std::nullopt;
+    }
+
+    const unsigned IndexBitWidth = DL.getIndexSizeInBits(
+        CB.getArgOperand(PtrArgNo)->getType()->getPointerAddressSpace());
+    const Align Alignment =
+        CB.getParamAlign(PtrArgNo).value_or(DL.getABITypeAlign(ElemTy));
+    const uint64_t AccessSize = Ctx.getEffectiveTypeStoreSize(ElemTy);
+
+    SmallVector<LaneAccess> Accesses;
+    for (uint64_t I = 0; I != EVLVal; ++I) {
+      switch (getMaskLane(Mask, I)) {
+      case BooleanKind::False:
+        continue;
+      case BooleanKind::Poison:
+        reportImmediateUB() << "Poison mask lane in " << Name << ".";
+        return std::nullopt;
+      case BooleanKind::True:
+        break;
+      }
+
+      if (Ptr.isPoison()) {
+        reportImmediateUB() << Name << " with poison pointer.";
+        return std::nullopt;
+      }
+
+      // Lane 0 accesses the base pointer itself, so the stride is only used
+      // from lane 1 onwards.
+      const Pointer &Base = Ptr.asPointer();
+      APInt Addr = Base.address();
+      if (I != 0) {
+        if (Stride.isPoison()) {
+          reportImmediateUB() << Name << " with poison stride.";
+          return std::nullopt;
+        }
+        APInt LaneOffset = Stride.asInteger().sextOrTrunc(IndexBitWidth) *
+                           APInt(IndexBitWidth, I, /*isSigned=*/false,
+                                 /*implicitTrunc=*/true);
+        Addr.insertBits(Addr.trunc(IndexBitWidth) + LaneOffset, 0);
+      }
+
+      auto [MO, Offset] = verifyMemAccess(Base.getWithNewAddr(Addr), AccessSize,
+                                          Alignment, IsStore);
+      if (!MO)
+        return std::nullopt;
+      Accesses.push_back({I, MO, Offset});
+    }
+    return Accesses;
+  }
+
+  AnyValue callVPStridedLoad(CallBase &CB, ArrayRef<AnyValue> Args) {
+    Type *RetTy = CB.getType();
+    Type *ElemTy = RetTy->getScalarType();
+    auto Accesses = verifyVPStridedAccesses(CB, Args, /*PtrArgNo=*/0, ElemTy,
+                                            /*IsStore=*/false);
+    if (!Accesses)
+      return AnyValue();
+
+    AnyValue Res = AnyValue::getPoisonValue(Ctx, RetTy);
+    for (const LaneAccess &A : *Accesses)
+      Res.asAggregate()[A.Lane] = Ctx.load(*A.MO, A.Offset, ElemTy);
+    return Res;
+  }
+
+  AnyValue callVPStridedStore(CallBase &CB, ArrayRef<AnyValue> Args) {
+    const auto &Vals = Args[0].asAggregate();
+    Type *ElemTy = CB.getArgOperand(0)->getType()->getScalarType();
+    auto Accesses = verifyVPStridedAccesses(CB, Args, /*PtrArgNo=*/1, ElemTy,
+                                            /*IsStore=*/true);
+    if (!Accesses)
+      return AnyValue();
+
+    // Overlapping lanes (e.g. a zero stride) are stored in lane order, so the
+    // highest lane wins.
+    for (const LaneAccess &A : *Accesses)
+      Ctx.store(*A.MO, A.Offset, Vals[A.Lane], ElemTy);
+    return AnyValue();
+  }
+
   /// Returns the oracle function if \p CB is an llvm.speculative.load in
   /// oracle form, nullptr otherwise.
   static Function *getSpeculativeLoadOracle(const CallBase &CB) {
@@ -1992,6 +2099,10 @@ public:
     case Intrinsic::experimental_vector_histogram_umax:
     case Intrinsic::experimental_vector_histogram_umin:
       return callExperimentalVectorHistogramIntrinsic(CB, Args, IID);
+    case Intrinsic::experimental_vp_strided_load:
+      return callVPStridedLoad(CB, Args);
+    case Intrinsic::experimental_vp_strided_store:
+      return callVPStridedStore(CB, Args);
     default:
       Handler.onUnrecognizedInstruction(CB);
       setFailed();
