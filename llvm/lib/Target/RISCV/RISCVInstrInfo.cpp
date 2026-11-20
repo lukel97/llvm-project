@@ -2431,7 +2431,6 @@ bool RISCVInstrInfo::areRVVInstsReassociable(const MachineInstr &Root,
 
   assert(Root.getMF() == Prev.getMF());
   const MachineRegisterInfo *MRI = &Root.getMF()->getRegInfo();
-  const TargetRegisterInfo *TRI = MRI->getTargetRegisterInfo();
 
   // Make sure vtype operands are also the same.
   const MCInstrDesc &Desc = get(Root.getOpcode());
@@ -2459,50 +2458,25 @@ bool RISCVInstrInfo::areRVVInstsReassociable(const MachineInstr &Root,
 
   // Mask
   if (RISCVII::usesMaskPolicy(TSFlags)) {
-    const MachineBasicBlock *MBB = Root.getParent();
-    const MachineBasicBlock::const_reverse_iterator It1(&Root);
-    const MachineBasicBlock::const_reverse_iterator It2(&Prev);
-    Register MI1VReg;
-
-    bool SeenMI2 = false;
-    for (auto End = MBB->rend(), It = It1; It != End; ++It) {
-      if (It == It2) {
-        SeenMI2 = true;
-        if (!MI1VReg.isValid())
-          // There is no V0 def between Root and Prev; they're sharing the
-          // same V0.
+    auto GetMaskReg = [&](const MachineInstr &MI) -> Register {
+      const RISCV::RISCVMaskedPseudoInfo *Info =
+          RISCV::getMaskedPseudoInfo(MI.getOpcode());
+      if (!Info)
+        return Register();
+      Register Reg =
+          MI.getOperand(Info->MaskOpIdx + MI.getNumExplicitDefs()).getReg();
+      // Masks are still in vmv0 virtual registers here, and each use gets its
+      // own COPY until MachineCSE runs, so look through them.
+      while (MachineInstr *Def = MRI->getUniqueVRegDef(Reg)) {
+        if (!Def->isFullCopy() || !Def->getOperand(1).getReg().isVirtual())
           break;
+        Reg = Def->getOperand(1).getReg();
       }
-
-      if (It->modifiesRegister(RISCV::V0, TRI)) {
-        Register SrcReg = It->getOperand(1).getReg();
-        // If it's not VReg it'll be more difficult to track its defs, so
-        // bailing out here just to be safe.
-        if (!SrcReg.isVirtual())
-          return false;
-
-        if (!MI1VReg.isValid()) {
-          // This is the V0 def for Root.
-          MI1VReg = SrcReg;
-          continue;
-        }
-
-        // Some random mask updates.
-        if (!SeenMI2)
-          continue;
-
-        // This is the V0 def for Prev; check if it's the same as that of
-        // Root.
-        if (MI1VReg != SrcReg)
-          return false;
-        else
-          break;
-      }
-    }
-
-    // If we haven't encountered Prev, it's likely that this function was
-    // called in a wrong way (e.g. Root is before Prev).
-    assert(SeenMI2 && "Prev is expected to appear before Root");
+      return Reg;
+    };
+    Register RootMask = GetMaskReg(Root);
+    if (!RootMask.isValid() || RootMask != GetMaskReg(Prev))
+      return false;
   }
 
   // Tail / Mask policies
